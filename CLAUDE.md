@@ -14,8 +14,7 @@ This is a customized fork of [Animal Shelter Manager 3 (ASM3)](https://github.co
 
 - [x] Fork and set up git tracking with upstream
 - [ ] Complete Docker containerization
-- [ ] Implement custom reporting features  
-- [ ] Add API endpoint enhancements
+- [ ] Implement custom features
 - [ ] Maintain sync capability with upstream
 - [ ] Document all modifications comprehensively
 
@@ -23,16 +22,19 @@ This is a customized fork of [Animal Shelter Manager 3 (ASM3)](https://github.co
 
 ```
 ├── src/                 # ASM3 source (upstream synced)
-├── docker/             # Docker configuration 
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── init-scripts/
-├── custom/             # My custom modules
+├── docker-compose.yml   # Docker orchestration
+├── Dockerfile          # Application container build
+├── asm3.conf           # ASM3 configuration file
+├── .env.example        # Environment variables template
+├── nginx*.conf         # Nginx configuration files
+├── postgres-optimization.conf # PostgreSQL tuning
+├── custom/             # My custom modules (planned)
 │   ├── reports/
 │   └── api/
 ├── docs/               # Custom documentation
 ├── MODIFICATIONS.md    # Detailed change log
-└── scripts/           # Deployment utilities
+└── scripts/           # Original ASM3 deployment utilities
+    └── docker/        # Reference Docker files from upstream
 ```
 
 ## Key Commands
@@ -55,7 +57,7 @@ docker-compose exec asm3 python -m pytest
 ## Modification Strategy
 
 ### Git Workflow
-- `main` branch stays synced with upstream
+- `main-custom` branch stays synced with upstream
 - `develop` branch for stable modifications
 - Feature branches for specific changes
 - Regular upstream syncing with rebase strategy
@@ -97,19 +99,40 @@ All modifications logged in `MODIFICATIONS.md` with:
 ## Quick References
 
 ### Make Commands
-???
+
+**Docker Management (Primary Commands):**
+- `make help` - Show all available commands
+- `make build` - Build Docker images
+- `make start` - Start the application
+- `make stop` - Stop the application
+- `make restart` - Restart the application
+- `make logs` - Show application logs
+- `make backup` - Backup database
+- `make restore FILE=backup.dump` - Restore database
+- `make shell` - Open shell in ASM3 container
+- `make db-shell` - Open database shell
+- `make version` - Show current ASM3 version
+- `make upgrade` - Interactive version upgrade
+
+**Original ASM3 Commands (prefixed with o_):**
+- `make o_all` - Complete build: clean, compile, tags, rollup, schema
+- `make o_test` - Run development server on port 5000
+- `make o_tests` - Run unit test suite
+- `make o_compile` - Compile/lint JavaScript and Python
+- `make o_rollup` - Bundle and minify JavaScript files
+- `make o_clean` - Clean build artifacts
 
 ### ASM3 Key Files
-- ??? - Main application entry
-- ??? - Web interface modules  
--  - Database abstraction
-- ??? - Reporting system
-- ??? - Business logic services
+- `src/main.py` - Main application entry point
+- `src/asm3/` - Core ASM3 modules directory
+- `src/asm3/db.py` - Database abstraction layer
+- `src/asm3/reports.py` - Report generation system
+- `src/asm3/service.py` - Business logic services
 
 ### Custom Integration Points
-- Environment variables in `docker/.env`
-- Custom modules in `custom/`
-- Docker configuration in `docker/`
+- Environment variables in `.env` (copy from `.env.example`)
+- Custom modules in `custom/` (planned)
+- Docker configuration in project root
 - Documentation in `docs/`
 
 ### Testing Strategy

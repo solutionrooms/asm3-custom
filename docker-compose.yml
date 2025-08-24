@@ -28,11 +28,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        ASM3_VERSION: ${ASM3_VERSION:-50}  # Default to v49, override in .env
     ports:
       - "5000:5000"
     environment:
+      - ASM3_CONF=/app/asm3.conf
       - ASM3_DBTYPE=POSTGRESQL
       - ASM3_DBHOST=postgres
       - ASM3_DBPORT=5432
@@ -55,7 +54,7 @@ services:
       - MALLOC_TRIM_THRESHOLD_=100000
       - MALLOC_MMAP_THRESHOLD_=131072
     volumes:
-      - ./asm3.conf:/app/asm3.conf:ro
+      - ./asm3-working.conf:/app/asm3.conf:ro
       - ./customizations:/app/customizations:ro
       - asm3_media:/app/media
       - /var/log/asm3:/var/log/asm3
