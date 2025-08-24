@@ -1,0 +1,96 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8095:80"
+      - "443:443"
+    volumes:
+      - ./nginx-processed.conf:/etc/nginx/nginx.conf:ro
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    environment:
+      - NGINX_SERVER_NAME=${NGINX_SERVER_NAME}
+    depends_on:
+      - asm3
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: '0.2'
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    profiles:
+      - ssl-management
+
+  asm3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ASM3_VERSION: ${ASM3_VERSION:-50}  # Default to v49, override in .env
+    ports:
+      - "5000:5000"
+    environment:
+      - ASM3_DBTYPE=POSTGRESQL
+      - ASM3_DBHOST=postgres
+      - ASM3_DBPORT=5432
+      - ASM3_DBNAME=asm3
+      - ASM3_DBUSERNAME=asm3
+      - ASM3_DBPASSWORD=asm3
+      - ASM3_BASE_URL=${ASM3_BASE_URL}
+      - ASM3_SERVICE_URL=${ASM3_SERVICE_URL}
+      - ASM3_SMTP_HOST=${ASM3_SMTP_HOST}
+      - ASM3_SMTP_PORT=${ASM3_SMTP_PORT}
+      - ASM3_SMTP_USERNAME=${ASM3_SMTP_USERNAME}
+      - ASM3_SMTP_PASSWORD=${ASM3_SMTP_PASSWORD}
+      - ASM3_SMTP_TLS=${ASM3_SMTP_TLS}
+      - ASM3_FROM_ADDRESS=${ASM3_FROM_ADDRESS}
+      - ASM3_ADMIN_EMAIL=${ASM3_ADMIN_EMAIL}
+      - ASM3_USE_SENDMAIL=${ASM3_USE_SENDMAIL}
+      # Python memory optimizations
+      - PYTHONOPTIMIZE=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - MALLOC_TRIM_THRESHOLD_=100000
+      - MALLOC_MMAP_THRESHOLD_=131072
+    volumes:
+      - ./asm3.conf:/app/asm3.conf:ro
+      - ./customizations:/app/customizations:ro
+      - asm3_media:/app/media
+      - /var/log/asm3:/var/log/asm3
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 350m
+    cpus: '0.5'
+    
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=asm3
+      - POSTGRES_USER=asm3
+      - POSTGRES_PASSWORD=asm3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+      - ./postgres-optimization.conf:/etc/postgresql/postgresql.conf:ro
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asm3 -d asm3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    mem_limit: 300m
+    cpus: '0.5'
+
+volumes:
+  postgres_data:
+  asm3_media:
+  certbot_certs:
+  certbot_www:

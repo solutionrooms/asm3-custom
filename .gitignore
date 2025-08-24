@@ -1,24 +1,50 @@
-BREAKING_CHANGES
-*.pyc
+# Environment files
+.env
+.env.local
+.env.production
+
+# Database backups
+backup_*.sql
+*.dump
+backups/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Docker volumes (if using bind mounts)
+data/
+volumes/
+
+# IDE/Editor files
+.vscode/
+.idea/
 *.swp
-build
-node_modules
-tags
-.idea
-.idea/workspace.xml
-.vscode
-doc/manual/_build
-install/deb/sheltermanager3
-reports/reports.txt
-src/asm3/__version__.py
-src/static/js/bundle
-src/static/js/compat
-src/static/pages/changelog.txt
-scripts/ansible/archives
-scripts/ansible/roles
-scripts/ansible/*.retry
-scripts/jsmin/jsmin
-scripts/schema/schema.db
-scripts/unittestdb/base.db
-scripts/unittestdb/test.db
-scripts/unittestdb/dbupdates.db
+*.swo
+*~
+
+# Python bytecode (if any gets created)
+__pycache__/
+*.pyc
+*.pyo
+
+# Custom local files
+local/
+private/
+
+# SSL certificates (if you add them)
+*.pem
+*.key
+*.crt
+
+# Custom configuration that shouldn't be shared
+customizations/sitedefs.py.local
+
+# Generated nginx config
+nginx-processed.conf
