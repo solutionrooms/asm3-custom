@@ -60,6 +60,8 @@ services:
       - ./customizations:/app/customizations:ro
       - asm3_media:/app/media
       - /var/log/asm3:/var/log/asm3
+      # Development: Mount source code for hot-reload
+      - ./src:/app/src:ro
     depends_on:
       postgres:
         condition: service_healthy

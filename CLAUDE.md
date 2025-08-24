@@ -141,8 +141,107 @@ All modifications logged in `MODIFICATIONS.md` with:
 - Upstream compatibility testing
 - Database migration testing
 
+## ASM3 Customization Patterns
+
+### Development Workflow (Optimal)
+```bash
+# 1. Edit files locally (instant)
+vim src/asm3/html.py
+
+# 2. Deploy changes (10-15 seconds)
+docker-compose restart asm3
+
+# 3. Test immediately - changes are live!
+```
+
+### Hot-Reload Investigation Results
+- **✅ Volume Mounting**: Works perfectly with `./src:/app/src:ro`
+- **⚠ Key Issue**: Dockerfile `COPY ./src` conflicts with volume mount
+- **✅ Solution**: Generate required build files locally (e.g. `__version__.py`)
+- **❌ Auto-Reload**: web.py autoreload doesn't work in Docker/WSGI context
+- **🔧 Debug Mode**: Successfully enabled via `ASM3_DEBUG=true` → `web.config.debug = True`
+
+### Menu System Architecture
+**Location**: `src/asm3/html.py` - `menu_structure()` function
+
+**Menu Structure Format**:
+```python
+(permission, "identifier", _("Menu Name", l), subitems)
+
+# Submenu items format (6 parameters):
+(permission, shortcut, tag, url, icon, label)
+```
+
+**Example Menu Addition**:
+```python
+("", "custom", _("Custom", l), (
+    ("", "", "", "internal_page", "asm-icon-web", _("Test", l))
+))
+```
+
+**⚠ External URL Limitation**: Direct external URLs (https://google.com) in menu items cause JavaScript errors. Use internal redirects instead.
+
+### Page Title/Header Customization
+**Location**: `src/static/js/[page_name].js`
+
+**Pattern for animal_new.js**:
+```javascript
+// Page header (line ~20)
+html.content_header(_("Add a new animal")),
+
+// Browser title (line ~607) 
+title: function() { return _("Add a new animal"); },
+```
+
+### Critical Files for UI Changes
+- **Menu Structure**: `src/asm3/html.py` (Python backend)
+- **Page Content**: `src/static/js/[page].js` (Frontend JavaScript)
+- **Permissions**: `src/asm3/users.py` (User access control)
+- **Localization**: `src/asm3/locales/locale_*.py` + `src/static/js/locales/locale_*.js`
+
+### Docker Volume Mount Setup
+```yaml
+# docker-compose.yml
+volumes:
+  - ./src:/app/src:ro  # Source code (read-only)
+```
+
+**Required Build Files** (must exist locally):
+```bash
+# Generate version file for development
+echo '#!/usr/bin/env python3
+VERSION = "50 [Custom Build Development]"
+BUILD = "dev"' > src/asm3/__version__.py
+```
+
+### Configuration Integration
+**Development Settings** (`asm3.conf.template`):
+```ini
+# Development settings
+autoreload = true
+debug_mode = ${ASM3_DEBUG}
+```
+
+**Environment Variables** (`.env`):
+```bash
+ASM3_DEBUG=true  # Enables web.py debug mode
+```
+
+### Common Pitfalls
+1. **Menu JavaScript Errors**: Undefined values or external URLs break menu rendering
+2. **Container Caching**: Environment variable changes require `docker-compose down/up`
+3. **File Permissions**: Volume mounts need proper file access
+4. **Localization**: UI text changes may need updates in multiple locale files
+
+### Testing Checklist
+- [ ] Menu loads without JavaScript errors
+- [ ] Page titles/headers display correctly  
+- [ ] Links navigate to intended destinations
+- [ ] No Python errors in container logs
+- [ ] Changes persist after container restart
+
 ---
 
-**Last Updated**: 2025-08-24
+**Last Updated**: 2025-08-24  
 **ASM3 Upstream Version**: 50  
 **Custom Version**: C1

@@ -13,6 +13,10 @@ timezone = 0
 log_location = stderr
 log_debug = ${ASM3_DEBUG}
 
+# Development settings
+autoreload = true
+debug_mode = ${ASM3_DEBUG}
+
 # Database configuration
 db_type = ${ASM3_DBTYPE}
 db_host = ${ASM3_DBHOST}
