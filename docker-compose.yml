@@ -32,21 +32,22 @@ services:
       - "5000:5000"
     environment:
       - ASM3_CONF=/app/asm3.conf
-      - ASM3_DBTYPE=POSTGRESQL
-      - ASM3_DBHOST=postgres
-      - ASM3_DBPORT=5432
-      - ASM3_DBNAME=asm3
-      - ASM3_DBUSERNAME=asm3
-      - ASM3_DBPASSWORD=asm3
+      - ASM3_DBTYPE=${ASM3_DBTYPE}
+      - ASM3_DBHOST=${ASM3_DBHOST}
+      - ASM3_DBPORT=${ASM3_DBPORT}
+      - ASM3_DBNAME=${ASM3_DBNAME}
+      - ASM3_DBUSERNAME=${ASM3_DBUSERNAME}
+      - ASM3_DBPASSWORD=${ASM3_DBPASSWORD}
       - ASM3_BASE_URL=${ASM3_BASE_URL}
       - ASM3_SERVICE_URL=${ASM3_SERVICE_URL}
+      - ASM3_DEBUG=${ASM3_DEBUG}
+      - ASM3_ADMIN_EMAIL=${ASM3_ADMIN_EMAIL}
+      - ASM3_FROM_ADDRESS=${ASM3_FROM_ADDRESS}
       - ASM3_SMTP_HOST=${ASM3_SMTP_HOST}
       - ASM3_SMTP_PORT=${ASM3_SMTP_PORT}
       - ASM3_SMTP_USERNAME=${ASM3_SMTP_USERNAME}
       - ASM3_SMTP_PASSWORD=${ASM3_SMTP_PASSWORD}
       - ASM3_SMTP_TLS=${ASM3_SMTP_TLS}
-      - ASM3_FROM_ADDRESS=${ASM3_FROM_ADDRESS}
-      - ASM3_ADMIN_EMAIL=${ASM3_ADMIN_EMAIL}
       - ASM3_USE_SENDMAIL=${ASM3_USE_SENDMAIL}
       # Python memory optimizations
       - PYTHONOPTIMIZE=1
@@ -54,7 +55,8 @@ services:
       - MALLOC_TRIM_THRESHOLD_=100000
       - MALLOC_MMAP_THRESHOLD_=131072
     volumes:
-      - ./asm3-working.conf:/app/asm3.conf:ro
+      - ./asm3.conf.template:/app/asm3.conf.template:ro
+      - asm3_config:/app/config
       - ./customizations:/app/customizations:ro
       - asm3_media:/app/media
       - /var/log/asm3:/var/log/asm3
@@ -64,6 +66,9 @@ services:
     restart: unless-stopped
     mem_limit: 350m
     cpus: '0.5'
+    command: >
+      sh -c "envsubst < /app/asm3.conf.template > /app/asm3.conf && 
+             python3 main.py 5000"
     
 
   postgres:
@@ -91,5 +96,6 @@ services:
 volumes:
   postgres_data:
   asm3_media:
+  asm3_config:
   certbot_certs:
   certbot_www:

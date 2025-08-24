@@ -1,0 +1,42 @@
+# ASM3 Configuration Template
+# This file uses environment variable substitution
+
+# Base URLs
+base_url = ${ASM3_BASE_URL}
+service_url = ${ASM3_SERVICE_URL}
+
+# Locale and timezone settings
+locale = en
+timezone = 0
+
+# Logging configuration
+log_location = stderr
+log_debug = ${ASM3_DEBUG}
+
+# Database configuration
+db_type = ${ASM3_DBTYPE}
+db_host = ${ASM3_DBHOST}
+db_port = ${ASM3_DBPORT}
+db_username = ${ASM3_DBUSERNAME}
+db_password = ${ASM3_DBPASSWORD}
+db_name = ${ASM3_DBNAME}
+
+# Deployment settings
+deployment_type = wsgi
+session_secure_cookie = false
+
+# File storage
+dbfs_store = database
+
+# Error handling
+email_errors = false
+admin_email = ${ASM3_ADMIN_EMAIL}
+
+# SMTP Settings
+from_address = ${ASM3_FROM_ADDRESS}
+smtp_host = ${ASM3_SMTP_HOST}
+smtp_port = ${ASM3_SMTP_PORT}
+smtp_username = ${ASM3_SMTP_USERNAME}
+smtp_password = ${ASM3_SMTP_PASSWORD}
+smtp_tls = ${ASM3_SMTP_TLS}
+use_sendmail = ${ASM3_USE_SENDMAIL}

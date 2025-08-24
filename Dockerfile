@@ -50,15 +50,8 @@ RUN mkdir -p /app/customizations /app/media /app/scripts /var/log/asm3
 COPY weight_monitor.py /app/
 RUN chmod +x /app/weight_monitor.py
 
-# Create ASM3 configuration file
-RUN mkdir -p /etc && \
-    echo "# ASM3 Configuration" > /etc/asm3.conf && \
-    echo "asm3_dbtype = POSTGRESQL" >> /etc/asm3.conf && \
-    echo "asm3_dbhost = db" >> /etc/asm3.conf && \
-    echo "asm3_dbport = 5432" >> /etc/asm3.conf && \
-    echo "asm3_dbname = asm3" >> /etc/asm3.conf && \
-    echo "asm3_dbusername = asm3" >> /etc/asm3.conf && \
-    echo "asm3_dbpassword = asm3" >> /etc/asm3.conf
+# Create directory for ASM3 configuration (will be provided via volume mount)
+RUN mkdir -p /etc
 
 # Expose the application port
 EXPOSE 5000
