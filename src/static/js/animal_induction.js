@@ -96,7 +96,7 @@ $(function() {
                     { post_field: "broughtinby", label: _("Brought In By"), type: "person" },
                     { post_field: "datebroughtin", label: _("Date Brought In"), type: "date" },
                     { post_field: "timebroughtin", label: _("Time Brought In"), type: "time" },
-                    { type: "additional", markup: additional.additional_new_fields(controller.additional) }
+                    { type: "additional", markup: additional.additional_fields_linktype(controller.additional, 4) }
                 ], { full_width: false }),
                 tableform.buttons_render([
                    { id: "addedit", icon: "animal-add", text: _("Create and edit") },
@@ -802,6 +802,9 @@ $(function() {
             if (animal.HOLDUNTILDATE) {
                 $("#holduntil").val(format.date(animal.HOLDUNTILDATE));
             }
+            
+            // Load additional fields data
+            $("#asm-content input[data-id], #asm-content select[data-id], #asm-content textarea[data-id]").fromJSON(animal);
             
             // Enable/disable widgets based on loaded data
             animal_induction.enable_widgets();
