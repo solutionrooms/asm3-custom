@@ -3237,6 +3237,9 @@ def insert_animal_from_form(dbo: Database, post: PostedData, username: str) -> i
     # Validate form fields
     if post["animalname"] == "":
         raise asm3.utils.ASMValidationError(_("Name cannot be blank", l))
+    # Check for duplicate animal name (custom modification)
+    if dbo.query_int("SELECT COUNT(ID) FROM animal WHERE AnimalName = ? AND ID <> ?", (post["animalname"], nextid)) > 0:
+        raise asm3.utils.ASMValidationError(_("Animal name '{0}' is already in use. Please choose a different name.", l).format(post["animalname"]))
     if post["microchipnumber"].strip() != "" and not asm3.configuration.allow_duplicate_microchip(dbo):
         if dbo.query_int("SELECT COUNT(ID) FROM animal WHERE IdentichipNumber Like ? AND ID <> ?", (post["microchipnumber"], nextid)) > 0:
             raise asm3.utils.ASMValidationError(_("Microchip number {0} has already been allocated to another animal.", l).format(post["microchipnumber"]))
@@ -3452,6 +3455,9 @@ def update_animal_from_form(dbo: Database, post: PostedData, username: str) -> N
     # Validate form fields
     if post["animalname"] == "":
         raise asm3.utils.ASMValidationError(_("Name cannot be blank", l))
+    # Check for duplicate animal name (custom modification)
+    if dbo.query_int("SELECT COUNT(ID) FROM animal WHERE AnimalName = ? AND ID <> ?", (post["animalname"], aid)) > 0:
+        raise asm3.utils.ASMValidationError(_("Animal name '{0}' is already in use. Please choose a different name.", l).format(post["animalname"]))
     if post["dateofbirth"] == "":
         raise asm3.utils.ASMValidationError(_("Date of birth cannot be blank", l))
     if post.date("dateofbirth") is None:

@@ -50,7 +50,7 @@ $(function() {
                         options: { displayfield: "BASECOLOUR", rows: controller.colours }},
                     { post_field: "coattype", label: _("Coat Type"), type: "select", 
                         options: { displayfield: "COATTYPE", rows: controller.coattypes }},
-                    { post_field: "location", label: _("Internal Location"), type: "select", rowid: "locationrow", 
+                    { post_field: "internallocation", label: _("Internal Location"), type: "select", rowid: "locationrow", 
                         options: { displayfield: "LOCATIONNAME", rows: controller.internallocations }},
                     { post_field: "unit", label: _("Unit"), type: "select", rowid: "locationunitrow", 
                         options: "", callout: _("Unit within the location, eg: pen or cage number") },
@@ -165,7 +165,7 @@ $(function() {
                     if (createdID != "0") { 
                         if (controller.animal) {
                             // Check if location was changed away from Induction
-                            const currentLocation = $("#location option:selected").text();
+                            const currentLocation = $("#internallocation option:selected").text();
                             console.log("ADD ANIMAL: Current selected location:", currentLocation);
                             
                             if (currentLocation && !currentLocation.toLowerCase().includes("induction")) {
@@ -250,7 +250,7 @@ $(function() {
                 if (animalID && animalID !== "0") {
                     if (controller.animal) {
                         // Check if location was changed away from Induction
-                        const currentLocation = $("#location option:selected").text();
+                        const currentLocation = $("#internallocation option:selected").text();
                         console.log("SAVE PROGRESS: Current selected location:", currentLocation);
                         
                         header.show_info(_("Animal '{0}' updated successfully.").replace("{0}", $("#animalname").val()));
@@ -436,7 +436,7 @@ $(function() {
         update_units: async function() {
             let opts = ['<option value=""></option>'];
             $("#unit").empty();
-            const response = await common.ajax_post("animal_induction", "mode=units&locationid=" + $("#location").val());
+            const response = await common.ajax_post("animal_induction", "mode=units&locationid=" + $("#internallocation").val());
             $.each(html.decode(response).split("&&"), function(i, v) {
                 let [unit, desc] = v.split("|");
                 if (!unit) { return false; }
@@ -477,7 +477,7 @@ $(function() {
             $("#coattype").select("value", config.str("AFDefaultCoatType"));
             $("#entryreason").select("value", config.str("AFDefaultEntryReason"));
             $("#entrytype").select("value", config.str("AFDefaultEntryType"));
-            $("#location").select("value", config.str("AFDefaultLocation"));
+            $("#internallocation").select("value", config.str("AFDefaultLocation"));
             $("#jurisdiction").select("value", config.str("DefaultJurisdiction"));
             $("#size").select("value", config.str("AFDefaultSize"));
             $("#sex").select("value", "2"); // Unknown
@@ -691,7 +691,7 @@ $(function() {
                 }
             });
 
-            $("#location").change(animal_induction.update_units);
+            $("#internallocation").change(animal_induction.update_units);
             $("#crossbreed").change(animal_induction.enable_widgets);
             $("#nonshelter").change(animal_induction.enable_widgets);
             $("#transferin").change(animal_induction.enable_widgets);
@@ -710,16 +710,16 @@ $(function() {
             // Try multiple approaches to ensure it works
             setTimeout(function() {
                 // Method 1: Find by text content
-                var inductionOption = $("#location option").filter(function() {
+                var inductionOption = $("#internallocation option").filter(function() {
                     return $(this).text().trim() === 'Induction';
                 });
                 if (inductionOption.length > 0) {
-                    $("#location").val(inductionOption.val()).trigger('change');
+                    $("#internallocation").val(inductionOption.val()).trigger('change');
                 } else {
                     // Method 2: Try to find by partial text match
-                    $("#location option").each(function() {
+                    $("#internallocation option").each(function() {
                         if ($(this).text().toLowerCase().indexOf('induction') !== -1) {
-                            $("#location").val($(this).val()).trigger('change');
+                            $("#internallocation").val($(this).val()).trigger('change');
                             return false;
                         }
                     });
@@ -783,7 +783,7 @@ $(function() {
             $("#basecolour").val(animal.BASECOLOURID);
             $("#coattype").val(animal.COATTYPEID);
             $("#size").val(animal.SIZE);
-            $("#location").val(animal.SHELTERLOCATION);
+            $("#internallocation").val(animal.SHELTERLOCATION);
             $("#unit").val(animal.SHELTERLOCATIONUNIT);
             $("#entrytype").val(animal.ENTRYTYPEID);
             $("#datebroughtin").val(format.date(animal.DATEBROUGHTIN));

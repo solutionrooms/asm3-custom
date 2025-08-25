@@ -160,6 +160,45 @@ Aligned all form field names with ASM3's standard animal form conventions, ensur
 
 **Total Changes**: 4,780 lines added, 201 lines removed across 39 files
 
+### 6. Unique Animal Names Constraint  
+**Date**: 2025-08-25  
+**Branch**: develop  
+
+#### Overview
+Added database constraint and application validation to prevent duplicate animal names within the shelter system, providing user-friendly error messages when attempted.
+
+#### Files Modified:
+- `src/asm3/dbupdates/50001.py` - Database migration to add unique constraint on AnimalName
+- `src/asm3/animal.py` - Added validation in `insert_animal_from_form` and `update_animal_from_form` functions
+- `src/static/js/animal_induction.js` - Fixed field mapping issue (location → internallocation)
+
+#### Key Features:
+1. **Database Migration**:
+   - Migration 50001 adds unique index on `animal.AnimalName` field
+   - Pre-migration cleanup handles existing duplicates (renamed "Fidget" → "Fidget (2)")
+   - Updates database version to 50001
+
+2. **Application Validation**:
+   - Added duplicate name checking in both insert and update operations
+   - User-friendly error message: "Animal name '{name}' is already in use. Please choose a different name."
+   - Validation occurs before database constraint to provide better user experience
+
+3. **Field Mapping Fix**:
+   - Patient Induction form field corrected from `location` to `internallocation`
+   - Fixes issue where location was saved as NULL in Patient Induction
+   - Both regular animal form and Patient Induction now use consistent field names
+
+#### Technical Implementation:
+- **Database**: Unique index `animal_AnimalName_unique` on `animal(AnimalName)`
+- **Validation**: Pre-insert/update checks using `ASMValidationError` for user-friendly messages
+- **Error Handling**: Catches duplicates at application level before database constraint violation
+
+#### Testing Results:
+- ✅ Database migration successful (version 35012 → 50001)
+- ✅ Unique constraint working at database level
+- ✅ Application validation catches duplicates with friendly error messages
+- ✅ Field mapping issue resolved for Patient Induction location field
+
 ---
 
 ## 🔄 Maintenance Notes
