@@ -2418,6 +2418,91 @@ class animal_new(JSONEndpoint):
     def post_units(self, o):
         return "&&".join(asm3.animal.get_units_with_availability(o.dbo, o.post.integer("locationid")))
 
+class animal_induction(JSONEndpoint):
+    url = "animal_induction"
+    get_permissions = asm3.users.ACCESS_HEDGHOG
+
+    def controller(self, o):
+        dbo = o.dbo
+        animalid = o.post.integer("id")
+        animal = None
+        
+        # If editing existing animal, load its data
+        if animalid != 0:
+            animal = asm3.animal.get_animal(dbo, animalid)
+            if animal is None: self.notfound()
+            # Check permissions for this animal
+            self.check_animal(animal)
+            additional_target = animalid
+            asm3.al.debug("loaded animal %s for patient induction editing" % animal.CODE, "main.animal_induction", dbo)
+        else:
+            additional_target = 0
+            asm3.al.debug("loaded lookups for new patient induction", "main.animal_induction", dbo)
+        
+        c = {
+            "animal": animal,  # Will be None for new animals
+            "autolitters": asm3.animal.get_active_litters_brief(dbo),
+            "additional": asm3.additional.get_additional_fields(dbo, additional_target, "animal"),
+            "animaltypes": asm3.lookups.get_animal_types(dbo),
+            "species": asm3.lookups.get_species(dbo),
+            "breeds": asm3.lookups.get_breeds_by_species(dbo),
+            "coattypes": asm3.lookups.get_coattypes(dbo),
+            "colours": asm3.lookups.get_basecolours(dbo),
+            "flags": asm3.lookups.get_animal_flags(dbo, animal and animal.ADDITIONALFLAGS or ""),
+            "sexes": asm3.lookups.get_sexes(dbo),
+            "entryreasons": asm3.lookups.get_entryreasons(dbo),
+            "entrytypes": asm3.lookups.get_entry_types(dbo),
+            "jurisdictions": asm3.lookups.get_jurisdictions(dbo),
+            "internallocations": asm3.lookups.get_internal_locations(dbo, o.lf),
+            "pickuplocations": asm3.lookups.get_pickup_locations(dbo),
+            "sizes": asm3.lookups.get_sizes(dbo)
+        }
+        return c
+
+    def post_save(self, o):
+        animalid = o.post.integer("id")
+        asm3.al.debug("post_save called with id=%d" % animalid, "main.animal_induction", o.dbo)
+        try:
+            if animalid != 0:
+                # Updating existing animal
+                self.check(asm3.users.CHANGE_ANIMAL)
+                asm3.al.debug("updating existing animal %d" % animalid, "main.animal_induction", o.dbo)
+                asm3.al.debug("=== FORM DATA DEBUG ===", "main.animal_induction", o.dbo)
+                asm3.al.debug("form data keys: %s" % list(o.post.data.keys()), "main.animal_induction", o.dbo)
+                asm3.al.debug("mode: %s" % o.post["mode"], "main.animal_induction", o.dbo)
+                asm3.al.debug("id: %s" % o.post["id"], "main.animal_induction", o.dbo)
+                asm3.al.debug("animalname: %s" % o.post["animalname"], "main.animal_induction", o.dbo)
+                asm3.al.debug("breed1: %s" % o.post["breed1"], "main.animal_induction", o.dbo)
+                asm3.al.debug("location: %s" % o.post["location"], "main.animal_induction", o.dbo)
+                asm3.al.debug("unit: %s" % o.post["unit"], "main.animal_induction", o.dbo)
+                asm3.al.debug("recordversion: %s" % o.post["recordversion"], "main.animal_induction", o.dbo)
+                asm3.al.debug("=== END FORM DATA DEBUG ===", "main.animal_induction", o.dbo)
+                asm3.animal.update_animal_from_form(o.dbo, o.post, o.user)
+                # Get the animal code for response
+                a = asm3.animal.get_animal(o.dbo, animalid)
+                code = a and a.SHELTERCODE or ""
+                asm3.al.debug("updated animal %d, returning %s %s" % (animalid, animalid, code), "main.animal_induction", o.dbo)
+                return "%s %s" % (animalid, code)
+            else:
+                # Creating new animal
+                self.check(asm3.users.ADD_ANIMAL)
+                asm3.al.debug("creating new animal", "main.animal_induction", o.dbo)
+                animalid, code = asm3.animal.insert_animal_from_form(o.dbo, o.post, o.user)
+                asm3.al.debug("created animal %d with code %s" % (animalid, code), "main.animal_induction", o.dbo)
+                return "%s %s" % (animalid, code)
+        except Exception as e:
+            asm3.al.error("Error in animal_induction post_save: %s" % str(e), "main.animal_induction", o.dbo)
+            raise
+
+    def post_recentnamecheck(self, o):
+        rows = asm3.animal.get_recent_with_name(o.dbo, o.post["animalname"])
+        asm3.al.debug("recent names found %d rows for '%s'" % (len(rows), o.post["animalname"]), "main.animal_induction.recentnamecheck", o.dbo)
+        if len(rows) > 0:
+            return "|".join((str(rows[0]["ANIMALID"]), rows[0]["SHELTERCODE"], rows[0]["ANIMALNAME"]))
+
+    def post_units(self, o):
+        return "&&".join(asm3.animal.get_units_with_availability(o.dbo, o.post.integer("locationid")))
+
 class animal_observations(JSONEndpoint):
     url = "animal_observations"
     get_permissions = asm3.users.ADD_LOG

@@ -664,6 +664,9 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             (asm3.users.IMPORT_CSV_FILE, "", "", "csvimport_paypal", "asm-icon-paypal", _("Import a PayPal CSV file", l) ),
             (asm3.users.IMPORT_CSV_FILE, "", "", "csvimport_stripe", "asm-icon-stripe", _("Import a Stripe CSV file", l) ),
             (asm3.users.TRIGGER_BATCH, "", "", "batch", "asm-icon-batch", _("Trigger Batch Processes", l) )
+        )),
+        (asm3.users.ACCESS_HEDGHOG, "hedghog", _("Hedghog", l), (
+            ( asm3.users.ACCESS_HEDGHOG, "", "", "animal_induction", "asm-icon-animal-add", _("Patient Induction", l) ),
         ))
     )
 

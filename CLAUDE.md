@@ -37,6 +37,9 @@ This is a customized fork of [Animal Shelter Manager 3 (ASM3)](https://github.co
     └── docker/        # Reference Docker files from upstream
 ```
 
+## Database schema
+the full schema can be found in schema_list.txt
+
 ## Key Commands
 
 ```bash

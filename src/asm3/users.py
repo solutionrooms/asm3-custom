@@ -25,6 +25,7 @@ CLONE_ANIMAL                    = "cloa"
 MERGE_ANIMAL                    = "ma"
 RESERVESPONSOR_UNIT             = "rsu"
 VIEW_TIMELINE                   = "vti"
+ACCESS_HEDGHOG                  = "ahh"
 
 GENERATE_DOCUMENTS              = "gaf"
 MODIFY_NAME_DATABASE            = "mand"

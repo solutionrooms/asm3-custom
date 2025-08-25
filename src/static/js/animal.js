@@ -1440,6 +1440,13 @@ $(function() {
 
         sync: function() {
 
+            // Check if animal is in Induction location and redirect to Patient Induction screen
+            if (controller.animal.SHELTERLOCATIONNAME && 
+                controller.animal.SHELTERLOCATIONNAME.toLowerCase().includes("induction")) {
+                common.route("animal_induction?id=" + controller.animal.ID);
+                return;
+            }
+
             // Load the data into the controls for the screen
             $("#asm-content input, #asm-content select, #asm-content textarea").fromJSON(controller.animal);
 
