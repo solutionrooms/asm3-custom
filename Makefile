@@ -274,11 +274,11 @@ ssl-stop-renew:
 install-cron:
 	@echo "Installing ASM3 cron jobs on VM host..."
 	@echo "Copying external scripts to /usr/local/bin/..."
-	@sudo cp scripts/run-daily-tasks-external.sh /usr/local/bin/asm3-daily-tasks
-	@sudo cp scripts/run-weight-monitor-external.sh /usr/local/bin/asm3-weight-monitor
-	@sudo cp scripts/run-db-maintenance-external.sh /usr/local/bin/asm3-db-maintenance
-	@sudo cp scripts/monitor-system.sh /usr/local/bin/asm3-monitor-system
-	@sudo cp scripts/cleanup-logs.sh /usr/local/bin/asm3-cleanup-logs
+	@sudo cp custom_scripts/run-daily-tasks-external.sh /usr/local/bin/asm3-daily-tasks
+	@sudo cp custom_scripts/run-weight-monitor-external.sh /usr/local/bin/asm3-weight-monitor
+	@sudo cp custom_scripts/run-db-maintenance-external.sh /usr/local/bin/asm3-db-maintenance
+	@sudo cp custom_scripts/monitor-system.sh /usr/local/bin/asm3-monitor-system
+	@sudo cp custom_scripts/cleanup-logs.sh /usr/local/bin/asm3-cleanup-logs
 	@sudo chmod +x /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
 	@echo "Creating log directory..."
 	@sudo mkdir -p /var/log/asm3
@@ -329,7 +329,7 @@ monitor:
 # Analyze performance trends
 analyze:
 	@echo "Analyzing performance trends..."
-	@scripts/analyze-performance.sh || echo "Analysis script not found"
+	@custom_scripts/analyze-performance.sh || echo "Analysis script not found"
 
 # Show recent monitoring data
 monitor-status:

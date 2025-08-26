@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../asm3-bghr"
+		}
+	],
+	"settings": {
+		"makefile.configureOnOpen": false
+	}
+}

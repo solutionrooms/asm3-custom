@@ -85,6 +85,79 @@ $(function() {
                 '    outline: none;',
                 '    box-shadow: 0 0 0 3px rgba(0,123,255,0.1);',
                 '}',
+                '.field-input textarea {',
+                '    resize: vertical;',
+                '    min-height: 80px;',
+                '}',
+                '.inspection-section {',
+                '    background: white;',
+                '    padding: 25px;',
+                '    border-radius: 10px;',
+                '    box-shadow: 0 4px 16px rgba(0,0,0,0.05);',
+                '    border: 1px solid #e0e6ed;',
+                '    margin-bottom: 30px;',
+                '    transition: all 0.3s ease;',
+                '}',
+                '.inspection-section:hover {',
+                '    transform: translateY(-2px);',
+                '    box-shadow: 0 8px 24px rgba(0,0,0,0.1);',
+                '}',
+                '.inspection-section h3 {',
+                '    margin: 0 0 25px 0;',
+                '    padding-bottom: 15px;',
+                '    border-bottom: 3px solid #28a745;',
+                '    color: #2c3e50;',
+                '    font-size: 20px;',
+                '    font-weight: 600;',
+                '    text-align: center;',
+                '}',
+                '.inspection-grid {',
+                '    display: grid;',
+                '    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));',
+                '    gap: 20px;',
+                '}',
+                '.inspection-item {',
+                '    padding: 16px 20px;',
+                '    background: #f8f9fa;',
+                '    border: 2px solid #e9ecef;',
+                '    border-radius: 8px;',
+                '    transition: all 0.2s ease;',
+                '}',
+                '.inspection-item:hover {',
+                '    background: #e3f2fd;',
+                '    border-color: #2196f3;',
+                '    transform: translateY(-1px);',
+                '}',
+                '.inspection-field-label {',
+                '    font-weight: 600;',
+                '    color: #495057;',
+                '    margin-bottom: 8px;',
+                '    display: block;',
+                '    font-size: 14px;',
+                '}',
+                '.inspection-item select {',
+                '    width: 100%;',
+                '    padding: 8px 12px;',
+                '    border: 2px solid #e9ecef;',
+                '    border-radius: 6px;',
+                '    background: white;',
+                '    font-size: 14px;',
+                '    color: #495057;',
+                '    transition: border-color 0.3s ease;',
+                '}',
+                '.inspection-item select:focus {',
+                '    border-color: #28a745;',
+                '    outline: none;',
+                '    box-shadow: 0 0 0 3px rgba(40,167,69,0.1);',
+                '}',
+                '.inspection-item select option[value="No"] { color: #28a745; }',
+                '.inspection-item select option[value="Slight"] { color: #ffc107; }',
+                '.inspection-item select option[value="Moderate"] { color: #fd7e14; }',
+                '.inspection-item select option[value="Severe"] { color: #dc3545; }',
+                '.inspection-item.inspection-no { border-color: #28a745; background: #d4edda; }',
+                '.inspection-item.inspection-slight { border-color: #ffc107; background: #fff3cd; }',
+                '.inspection-item.inspection-moderate { border-color: #fd7e14; background: #ffeaa7; }',
+                '.inspection-item.inspection-severe { border-color: #dc3545; background: #f8d7da; }',
                 '.field-callout {',
                 '    grid-column: 2;',
                 '    font-size: 12px;',
@@ -117,6 +190,21 @@ $(function() {
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row">',
+                '            <div class="field-label">' + _("Entry Age Range") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_select({ 
+                                    post_field: "entryagerange", 
+                                    justwidget: true, 
+                                    options: '<option value="">' + _("Select age range") + '</option>' +
+                                           '<option value="Baby">Baby (&lt;1)</option>' +
+                                           '<option value="Juvenile">Juvenile (1-2)</option>' +
+                                           '<option value="Adult">Adult (2-5)</option>' +
+                                           '<option value="Senior">Senior (5+)</option>'
+                                }),
+                '            </div>',
+                '            <div class="field-callout">' + _("Select age range to auto-calculate estimated date of birth") + '</div>',
+                '        </div>',
+                '        <div class="field-row">',
                 '            <div class="field-label">' + _("Date of Birth") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_date({ post_field: "dateofbirth", justwidget: true }),
@@ -144,24 +232,6 @@ $(function() {
                                 tableform.render_select({ post_field: "animaltype", justwidget: true, options: { displayfield: "ANIMALTYPE", rows: controller.animaltypes }}),
                 '            </div>',
                 '        </div>',
-                '        <div class="field-row">',
-                '            <div class="field-label">' + _("Species") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_select({ post_field: "species", justwidget: true, options: { displayfield: "SPECIESNAME", rows: controller.species }}),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="breedrow">',
-                '            <div class="field-label">' + _("Breed") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_select({ post_field: "breed1", justwidget: true, options: html.list_to_options_breeds(controller.breeds) }),
-                '                <span id="crossbreedcol">',
-                                    tableform.render_check({ post_field: "crossbreed", label: _("Crossbreed"), justwidget: true }),
-                '                </span>',
-                '                <span id="secondbreedcol">',
-                                    tableform.render_select({ post_field: "breed2", justwidget: true, options: html.list_to_options_breeds(controller.breeds) }),
-                '                </span>',
-                '            </div>',
-                '        </div>',
                 '        <div class="field-row" id="colourrow">',
                 '            <div class="field-label">' + _("Base Color") + '</div>',
                 '            <div class="field-input">',
@@ -174,10 +244,47 @@ $(function() {
                                 tableform.render_select({ post_field: "coattype", justwidget: true, options: { displayfield: "COATTYPE", rows: controller.coattypes }}),
                 '            </div>',
                 '        </div>',
+                '        <div class="field-row" id="kilosrow">',
+                '            <div class="field-label">' + _("Weight") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_number({ post_field: "weight", justwidget: true }),
+                '                <label id="kglabel">' + _("kg") + '</label>',
+                '            </div>',
+                '        </div>',
+                '        <div class="field-row" id="poundsrow">',
+                '            <div class="field-label">' + _("Weight") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_intnumber({ post_field: "weightlb", justwidget: true }),
+                '                <label id="lblabel">' + _("lb") + '</label>',
+                                tableform.render_intnumber({ post_field: "weightoz", justwidget: true }),
+                '                <label id="ozlabel">' + _("oz") + '</label>',
+                '            </div>',
+                '        </div>',
                 '        <div class="field-row">',
                 '            <div class="field-label">' + _("Size") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_select({ post_field: "size", justwidget: true, options: { displayfield: "SIZE", rows: controller.sizes }}),
+                '            </div>',
+                '        </div>',
+                '        <!-- Hidden fields for hedgehog constants -->',
+                '        <div style="display: none;">',
+                '            <div class="field-row">',
+                '                <div class="field-label">' + _("Species") + '</div>',
+                '                <div class="field-input">',
+                                    tableform.render_select({ post_field: "species", justwidget: true, options: { displayfield: "SPECIESNAME", rows: controller.species }}),
+                '                </div>',
+                '            </div>',
+                '            <div class="field-row" id="breedrow">',
+                '                <div class="field-label">' + _("Breed") + '</div>',
+                '                <div class="field-input">',
+                                    tableform.render_select({ post_field: "breed1", justwidget: true, options: html.list_to_options_breeds(controller.breeds) }),
+                '                    <span id="crossbreedcol">',
+                                        tableform.render_check({ post_field: "crossbreed", label: _("Crossbreed"), justwidget: true }),
+                '                    </span>',
+                '                    <span id="secondbreedcol">',
+                                        tableform.render_select({ post_field: "breed2", justwidget: true, options: html.list_to_options_breeds(controller.breeds) }),
+                '                    </span>',
+                '                </div>',
                 '            </div>',
                 '        </div>',
                 '    </div>',
@@ -215,22 +322,6 @@ $(function() {
 
                 '    <div class="form-group">',
                 '        <h3>' + _("Health & Physical") + '</h3>',
-                '        <div class="field-row" id="kilosrow">',
-                '            <div class="field-label">' + _("Weight") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_number({ post_field: "weight", justwidget: true }),
-                '                <label id="kglabel">' + _("kg") + '</label>',
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="poundsrow">',
-                '            <div class="field-label">' + _("Weight") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_intnumber({ post_field: "weightlb", justwidget: true }),
-                '                <label id="lblabel">' + _("lb") + '</label>',
-                                tableform.render_intnumber({ post_field: "weightoz", justwidget: true }),
-                '                <label id="ozlabel">' + _("oz") + '</label>',
-                '            </div>',
-                '        </div>',
                 '        <div class="field-row" id="neuteredrow">',
                 '            <div class="field-label">' + _("Altered") + '</div>',
                 '            <div class="field-input">',
@@ -332,6 +423,39 @@ $(function() {
 
                 '<div class="form-section">',
                 '    <div class="form-group">',
+                '        <h3>' + _("Found Location") + '</h3>',
+                '        <div class="field-row">',
+                '            <div class="field-label">' + _("Weather Conditions") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_select({ 
+                                    post_field: "entrylocationweather", 
+                                    justwidget: true, 
+                                    options: '<option value="">' + _("Select weather") + '</option>' +
+                                           '<option value="Freezing">' + _("Freezing") + '</option>' +
+                                           '<option value="Cold">' + _("Cold") + '</option>' +
+                                           '<option value="Warm">' + _("Warm") + '</option>' +
+                                           '<option value="Hot">' + _("Hot") + '</option>'
+                                }),
+                '            </div>',
+                '            <div class="field-callout">' + _("Weather conditions when the animal was found") + '</div>',
+                '        </div>',
+                '        <div class="field-row">',
+                '            <div class="field-label">' + _("Found By") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_person({ post_field: "entryfoundbyperson", justwidget: true }),
+                '            </div>',
+                '            <div class="field-callout">' + _("Person who found the animal") + '</div>',
+                '        </div>',
+                '        <div class="field-row">',
+                '            <div class="field-label" style="align-self: flex-start; padding-top: 8px;">' + _("Location Description") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_textarea({ post_field: "entrylocationdescription", justwidget: true, rows: 4 }),
+                '            </div>',
+                '            <div class="field-callout">' + _("Detailed description of where the animal was found") + '</div>',
+                '        </div>',
+                '    </div>',
+
+                '    <div class="form-group">',
                 '        <h3>' + _("People & Location") + '</h3>',
                 '        <div class="field-row" id="originalownerrow">',
                 '            <div class="field-label">' + _("Original Owner") + '</div>',
@@ -376,6 +500,14 @@ $(function() {
                 '    </div>',
                 '</div>',
 
+                '<!-- Full-width Inspection Section -->',
+                '<div class="inspection-section">',
+                '    <h3>' + _("Physical Inspection") + '</h3>',
+                '    <div class="inspection-grid" id="inspection-fields">',
+                '        <!-- Inspection fields will be rendered here by additional fields system -->',
+                '    </div>',
+                '</div>',
+
                 '</div>',
                 tableform.buttons_render([
                    { id: "save", icon: "save", text: _("Save") },
@@ -383,6 +515,86 @@ $(function() {
                 ], { centered: true }),
                 html.content_footer()
             ].join("\n");
+        },
+
+        /**
+         * Render inspection additional fields in the inspection grid
+         */
+        render_inspection_fields: function() {
+            let inspectionHtml = '';
+            
+            // Find all additional fields that start with "entryinspection"
+            $.each(controller.additional, function(i, field) {
+                if (field.FIELDNAME && field.FIELDNAME.toLowerCase().startsWith('entryinspection')) {
+                    // Get the display name (remove "entryinspection" prefix and make it readable)
+                    let displayName = field.FIELDNAME.substring(15); // Remove "entryinspection" prefix
+                    displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1); // Capitalize first letter
+                    
+                    // Use field label if available, otherwise use the formatted name
+                    let label = field.FIELDLABEL || displayName;
+                    
+                    inspectionHtml += '<div class="inspection-item">';
+                    inspectionHtml += '<label class="inspection-field-label" for="' + field.FIELDNAME + '">' + label + '</label>';
+                    
+                    // Render the additional field widget
+                    if (field.FIELDTYPE == 4) { // Select/dropdown type
+                        inspectionHtml += '<select class="asm-selectbox" data-id="' + field.ID + '" id="' + field.FIELDNAME + '">';
+                        inspectionHtml += '<option value="">' + _("Select level") + '</option>';
+                        
+                        // Parse the lookup values
+                        if (field.LOOKUPVALUES) {
+                            let values = field.LOOKUPVALUES.split('|');
+                            $.each(values, function(j, value) {
+                                if (value.trim()) {
+                                    inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                }
+                            });
+                        }
+                        
+                        inspectionHtml += '</select>';
+                    }
+                    
+                    inspectionHtml += '</div>';
+                }
+            });
+            
+            // Insert the generated HTML into the inspection grid
+            $("#inspection-fields").html(inspectionHtml);
+            
+            // Re-initialize the inspection dropdown styling for the new fields
+            setTimeout(function() {
+                animal_induction.init_inspection_styling();
+            }, 100);
+        },
+
+        /**
+         * Initialize inspection dropdown styling and color coding
+         */
+        init_inspection_styling: function() {
+            $("#inspection-fields select").each(function() {
+                // Add color coding based on selected value
+                $(this).change(function() {
+                    const value = $(this).val();
+                    const item = $(this).closest('.inspection-item');
+                    
+                    // Remove previous state classes
+                    item.removeClass('inspection-no inspection-slight inspection-moderate inspection-severe');
+                    
+                    // Add appropriate class based on selection
+                    if (value === 'No') {
+                        item.addClass('inspection-no');
+                    } else if (value === 'Slight') {
+                        item.addClass('inspection-slight');
+                    } else if (value === 'Moderate') {
+                        item.addClass('inspection-moderate');
+                    } else if (value === 'Severe') {
+                        item.addClass('inspection-severe');
+                    }
+                });
+                
+                // Trigger change event to apply initial styling
+                $(this).trigger('change');
+            });
         },
 
         /**
@@ -1023,6 +1235,48 @@ $(function() {
             $("#species").change(function() {
                 additional.toggle_elements_by_species("additional", $("#species").val());
             });
+
+            // Render inspection additional fields in the inspection section
+            animal_induction.render_inspection_fields();
+
+            // Entry Age Range calculation
+            $("#entryagerange").change(function() {
+                const ageRange = $(this).val();
+                if (!ageRange) { return; }
+                
+                const today = new Date();
+                let estimatedBirthDate;
+                
+                // Calculate estimated birth date based on midpoint of age ranges
+                switch(ageRange) {
+                    case "Baby": // <1 year, midpoint = 6 months
+                        estimatedBirthDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate());
+                        break;
+                    case "Juvenile": // 1-2 years, midpoint = 1.5 years = 18 months
+                        estimatedBirthDate = new Date(today.getFullYear() - 1, today.getMonth() - 6, today.getDate());
+                        break;
+                    case "Adult": // 2-5 years, midpoint = 3.5 years
+                        estimatedBirthDate = new Date(today.getFullYear() - 3, today.getMonth() - 6, today.getDate());
+                        break;
+                    case "Senior": // 5+ years, estimate = 7 years (reasonable midpoint for senior range)
+                        estimatedBirthDate = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate());
+                        break;
+                    default:
+                        return;
+                }
+                
+                // Format date and set in the DOB field
+                const formattedDate = format.date(estimatedBirthDate);
+                $("#dateofbirth").val(formattedDate);
+                
+                // Set Estimated DOB checkbox to true
+                $("#estimateddob").prop("checked", true);
+                
+                // Trigger change events to update any dependent logic
+                $("#dateofbirth").change();
+                $("#estimateddob").change();
+            });
+
 
         },
 
