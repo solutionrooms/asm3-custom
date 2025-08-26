@@ -532,14 +532,52 @@ $(function() {
                     
                     // Use field label if available, otherwise use the formatted name
                     let label = field.FIELDLABEL || displayName;
+                    let fieldId = 'add_' + field.ID;
+                    let postAttr = 'a.' + field.MANDATORY + '.' + field.ID;
                     
                     inspectionHtml += '<div class="inspection-item">';
-                    inspectionHtml += '<label class="inspection-field-label" for="' + field.FIELDNAME + '">' + label + '</label>';
+                    inspectionHtml += '<label class="inspection-field-label" for="' + fieldId + '">' + label;
+                    if (field.MANDATORY == 1) {
+                        inspectionHtml += '<span class="asm-has-validation">*</span>';
+                    }
+                    inspectionHtml += '</label>';
                     
-                    // Render the additional field widget
-                    if (field.FIELDTYPE == 4) { // Select/dropdown type
-                        inspectionHtml += '<select class="asm-selectbox" data-id="' + field.ID + '" id="' + field.FIELDNAME + '">';
-                        inspectionHtml += '<option value="">' + _("Select level") + '</option>';
+                    // Render the appropriate field widget based on field type
+                    if (field.FIELDTYPE == 0) { // YESNO - Checkbox
+                        inspectionHtml += '<input id="' + fieldId + '" type="checkbox" class="asm-checkbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 1) { // TEXT - Text input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
+                        inspectionHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
+                        
+                    } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 4) { // DATE - Date input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
+                        inspectionHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                        inspectionHtml += '<option value="">' + _("Select...") + '</option>';
                         
                         // Parse the lookup values
                         if (field.LOOKUPVALUES) {
@@ -550,8 +588,29 @@ $(function() {
                                 }
                             });
                         }
-                        
                         inspectionHtml += '</select>';
+                        
+                    } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
+                        inspectionHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                        
+                        // Parse the lookup values for multi-select
+                        if (field.LOOKUPVALUES) {
+                            let values = field.LOOKUPVALUES.split('|');
+                            $.each(values, function(j, value) {
+                                if (value.trim()) {
+                                    inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                }
+                            });
+                        }
+                        inspectionHtml += '</select>';
+                        
+                    } else {
+                        // Fallback for other field types - render as text input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                     }
                     
                     inspectionHtml += '</div>';
@@ -561,10 +620,43 @@ $(function() {
             // Insert the generated HTML into the inspection grid
             $("#inspection-fields").html(inspectionHtml);
             
-            // Re-initialize the inspection dropdown styling for the new fields
+            // Re-initialize styling and widgets for the new fields
             setTimeout(function() {
                 animal_induction.init_inspection_styling();
+                animal_induction.init_inspection_widgets();
             }, 100);
+        },
+
+        /**
+         * Initialize inspection widgets (date pickers, currency boxes, etc.)
+         */
+        init_inspection_widgets: function() {
+            // Initialize datepickers
+            $("#inspection-fields .asm-datebox").datepicker({
+                changeMonth: true,
+                changeYear: true,
+                yearRange: "-100:+10",
+                dateFormat: "dd/mm/yy"
+            });
+            
+            // Initialize currency boxes
+            $("#inspection-fields .asm-currencybox").each(function() {
+                $(this).currency();
+            });
+            
+            // Initialize number boxes
+            $("#inspection-fields .asm-numberbox").each(function() {
+                $(this).number(true, 2);
+            });
+            
+            // Initialize multi-select boxes
+            $("#inspection-fields .asm-bsmselect").each(function() {
+                $(this).asmselect({
+                    animate: true,
+                    sortable: true,
+                    removeLabel: '<strong>&times;</strong>'
+                });
+            });
         },
 
         /**
