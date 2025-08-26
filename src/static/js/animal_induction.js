@@ -29,9 +29,7 @@ $(function() {
                 '    box-shadow: 0 8px 32px rgba(0,0,0,0.1);',
                 '}',
                 '.form-section {',
-                '    display: grid;',
-                '    grid-template-columns: 1fr 1fr;',
-                '    gap: 30px;',
+                '    display: block;',
                 '    margin-bottom: 30px;',
                 '}',
                 '.form-group {',
@@ -113,29 +111,114 @@ $(function() {
                 '}',
                 '.inspection-grid {',
                 '    display: grid;',
-                '    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));',
-                '    gap: 20px;',
+                '    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));',
+                '    gap: 16px;',
+                '    align-items: start;',
                 '}',
                 '.inspection-item {',
-                '    padding: 16px 20px;',
-                '    background: #f8f9fa;',
+                '    background: #ffffff;',
                 '    border: 2px solid #e9ecef;',
-                '    border-radius: 8px;',
-                '    transition: all 0.2s ease;',
+                '    border-radius: 10px;',
+                '    padding: 16px;',
+                '    transition: all 0.3s ease;',
+                '    position: relative;',
+                '    min-height: 70px;',
+                '    display: flex;',
+                '    flex-direction: column;',
+                '    box-shadow: 0 2px 4px rgba(0,0,0,0.08);',
                 '}',
                 '.inspection-item:hover {',
+                '    transform: translateY(-2px);',
+                '    box-shadow: 0 4px 12px rgba(0,0,0,0.15);',
+                '    border-color: #007bff;',
+                '}',
+                '/* Yes/No clickable cards */',
+                '.inspection-item.yesno-field {',
+                '    cursor: pointer;',
+                '    user-select: none;',
+                '    background: #f8f9fa;',
+                '    border: 2px solid #dee2e6;',
+                '    transition: all 0.3s ease;',
+                '    min-height: 80px;',
+                '    justify-content: center;',
+                '    align-items: center;',
+                '    text-align: center;',
+                '}',
+                '.inspection-item.yesno-field:hover {',
                 '    background: #e3f2fd;',
                 '    border-color: #2196f3;',
-                '    transform: translateY(-1px);',
+                '}',
+                '.inspection-item.yesno-field.checked {',
+                '    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);',
+                '    border-color: #28a745;',
+                '    color: #155724;',
+                '}',
+                '.inspection-item.yesno-field.checked:hover {',
+                '    background: linear-gradient(135deg, #c3e6cb 0%, #b1dfbb 100%);',
+                '    border-color: #1e7e34;',
+                '}',
+                '.inspection-item.yesno-field .yesno-label {',
+                '    font-weight: 600;',
+                '    font-size: 14px;',
+                '    margin: 0;',
+                '}',
+                '.inspection-item.yesno-field .yesno-status {',
+                '    font-size: 12px;',
+                '    opacity: 0.7;',
+                '    margin-top: 4px;',
+                '}',
+                '.inspection-item.yesno-field.checked .yesno-status::before {',
+                '    content: "✓ ";',
+                '    font-weight: bold;',
+                '}',
+                '.inspection-item.yesno-field:not(.checked) .yesno-status::before {',
+                '    content: "○ ";',
+                '    opacity: 0.5;',
+                '}',
+                '/* Hide the actual checkbox */',
+                '.inspection-item.yesno-field input[type="checkbox"] {',
+                '    display: none;',
+                '}',
+                '/* Select dropdown fields */',
+                '.inspection-item.select-field {',
+                '    min-height: 85px;',
+                '}',
+                '/* Tablet and mobile responsive */',
+                '@media (max-width: 768px) {',
+                '    .inspection-grid {',
+                '        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));',
+                '        gap: 12px;',
+                '    }',
+                '    .inspection-item {',
+                '        padding: 14px;',
+                '        min-height: 65px;',
+                '    }',
+                '    .inspection-item.yesno-field {',
+                '        min-height: 70px;',
+                '    }',
+                '    .inspection-item.yesno-field .yesno-label {',
+                '        font-size: 13px;',
+                '    }',
+                '}',
+                '@media (max-width: 480px) {',
+                '    .inspection-grid {',
+                '        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));',
+                '        gap: 10px;',
+                '    }',
+                '    .inspection-item {',
+                '        padding: 12px;',
+                '        min-height: 60px;',
+                '    }',
                 '}',
                 '.inspection-field-label {',
                 '    font-weight: 600;',
                 '    color: #495057;',
-                '    margin-bottom: 8px;',
+                '    margin-bottom: 6px;',
                 '    display: block;',
-                '    font-size: 14px;',
+                '    font-size: 13px;',
+                '    line-height: 1.3;',
                 '}',
-                '.inspection-item select {',
+                '.inspection-item select, .inspection-item input:not([type="checkbox"]), .inspection-item textarea {',
                 '    width: 100%;',
                 '    padding: 8px 12px;',
                 '    border: 2px solid #e9ecef;',
@@ -144,6 +227,29 @@ $(function() {
                 '    font-size: 14px;',
                 '    color: #495057;',
                 '    transition: border-color 0.3s ease;',
+                '}',
+                '.inspection-item select:focus, .inspection-item input:focus, .inspection-item textarea:focus {',
+                '    border-color: #007bff;',
+                '    outline: none;',
+                '    box-shadow: 0 0 0 3px rgba(0,123,255,0.1);',
+                '}',
+                '/* Responsive adjustments */',
+                '@media (max-width: 768px) {',
+                '    .inspection-grid {',
+                '        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));',
+                '        gap: 12px;',
+                '    }',
+                '    .inspection-item {',
+                '        padding: 10px 12px;',
+                '        min-height: 55px;',
+                '    }',
+                '    .inspection-item.checkbox-field {',
+                '        min-height: 40px;',
+                '        padding: 8px 12px;',
+                '    }',
+                '    .inspection-field-label {',
+                '        font-size: 12px;',
+                '    }',
                 '}',
                 '.inspection-item select:focus {',
                 '    border-color: #28a745;',
@@ -220,6 +326,21 @@ $(function() {
                 '            <div class="field-label">' + _("Sex") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_select({ post_field: "sex", justwidget: true, options: { displayfield: "SEX", rows: controller.sexes }}),
+                '            </div>',
+                '        </div>',
+                '        <div class="field-row" id="weightrow">',
+                '            <div class="field-label">' + _("Weight") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_number({ post_field: "weight", justwidget: true }),
+                '                <label>' + _("kg") + '</label>',
+                '            </div>',
+                '        </div>',
+                '        <div class="field-row" id="microchiprow">',
+                '            <div class="field-label">' + _("Microchipped") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_check({ post_field: "identichipped", justwidget: true }),
+                                tableform.render_date({ post_field: "identichipdate", justwidget: true, placeholder: _("Date") }),
+                                tableform.render_text({ post_field: "identichipnumber", maxlength: 15, justwidget: true, placeholder: _("Number") }),
                 '            </div>',
                 '        </div>',
                 '    </div>',
@@ -320,32 +441,6 @@ $(function() {
                 '        </div>',
                 '    </div>',
 
-                '    <div class="form-group">',
-                '        <h3>' + _("Health & Physical") + '</h3>',
-                '        <div class="field-row" id="neuteredrow">',
-                '            <div class="field-label">' + _("Altered") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "neutered", justwidget: true }),
-                                tableform.render_date({ post_field: "neutereddate", justwidget: true }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="microchiprow">',
-                '            <div class="field-label">' + _("Microchipped") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "microchipped", justwidget: true }),
-                                tableform.render_date({ post_field: "microchipdate", justwidget: true, placeholder: _("Date") }),
-                                tableform.render_text({ post_field: "microchipnumber", maxlength: 15, justwidget: true, placeholder: _("Number") }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="tattoorow">',
-                '            <div class="field-label">' + _("Tattoo") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "tattoo", label: "", justwidget: true }),
-                                tableform.render_date({ post_field: "tattoodate", justwidget: true, placeholder: _("Date") }),
-                                tableform.render_text({ post_field: "tattoonumber", justwidget: true, placeholder: _("Number") }),
-                '            </div>',
-                '        </div>',
-                '    </div>',
                 '</div>',
 
                 '<div class="form-section">',
@@ -383,42 +478,6 @@ $(function() {
                 '        </div>',
                 '    </div>',
 
-                '    <div class="form-group">',
-                '        <h3>' + _("Special Conditions") + '</h3>',
-                '        <div class="field-row">',
-                '            <div class="field-label">' + _("Non-Shelter") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "nonshelter", justwidget: true }),
-                '            </div>',
-                '            <div class="field-callout">' + _("This animal should not be shown in figures and is not in the custody of the shelter") + '</div>',
-                '        </div>',
-                '        <div class="field-row" id="transferinrow">',
-                '            <div class="field-label">' + _("Transfer In") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "transferin", justwidget: true }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="holdrow">',
-                '            <div class="field-label">' + _("Hold until") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "hold", justwidget: true }),
-                                tableform.render_date({ post_field: "holduntil", justwidget: true }),
-                '            </div>',
-                '            <div class="field-callout">' + _("Hold the animal until this date or blank to hold indefinitely") + '</div>',
-                '        </div>',
-                '        <div class="field-row" id="nsownerrow">',
-                '            <div class="field-label">' + _("Owner") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_person({ post_field: "nsowner", justwidget: true }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="litterrow">',
-                '            <div class="field-label">' + _("Litter") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_autotext({ post_field: "litterid", justwidget: true, options: { rows: controller.activelitters, displayfield: "label", valuefield: "value" }}),
-                '            </div>',
-                '        </div>',
-                '    </div>',
                 '</div>',
 
                 '<div class="form-section">',
@@ -455,49 +514,7 @@ $(function() {
                 '        </div>',
                 '    </div>',
 
-                '    <div class="form-group">',
-                '        <h3>' + _("People & Location") + '</h3>',
-                '        <div class="field-row" id="originalownerrow">',
-                '            <div class="field-label">' + _("Original Owner") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_person({ post_field: "originalowner", justwidget: true }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="broughtinbyrow">',
-                '            <div class="field-label">' + _("Brought In By") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_person({ post_field: "broughtinby", justwidget: true }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="jurisdictionrow">',
-                '            <div class="field-label">' + _("Jurisdiction") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_select({ post_field: "jurisdiction", justwidget: true, options: { displayfield: "JURISDICTIONNAME", rows: controller.jurisdictions }}),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="pickuprow">',
-                '            <div class="field-label">' + _("Picked Up") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_check({ post_field: "pickedup", justwidget: true }),
-                                tableform.render_select({ post_field: "pickuplocation", justwidget: true, options: '<option value="0"></option>' + html.list_to_options(controller.pickuplocations, "ID", "LOCATIONNAME") }),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row">',
-                '            <div class="field-label">' + _("Pickup Address") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_text({ post_field: "pickupaddress", justwidget: true, placeholder: _("Pickup Address") }),
-                '            </div>',
-                '        </div>',
-                '    </div>',
 
-                '    <div class="form-group">',
-                '        <h3>' + _("Additional Fields") + '</h3>',
-                '        <div class="field-row">',
-                '            <div style="grid-column: 1 / -1;">',
-                                additional.additional_fields_linktype(controller.additional, 4),
-                '            </div>',
-                '        </div>',
-                '    </div>',
                 '</div>',
 
                 '<!-- Full-width Inspection Section -->',
@@ -535,82 +552,100 @@ $(function() {
                     let fieldId = 'add_' + field.ID;
                     let postAttr = 'a.' + field.MANDATORY + '.' + field.ID;
                     
-                    inspectionHtml += '<div class="inspection-item">';
-                    inspectionHtml += '<label class="inspection-field-label" for="' + fieldId + '">' + label;
-                    if (field.MANDATORY == 1) {
-                        inspectionHtml += '<span class="asm-has-validation">*</span>';
+                    // Add appropriate CSS class based on field type for optimal layout
+                    let itemClass = 'inspection-item';
+                    if (field.FIELDTYPE == 0) { // Yes/No checkbox
+                        itemClass += ' yesno-field';
+                    } else if (field.FIELDTYPE == 6 || field.FIELDTYPE == 7) { // Select/Multi-select
+                        itemClass += ' select-field';
                     }
-                    inspectionHtml += '</label>';
+                    
+                    inspectionHtml += '<div class="' + itemClass + '" data-field-id="' + fieldId + '">';
                     
                     // Render the appropriate field widget based on field type
-                    if (field.FIELDTYPE == 0) { // YESNO - Checkbox
+                    if (field.FIELDTYPE == 0) { // YESNO - Clickable card
+                        inspectionHtml += '<div class="yesno-label">' + label;
+                        if (field.MANDATORY == 1) {
+                            inspectionHtml += '<span class="asm-has-validation">*</span>';
+                        }
+                        inspectionHtml += '</div>';
+                        inspectionHtml += '<div class="yesno-status">No</div>';
                         inspectionHtml += '<input id="' + fieldId + '" type="checkbox" class="asm-checkbox additional" ';
                         inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
                         inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                         
-                    } else if (field.FIELDTYPE == 1) { // TEXT - Text input
-                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                        
-                    } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
-                        inspectionHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
-                        
-                    } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
-                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                        
-                    } else if (field.FIELDTYPE == 4) { // DATE - Date input
-                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                        
-                    } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
-                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                        
-                    } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
-                        inspectionHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
-                        inspectionHtml += '<option value="">' + _("Select...") + '</option>';
-                        
-                        // Parse the lookup values
-                        if (field.LOOKUPVALUES) {
-                            let values = field.LOOKUPVALUES.split('|');
-                            $.each(values, function(j, value) {
-                                if (value.trim()) {
-                                    inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
-                                }
-                            });
-                        }
-                        inspectionHtml += '</select>';
-                        
-                    } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
-                        inspectionHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
-                        
-                        // Parse the lookup values for multi-select
-                        if (field.LOOKUPVALUES) {
-                            let values = field.LOOKUPVALUES.split('|');
-                            $.each(values, function(j, value) {
-                                if (value.trim()) {
-                                    inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
-                                }
-                            });
-                        }
-                        inspectionHtml += '</select>';
-                        
                     } else {
-                        // Fallback for other field types - render as text input
-                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        // Regular label for non-checkbox fields
+                        inspectionHtml += '<label class="inspection-field-label" for="' + fieldId + '">' + label;
+                        if (field.MANDATORY == 1) {
+                            inspectionHtml += '<span class="asm-has-validation">*</span>';
+                        }
+                        inspectionHtml += '</label>';
+                        
+                        if (field.FIELDTYPE == 1) { // TEXT - Text input
+                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
+                            inspectionHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
+                            
+                        } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
+                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 4) { // DATE - Date input
+                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
+                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
+                            inspectionHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                            inspectionHtml += '<option value="">' + _("Select...") + '</option>';
+                            
+                            // Parse the lookup values
+                            if (field.LOOKUPVALUES) {
+                                let values = field.LOOKUPVALUES.split('|');
+                                $.each(values, function(j, value) {
+                                    if (value.trim()) {
+                                        inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                    }
+                                });
+                            }
+                            inspectionHtml += '</select>';
+                            
+                        } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
+                            inspectionHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                            
+                            // Parse the lookup values for multi-select
+                            if (field.LOOKUPVALUES) {
+                                let values = field.LOOKUPVALUES.split('|');
+                                $.each(values, function(j, value) {
+                                    if (value.trim()) {
+                                        inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                    }
+                                });
+                            }
+                            inspectionHtml += '</select>';
+                            
+                        } else {
+                            // Fallback for other field types - render as text input
+                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        }
                     }
                     
                     inspectionHtml += '</div>';
@@ -622,8 +657,10 @@ $(function() {
             
             // Re-initialize styling and widgets for the new fields
             setTimeout(function() {
-                animal_induction.init_inspection_styling();
                 animal_induction.init_inspection_widgets();
+                animal_induction.init_inspection_yesno_cards();
+                animal_induction.init_inspection_styling();
+                animal_induction.populate_inspection_fields();
             }, 100);
         },
 
@@ -656,6 +693,92 @@ $(function() {
                     sortable: true,
                     removeLabel: '<strong>&times;</strong>'
                 });
+            });
+        },
+
+        /**
+         * Populate inspection fields with saved values
+         */
+        populate_inspection_fields: function() {
+            $.each(controller.additional, function(i, field) {
+                if (field.FIELDNAME && field.FIELDNAME.toLowerCase().startsWith('entryinspection')) {
+                    let fieldId = 'add_' + field.ID;
+                    let $element = $("#" + fieldId);
+                    
+                    if ($element.length && field.VALUE !== undefined && field.VALUE !== null) {
+                        if (field.FIELDTYPE == 0) { // YESNO - Checkbox
+                            let isChecked = field.VALUE == "1" || field.VALUE === true;
+                            $element.prop('checked', isChecked);
+                            
+                            // Update the card appearance
+                            let $card = $element.closest('.yesno-field');
+                            let $status = $card.find('.yesno-status');
+                            
+                            if (isChecked) {
+                                $card.addClass('checked');
+                                $status.text('Yes');
+                            } else {
+                                $card.removeClass('checked');
+                                $status.text('No');
+                            }
+                        } else if (field.FIELDTYPE == 1 || field.FIELDTYPE == 2 || field.FIELDTYPE == 3) { // TEXT, NOTES, NUMBER
+                            $element.val(field.VALUE);
+                        } else if (field.FIELDTYPE == 4) { // DATE
+                            $element.val(field.VALUE);
+                        } else if (field.FIELDTYPE == 5) { // MONEY
+                            $element.currency("value", field.VALUE);
+                        } else if (field.FIELDTYPE == 6) { // LOOKUP
+                            $element.val(field.VALUE);
+                        } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP
+                            if (field.VALUE) {
+                                let values = field.VALUE.split('|');
+                                $element.val(values);
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        /**
+         * Initialize yes/no clickable cards functionality
+         */
+        init_inspection_yesno_cards: function() {
+            // Add click handlers for yes/no cards
+            $("#inspection-fields .yesno-field").on('click', function() {
+                const $card = $(this);
+                const $checkbox = $card.find('input[type="checkbox"]');
+                const $status = $card.find('.yesno-status');
+                
+                // Toggle checkbox state
+                $checkbox.prop('checked', !$checkbox.prop('checked'));
+                
+                // Update card appearance
+                if ($checkbox.prop('checked')) {
+                    $card.addClass('checked');
+                    $status.text('Yes');
+                } else {
+                    $card.removeClass('checked');
+                    $status.text('No');
+                }
+                
+                // Trigger change event for ASM3 form handling
+                $checkbox.trigger('change');
+            });
+            
+            // Initialize card states based on current checkbox values
+            $("#inspection-fields .yesno-field").each(function() {
+                const $card = $(this);
+                const $checkbox = $card.find('input[type="checkbox"]');
+                const $status = $card.find('.yesno-status');
+                
+                if ($checkbox.prop('checked')) {
+                    $card.addClass('checked');
+                    $status.text('Yes');
+                } else {
+                    $card.removeClass('checked');
+                    $status.text('No');
+                }
             });
         },
 
@@ -735,6 +858,9 @@ $(function() {
                     const oldVersion = controller.animal.RECORDVERSION;
                     controller.animal.RECORDVERSION = parseInt(controller.animal.RECORDVERSION) + 1;
                     console.log("ADD ANIMAL: Updated RECORDVERSION from", oldVersion, "to", controller.animal.RECORDVERSION);
+                    
+                    // After successful save, the controller.animal object may have stale data
+                    // For now, just let the normal sync process handle it
                 } else {
                     console.log("ADD ANIMAL: NOT updating RECORDVERSION - controller.animal:", !!controller.animal, "createdID:", createdID);
                 }
@@ -794,57 +920,30 @@ $(function() {
             if (controller.animal) {
                 formdata += "&id=" + controller.animal.ID;
                 formdata += "&recordversion=" + controller.animal.RECORDVERSION;
-                console.log("Save progress: Editing existing animal ID:", controller.animal.ID, "RecordVersion:", controller.animal.RECORDVERSION);
-            } else {
-                console.log("Save progress: Creating new animal");
             }
-            console.log("FULL SAVE PROGRESS FORM DATA:", formdata);
-            
-            // Parse and log specific key fields
-            const formParams = new URLSearchParams(formdata);
-            console.log("SAVE PROGRESS - Key Fields:");
-            console.log("  mode:", formParams.get('mode'));
-            console.log("  id:", formParams.get('id'));
-            console.log("  animalname:", formParams.get('animalname'));
-            console.log("  breed1:", formParams.get('breed1'));
-            console.log("  location:", formParams.get('location'));
-            console.log("  shelterlocationunit:", formParams.get('shelterlocationunit'));
-            console.log("  recordversion:", formParams.get('recordversion'));
-            
             try {
                 const response = await common.ajax_post("animal_induction", formdata);
-                console.log("SAVE PROGRESS: Raw response from server:", response);
                 const [animalID, code] = response.split(" ");
-                console.log("SAVE PROGRESS: Parsed animalID:", animalID, "code:", code);
-                console.log("SAVE PROGRESS: controller.animal exists?", !!controller.animal);
-                console.log("SAVE PROGRESS: Old RECORDVERSION:", controller.animal ? controller.animal.RECORDVERSION : "N/A");
                 
                 // Update record version after successful save to prevent "changed by another user" errors
                 if (controller.animal && animalID) {
-                    const oldVersion = controller.animal.RECORDVERSION;
                     controller.animal.RECORDVERSION = parseInt(controller.animal.RECORDVERSION) + 1;
-                    console.log("SAVE PROGRESS: Updated RECORDVERSION from", oldVersion, "to", controller.animal.RECORDVERSION);
-                } else {
-                    console.log("SAVE PROGRESS: NOT updating RECORDVERSION - controller.animal:", !!controller.animal, "animalID:", animalID);
                 }
                 
                 if (animalID && animalID !== "0") {
                     if (controller.animal) {
                         // Check if location was changed away from Induction
                         const currentLocation = $("#internallocation option:selected").text();
-                        console.log("SAVE PROGRESS: Current selected location:", currentLocation);
                         
                         header.show_info(_("Animal '{0}' updated successfully.").replace("{0}", $("#animalname").val()));
                         
                         if (currentLocation && !currentLocation.toLowerCase().includes("induction")) {
                             // Location changed away from Induction, go to normal animal view
-                            console.log("SAVE PROGRESS: Location changed away from Induction, redirecting to animal view");
                             setTimeout(function() {
                                 common.route("animal?id=" + animalID);
                             }, 1000);
                         } else {
                             // Still in Induction, reload current page
-                            console.log("SAVE PROGRESS: Still in Induction location, reloading page");
                             setTimeout(function() {
                                 common.route_reload();
                             }, 1000);
@@ -1375,7 +1474,10 @@ $(function() {
         sync: function() {
             // If we have an animal to load (editing mode), populate the form
             if (controller.animal) {
-                animal_induction.load_animal(controller.animal);
+                // Delay loading to ensure all form fields are rendered
+                setTimeout(function() {
+                    animal_induction.load_animal(controller.animal);
+                }, 200);
             } else {
                 // New animal mode - reset form
                 animal_induction.reset();
@@ -1398,8 +1500,24 @@ $(function() {
             $("#basecolour").val(animal.BASECOLOURID);
             $("#coattype").val(animal.COATTYPEID);
             $("#size").val(animal.SIZE);
-            $("#internallocation").val(animal.SHELTERLOCATION);
-            $("#unit").val(animal.SHELTERLOCATIONUNIT);
+            
+            // Set weight field
+            if (animal.WEIGHT) {
+                $("#weight").val(animal.WEIGHT);
+            }
+            // Set internal location - handle null/0 values
+            if (animal.SHELTERLOCATION && animal.SHELTERLOCATION != "0") {
+                $("#internallocation").val(animal.SHELTERLOCATION);
+                // Update units after setting location
+                setTimeout(function() {
+                    animal_induction.update_units().then(function() {
+                        $("#unit").val(animal.SHELTERLOCATIONUNIT || "");
+                    });
+                }, 100);
+            } else {
+                $("#internallocation").val(""); // Set to empty if null/0
+                $("#unit").val("");
+            }
             $("#entrytype").val(animal.ENTRYTYPEID);
             $("#datebroughtin").val(format.date(animal.DATEBROUGHTIN));
             if (animal.TIMEBROUGHTIN) {
@@ -1407,10 +1525,32 @@ $(function() {
             }
             if (animal.DATEOFBIRTH) {
                 $("#dateofbirth").val(format.date(animal.DATEOFBIRTH));
-                $("#estimateddob").val(""); // Clear estimated age if we have DOB
-            } else if (animal.ESTIMATEDAGE) {
-                $("#estimateddob").val(animal.ESTIMATEDAGE);
-                $("#dateofbirth").val(""); // Clear DOB if we have estimated age
+                $("#estimateddob").prop("checked", false); // Clear estimated flag if we have DOB
+            }
+            // Set estimated DOB checkbox
+            if (animal.ESTIMATEDDOB) {
+                $("#estimateddob").prop("checked", animal.ESTIMATEDDOB == 1);
+            } else {
+                $("#estimateddob").prop("checked", false);
+            }
+            // Set entry age range - check multiple possible field names
+            let entryAgeValue = animal.ENTRYAGERANGE || animal.AGEGROUP;
+            if (entryAgeValue) {
+                setTimeout(function() {
+                    $("#entryagerange").val(entryAgeValue);
+                    // Also try using select() method if val() doesn't work
+                    if ($("#entryagerange").val() !== entryAgeValue) {
+                        $("#entryagerange").select("value", entryAgeValue);
+                    }
+                    
+                    // Double-check after another brief delay in case something else overrides
+                    setTimeout(function() {
+                        if ($("#entryagerange").val() !== entryAgeValue) {
+                            $("#entryagerange").val(entryAgeValue);
+                            $("#entryagerange").select("value", entryAgeValue);
+                        }
+                    }, 200);
+                }, 500); // Increased delay to 500ms
             }
             $("#nonshelter").prop("checked", animal.NONSHELTERANIMAL == 1);
             $("#hold").prop("checked", animal.HASACTIVEHOLD == 1);
