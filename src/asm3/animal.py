@@ -3487,7 +3487,7 @@ def update_animal_from_form(dbo: Database, post: PostedData, username: str) -> N
     prerow = dbo.first_row(dbo.query("SELECT DeceasedDate, ShelterLocation, ShelterLocationUnit, Weight, IsHold, AdditionalFlags, AnimalName FROM animal WHERE ID=?", [aid]))
 
     # Record the location if it has changed
-    insert_animallocation(dbo, username, aid, post["animalname"], post["sheltercode"], prerow.shelterlocation, prerow.shelterlocationunit, post.integer("location"), post["unit"])
+    insert_animallocation(dbo, username, aid, post["animalname"], post["sheltercode"], prerow.shelterlocation, prerow.shelterlocationunit, post.integer("internallocation"), post["unit"])
 
     # If the option is on and the hold status has changed, log it
     if asm3.configuration.hold_change_log(dbo):
@@ -3557,7 +3557,7 @@ def update_animal_from_form(dbo: Database, post: PostedData, username: str) -> N
         "Breed2ID":             post.integer("breed2"),
         "BreedName":            get_breedname(dbo, post.integer("breed1"), post.integer("breed2")),
         "Crossbreed":           post.boolean("crossbreed"),
-        "ShelterLocation":      post.integer("location"),
+        "ShelterLocation":      post.integer("internallocation"),
         "ShelterLocationUnit":  post["unit"],
         "DateOfBirth":          post.date("dateofbirth"),
         "EstimatedDOB":         post.boolean("estimateddob"),

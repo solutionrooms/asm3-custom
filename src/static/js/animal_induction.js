@@ -256,6 +256,63 @@ $(function() {
                 '    outline: none;',
                 '    box-shadow: 0 0 0 3px rgba(40,167,69,0.1);',
                 '}',
+                '.remedial-actions-grid {',
+                '    display: grid;',
+                '    grid-template-columns: 1fr;',
+                '    gap: 16px;',
+                '    align-items: start;',
+                '}',
+                '.remedial-actions-grid .inspection-item {',
+                '    background: #ffffff;',
+                '    border: 2px solid #e9ecef;',
+                '    border-radius: 10px;',
+                '    padding: 16px;',
+                '    transition: all 0.3s ease;',
+                '    position: relative;',
+                '    min-height: 70px;',
+                '    display: flex;',
+                '    flex-direction: column;',
+                '    box-shadow: 0 2px 4px rgba(0,0,0,0.08);',
+                '}',
+                '.remedial-actions-grid .inspection-item:hover {',
+                '    transform: translateY(-2px);',
+                '    box-shadow: 0 4px 12px rgba(0,0,0,0.15);',
+                '    border-color: #007bff;',
+                '}',
+                '.remedial-actions-grid .inspection-item textarea {',
+                '    min-height: 100px;',
+                '    resize: vertical;',
+                '}',
+                '/* Floating save button */',
+                '.floating-save-container {',
+                '    position: fixed;',
+                '    bottom: 20px;',
+                '    right: 20px;',
+                '    z-index: 1000;',
+                '    display: flex;',
+                '    gap: 10px;',
+                '    background: white;',
+                '    padding: 10px 15px;',
+                '    border-radius: 25px;',
+                '    box-shadow: 0 4px 20px rgba(0,0,0,0.15);',
+                '    border: 1px solid #e0e6ed;',
+                '}',
+                '.floating-save-container .ui-button {',
+                '    font-weight: 600;',
+                '    padding: 8px 20px;',
+                '    border-radius: 20px;',
+                '    transition: all 0.3s ease;',
+                '}',
+                '.floating-save-container .ui-button:hover {',
+                '    transform: translateY(-2px);',
+                '    box-shadow: 0 4px 12px rgba(0,0,0,0.2);',
+                '}',
+                '/* Hide original buttons on mobile */',
+                '@media (max-width: 768px) {',
+                '    .asm-toolbar {',
+                '        display: none !important;',
+                '    }',
+                '}',
                 '.inspection-item select option[value="No"] { color: #28a745; }',
                 '.inspection-item select option[value="Slight"] { color: #ffc107; }',
                 '.inspection-item select option[value="Moderate"] { color: #fd7e14; }',
@@ -525,6 +582,14 @@ $(function() {
                 '    </div>',
                 '</div>',
 
+                '<!-- Full-width Remedial Actions Section -->',
+                '<div class="inspection-section">',
+                '    <h3>' + _("Remedial Actions") + '</h3>',
+                '    <div class="remedial-actions-grid" id="remedial-actions-fields">',
+                '        <!-- Remedial action fields will be rendered here by additional fields system -->',
+                '    </div>',
+                '</div>',
+
                 '</div>',
                 tableform.buttons_render([
                    { id: "save", icon: "save", text: _("Save") },
@@ -665,6 +730,141 @@ $(function() {
         },
 
         /**
+         * Render remedial actions additional fields in the remedial actions grid
+         */
+        render_remedial_actions_fields: function() {
+            let remedialActionsHtml = '';
+            
+            // Find all additional fields that start with "entryaction"
+            $.each(controller.additional, function(i, field) {
+                if (field.FIELDNAME && field.FIELDNAME.toLowerCase().startsWith('entryaction')) {
+                    // Get the display name (remove "entryaction" prefix and make it readable)
+                    let displayName = field.FIELDNAME.substring(11); // Remove "entryaction" prefix
+                    displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1); // Capitalize first letter
+                    
+                    // Use field label if available, otherwise use the formatted name
+                    let label = field.FIELDLABEL || displayName;
+                    let fieldId = 'add_' + field.ID;
+                    let postAttr = 'a.' + field.MANDATORY + '.' + field.ID;
+                    
+                    // Add appropriate CSS class based on field type for optimal layout
+                    let itemClass = 'inspection-item';
+                    if (field.FIELDTYPE == 0) { // Yes/No checkbox
+                        itemClass += ' yesno-field';
+                    } else if (field.FIELDTYPE == 6 || field.FIELDTYPE == 7) { // Select/Multi-select
+                        itemClass += ' select-field';
+                    }
+                    
+                    remedialActionsHtml += '<div class="' + itemClass + '" data-field-id="' + fieldId + '">';
+                    
+                    // Render the appropriate field widget based on field type
+                    if (field.FIELDTYPE == 0) { // YESNO - Clickable card
+                        remedialActionsHtml += '<div class="yesno-label">' + label;
+                        if (field.MANDATORY == 1) {
+                            remedialActionsHtml += '<span class="asm-has-validation">*</span>';
+                        }
+                        remedialActionsHtml += '</div>';
+                        remedialActionsHtml += '<div class="yesno-status">No</div>';
+                        remedialActionsHtml += '<input id="' + fieldId + '" type="checkbox" class="asm-checkbox additional" ';
+                        remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else {
+                        // Regular label for non-checkbox fields
+                        remedialActionsHtml += '<label class="inspection-field-label" for="' + fieldId + '">' + label;
+                        if (field.MANDATORY == 1) {
+                            remedialActionsHtml += '<span class="asm-has-validation">*</span>';
+                        }
+                        remedialActionsHtml += '</label>';
+                        
+                        if (field.FIELDTYPE == 1) { // TEXT - Text input
+                            remedialActionsHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
+                            remedialActionsHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
+                            
+                        } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
+                            remedialActionsHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 4) { // DATE - Date input
+                            remedialActionsHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
+                            remedialActionsHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                            
+                        } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
+                            remedialActionsHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                            remedialActionsHtml += '<option value="">' + _("Select...") + '</option>';
+                            
+                            // Parse the lookup values
+                            if (field.LOOKUPVALUES) {
+                                let values = field.LOOKUPVALUES.split('|');
+                                $.each(values, function(j, value) {
+                                    if (value.trim()) {
+                                        remedialActionsHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                    }
+                                });
+                            }
+                            remedialActionsHtml += '</select>';
+                            
+                        } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
+                            remedialActionsHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                            
+                            // Parse the lookup values for multi-select
+                            if (field.LOOKUPVALUES) {
+                                let values = field.LOOKUPVALUES.split('|');
+                                $.each(values, function(j, value) {
+                                    if (value.trim()) {
+                                        remedialActionsHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                    }
+                                });
+                            }
+                            remedialActionsHtml += '</select>';
+                            
+                        } else {
+                            // Fallback for other field types - render as text input
+                            remedialActionsHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                            remedialActionsHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            remedialActionsHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        }
+                    }
+                    
+                    remedialActionsHtml += '</div>';
+                }
+            });
+            
+            // If no fields found, show a message
+            if (remedialActionsHtml === '') {
+                remedialActionsHtml = '<div class="inspection-item"><p style="text-align: center; color: #6c757d; font-style: italic;">No remedial action fields configured. Please add additional fields with names starting with "entryaction" in ASM3 Settings > Options > Additional Fields.</p></div>';
+            }
+            
+            // Insert the generated HTML into the remedial actions grid
+            $("#remedial-actions-fields").html(remedialActionsHtml);
+            
+            // Re-initialize styling and widgets for the new fields
+            setTimeout(function() {
+                animal_induction.init_remedial_actions_widgets();
+                animal_induction.init_remedial_actions_yesno_cards();
+                animal_induction.init_remedial_actions_styling();
+                animal_induction.populate_remedial_actions_fields();
+            }, 100);
+        },
+
+        /**
          * Initialize inspection widgets (date pickers, currency boxes, etc.)
          */
         init_inspection_widgets: function() {
@@ -783,6 +983,154 @@ $(function() {
         },
 
         /**
+         * Initialize remedial actions widgets (date pickers, currency boxes, etc.)
+         */
+        init_remedial_actions_widgets: function() {
+            // Initialize datepickers
+            $("#remedial-actions-fields .asm-datebox").datepicker({
+                changeMonth: true,
+                changeYear: true,
+                yearRange: "-100:+10",
+                dateFormat: "dd/mm/yy"
+            });
+            
+            // Initialize currency boxes
+            $("#remedial-actions-fields .asm-currencybox").each(function() {
+                $(this).currency();
+            });
+            
+            // Initialize number boxes
+            $("#remedial-actions-fields .asm-numberbox").each(function() {
+                $(this).number(true, 2);
+            });
+            
+            // Initialize multi-select boxes
+            $("#remedial-actions-fields .asm-bsmselect").each(function() {
+                $(this).asmselect({
+                    animate: true,
+                    sortable: true,
+                    removeLabel: '<strong>&times;</strong>'
+                });
+            });
+        },
+
+        /**
+         * Populate remedial actions fields with saved values
+         */
+        populate_remedial_actions_fields: function() {
+            $.each(controller.additional, function(i, field) {
+                if (field.FIELDNAME && field.FIELDNAME.toLowerCase().startsWith('entryaction')) {
+                    let fieldId = 'add_' + field.ID;
+                    let $element = $("#" + fieldId);
+                    
+                    if ($element.length && field.VALUE !== undefined && field.VALUE !== null) {
+                        if (field.FIELDTYPE == 0) { // YESNO - Checkbox
+                            let isChecked = field.VALUE == "1" || field.VALUE === true;
+                            $element.prop('checked', isChecked);
+                            
+                            // Update the card appearance
+                            let $card = $element.closest('.yesno-field');
+                            let $status = $card.find('.yesno-status');
+                            
+                            if (isChecked) {
+                                $card.addClass('checked');
+                                $status.text('Yes');
+                            } else {
+                                $card.removeClass('checked');
+                                $status.text('No');
+                            }
+                        } else if (field.FIELDTYPE == 1 || field.FIELDTYPE == 2 || field.FIELDTYPE == 3) { // TEXT, NOTES, NUMBER
+                            $element.val(field.VALUE);
+                        } else if (field.FIELDTYPE == 4) { // DATE
+                            $element.val(field.VALUE);
+                        } else if (field.FIELDTYPE == 5) { // MONEY
+                            $element.currency("value", field.VALUE);
+                        } else if (field.FIELDTYPE == 6) { // LOOKUP
+                            $element.val(field.VALUE);
+                        } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP
+                            if (field.VALUE) {
+                                let values = field.VALUE.split('|');
+                                $element.val(values);
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        /**
+         * Initialize remedial actions yes/no clickable cards functionality
+         */
+        init_remedial_actions_yesno_cards: function() {
+            // Add click handlers for yes/no cards
+            $("#remedial-actions-fields .yesno-field").on('click', function() {
+                const $card = $(this);
+                const $checkbox = $card.find('input[type="checkbox"]');
+                const $status = $card.find('.yesno-status');
+                
+                // Toggle checkbox state
+                $checkbox.prop('checked', !$checkbox.prop('checked'));
+                
+                // Update card appearance
+                if ($checkbox.prop('checked')) {
+                    $card.addClass('checked');
+                    $status.text('Yes');
+                } else {
+                    $card.removeClass('checked');
+                    $status.text('No');
+                }
+                
+                // Trigger change event for ASM3 form handling
+                $checkbox.trigger('change');
+            });
+            
+            // Initialize card states based on current checkbox values
+            $("#remedial-actions-fields .yesno-field").each(function() {
+                const $card = $(this);
+                const $checkbox = $card.find('input[type="checkbox"]');
+                const $status = $card.find('.yesno-status');
+                
+                if ($checkbox.prop('checked')) {
+                    $card.addClass('checked');
+                    $status.text('Yes');
+                } else {
+                    $card.removeClass('checked');
+                    $status.text('No');
+                }
+            });
+        },
+
+        /**
+         * Initialize remedial actions dropdown styling and color coding
+         */
+        init_remedial_actions_styling: function() {
+            $("#remedial-actions-fields select").each(function() {
+                // Add color coding based on selected value
+                $(this).change(function() {
+                    const value = $(this).val();
+                    const item = $(this).closest('.inspection-item');
+                    
+                    // Remove previous state classes
+                    item.removeClass('inspection-no inspection-slight inspection-moderate inspection-severe');
+                    
+                    // Add appropriate class based on selection
+                    if (value === 'No') {
+                        item.addClass('inspection-no');
+                    } else if (value === 'Slight') {
+                        item.addClass('inspection-slight');
+                    } else if (value === 'Moderate') {
+                        item.addClass('inspection-moderate');
+                    } else if (value === 'Severe') {
+                        item.addClass('inspection-severe');
+                    }
+                });
+                
+                // Trigger change event to apply initial styling
+                $(this).trigger('change');
+            });
+        },
+
+        /**
          * Initialize inspection dropdown styling and color coding
          */
         init_inspection_styling: function() {
@@ -810,6 +1158,51 @@ $(function() {
                 // Trigger change event to apply initial styling
                 $(this).trigger('change');
             });
+        },
+
+        /**
+         * Add floating save/reset buttons for easier access
+         */
+        add_floating_buttons: function() {
+            // Create floating button container if it doesn't exist
+            if ($('.floating-save-container').length === 0) {
+                $('body').append(
+                    '<div class="floating-save-container">' +
+                    '<button id="floating-save" type="button" class="ui-button ui-widget ui-state-default ui-corner-all" title="Save Progress">' +
+                    '<span class="ui-icon ui-icon-disk"></span> Save' +
+                    '</button>' +
+                    '<button id="floating-reset" type="button" class="ui-button ui-widget ui-state-default ui-corner-all" title="Reset Form">' +
+                    '<span class="ui-icon ui-icon-arrowrefresh-1-w"></span> Reset' +
+                    '</button>' +
+                    '</div>'
+                );
+                
+                // Bind click events to existing functionality
+                $('#floating-save').click(function() {
+                    animal_induction.save_progress();
+                });
+                
+                $('#floating-reset').click(function() {
+                    animal_induction.reset();
+                });
+                
+                // Hide floating buttons when original toolbar is visible
+                $(window).scroll(function() {
+                    const $toolbar = $('.asm-toolbar');
+                    if ($toolbar.length > 0) {
+                        const toolbarTop = $toolbar.offset().top;
+                        const windowBottom = $(window).scrollTop() + $(window).height();
+                        
+                        if (windowBottom >= toolbarTop) {
+                            // Original toolbar is visible, hide floating buttons
+                            $('.floating-save-container').fadeOut(200);
+                        } else {
+                            // Original toolbar not visible, show floating buttons
+                            $('.floating-save-container').fadeIn(200);
+                        }
+                    }
+                });
+            }
         },
 
         /**
@@ -1429,6 +1822,12 @@ $(function() {
 
             // Render inspection additional fields in the inspection section
             animal_induction.render_inspection_fields();
+            
+            // Render remedial actions additional fields in the remedial actions section
+            animal_induction.render_remedial_actions_fields();
+            
+            // Add floating save buttons
+            animal_induction.add_floating_buttons();
 
             // Entry Age Range calculation
             $("#entryagerange").change(function() {
