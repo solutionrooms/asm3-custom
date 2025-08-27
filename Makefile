@@ -1,7 +1,7 @@
 
 # ASM3 Docker Management Makefile
 # Combined original ASM3 commands (prefixed with o_) and Docker management commands
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew install-cron uninstall-cron status-cron testdata
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata
 
 # Default target - show help
 help:
@@ -34,6 +34,7 @@ help:
 	@echo "  init-ssl      - Initialize SSL certificates with Let's Encrypt"
 	@echo "  renew-ssl     - Manually renew SSL certificates"
 	@echo "  ssl-status    - Check SSL certificate status"
+	@echo "  generate-ssl-config - Generate nginx SSL config from template"
 	@echo "  ssl-auto-renew - Start SSL auto-renewal background service"
 	@echo "  ssl-stop-renew - Stop SSL auto-renewal background service"
 	@echo ""
@@ -269,6 +270,24 @@ ssl-auto-renew:
 ssl-stop-renew:
 	@echo "Stopping SSL auto-renewal service..."
 	@docker-compose -f docker-compose.ssl.yml down
+
+# Generate nginx SSL configuration from template
+generate-ssl-config:
+	@echo "Generating nginx SSL configuration..."
+	@DOMAIN=$$(grep "^NGINX_SERVER_NAME=" .env | cut -d= -f2); \
+	if [ -z "$$DOMAIN" ]; then \
+		echo "❌ ERROR: NGINX_SERVER_NAME not found in .env file"; \
+		exit 1; \
+	fi; \
+	if [ -f "nginx-ssl.conf.template" ]; then \
+		echo "🔧 Creating SSL config for $$DOMAIN..."; \
+		sed "s/NGINX_SERVER_NAME_PLACEHOLDER/$$DOMAIN/g" nginx-ssl.conf.template > nginx-processed.conf; \
+		echo "✅ Generated nginx-processed.conf with SSL configuration"; \
+		echo "💡 Run 'make restart' to apply the new configuration"; \
+	else \
+		echo "❌ ERROR: nginx-ssl.conf.template not found"; \
+		exit 1; \
+	fi
 
 # Install cron jobs on VM host (runs outside containers)
 install-cron:

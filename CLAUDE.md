@@ -243,8 +243,82 @@ ASM3_DEBUG=true  # Enables web.py debug mode
 - [ ] No Python errors in container logs
 - [ ] Changes persist after container restart
 
+## SSL Configuration & Troubleshooting
+
+### SSL Setup Process
+1. **Prerequisites**: Domain DNS must point to server IP, port 80 must be accessible
+2. **Initialize SSL**: `make init-ssl` (automatically handles certificate generation and configuration)
+3. **Verify**: Check https://yourdomain.com and https://www.ssllabs.com/ssltest/
+
+### SSL Architecture
+**Configuration Files**:
+- `nginx-ssl.conf.template` → Template with `NGINX_SERVER_NAME_PLACEHOLDER`
+- `nginx-processed.conf` → Generated config (domain substituted)
+- `docker-compose.ssl-init.yml` → Override for certificate generation (exposes port 80)
+
+### Common SSL Issues & Fixes
+
+#### Issue 1: "Connection refused" on port 443
+**Cause**: SSL certificates missing or nginx not using SSL config  
+**Fix**: 
+```bash
+make init-ssl  # Generates certificates and switches to SSL config
+```
+
+#### Issue 2: Let's Encrypt fails - "Connection refused" on port 80
+**Cause**: Port 80 not accessible for ACME challenge  
+**Fix**: The `init-ssl.sh` script automatically exposes port 80 during certificate generation
+
+#### Issue 3: Nginx fails to start with "invalid number of arguments"
+**Cause**: Environment variable substitution removing nginx variables like `$binary_remote_addr`  
+**Fix**: Use template system instead of `envsubst`:
+```bash
+# Don't use:
+envsubst < nginx-ssl.conf > nginx-processed.conf
+
+# Use instead:
+sed "s/NGINX_SERVER_NAME_PLACEHOLDER/$DOMAIN/g" nginx-ssl.conf.template > nginx-processed.conf
+```
+
+#### Issue 4: SSL works but redirects broken
+**Check**: Nginx config has proper `server_name` and `return 301 https://$server_name$request_uri`
+
+### SSL File Workflow
+1. **Templates**: `nginx-ssl.conf.template`, `nginx-temp.conf.template` (with placeholders)
+2. **Generation**: `init-ssl.sh` substitutes domain and creates `nginx-processed.conf`
+3. **Mounting**: `docker-compose.yml` mounts `nginx-processed.conf` to container
+
+### Debugging SSL Issues
+```bash
+# Check if certificates exist
+docker run --rm -v "$(basename $(pwd))_certbot_certs:/certs" alpine ls -la /certs/live/
+
+# Test nginx config syntax
+docker-compose exec nginx nginx -t
+
+# Check which ports are listening
+ss -tlnp | grep ':80\|:443'
+
+# Test direct connectivity
+curl -v http://yourdomain.com
+curl -v https://yourdomain.com
+```
+
+### Manual SSL Recovery
+If SSL setup fails, manually fix:
+```bash
+# 1. Generate certificates manually
+docker-compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d yourdomain.com
+
+# 2. Create SSL config
+sed "s/NGINX_SERVER_NAME_PLACEHOLDER/yourdomain.com/g" nginx-ssl.conf.template > nginx-processed.conf
+
+# 3. Restart with SSL
+docker-compose down && docker-compose up -d
+```
+
 ---
 
-**Last Updated**: 2025-08-24  
+**Last Updated**: 2025-08-27  
 **ASM3 Upstream Version**: 50  
 **Custom Version**: C1

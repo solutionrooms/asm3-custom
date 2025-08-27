@@ -1,0 +1,12 @@
+# Docker Compose override for SSL certificate initialization
+# This file is used by init-ssl.sh to temporarily expose port 80 for Let's Encrypt
+services:
+  nginx:
+    ports:
+      - "80:80"      # Expose port 80 for Let's Encrypt ACME challenge
+      - "8095:80"    # Keep the existing port mapping  
+      - "443:443"    # Keep HTTPS port
+    volumes:
+      - ./nginx-temp.conf:/etc/nginx/nginx.conf:ro
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
