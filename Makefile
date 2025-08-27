@@ -78,6 +78,7 @@ stop:
 restart:
 	@./scripts/process-nginx-config.sh
 	docker-compose restart
+	@echo "Note: For .env changes, use 'make stop && make start' instead"
 
 # Show logs (follow mode)
 logs:

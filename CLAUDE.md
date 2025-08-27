@@ -232,9 +232,10 @@ ASM3_DEBUG=true  # Enables web.py debug mode
 
 ### Common Pitfalls
 1. **Menu JavaScript Errors**: Undefined values or external URLs break menu rendering
-2. **Container Caching**: Environment variable changes require `docker-compose down/up`
-3. **File Permissions**: Volume mounts need proper file access
-4. **Localization**: UI text changes may need updates in multiple locale files
+2. **Environment Variable Changes**: Require `docker-compose down && docker-compose up -d` (restart is insufficient)
+3. **Database Host Configuration**: Must be `ASM3_DBHOST=postgres` (matches docker-compose service name)
+4. **File Permissions**: Volume mounts need proper file access
+5. **Localization**: UI text changes may need updates in multiple locale files
 
 ### Testing Checklist
 - [ ] Menu loads without JavaScript errors
