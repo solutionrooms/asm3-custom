@@ -1351,7 +1351,11 @@ $(function() {
                             }, 1000);
                         }
                     } else {
-                        header.show_info(_("Animal '{0}' saved with code {1}. You can return to complete details later.").replace("{0}", $("#animalname").val()).replace("{1}", code));
+                        // First save successful - reload page in edit mode to prevent duplicate name errors
+                        header.show_info(_("Animal '{0}' saved with code {1}. Reloading to continue editing...").replace("{0}", $("#animalname").val()).replace("{1}", code));
+                        setTimeout(function() {
+                            common.route("animal_induction?id=" + animalID);
+                        }, 1000);
                     }
                 } else {
                     header.show_info(_("Progress saved successfully"));

@@ -101,6 +101,11 @@ All modifications logged in `MODIFICATIONS.md` with:
 
 ## Quick References
 
+### Test Credentials
+For testing with browsermcp (avoids password prompts):
+- **Username**: `claude`
+- **Password**: `Kj32!8`
+
 ### Make Commands
 
 **Docker Management (Primary Commands):**
