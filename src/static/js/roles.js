@@ -91,7 +91,7 @@ $(function() {
                 cr("gaf", _("Generate Documents")),
                 cr("rsu", _("Reserve/Sponsor Units")),
                 cr("vti", _("View Timeline")),
-                cl(_("Hedghog")),
+                cl(_("Hedgehog")),
                 cr("ahh", _("Access Hedghog Menu")),
                 cl(_("Litters")),
                 cr("all", _("Add Litter")),

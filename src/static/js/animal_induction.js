@@ -1186,10 +1186,16 @@ $(function() {
                     animal_induction.reset();
                 });
                 
+                // Initial visibility check - show buttons if toolbar is hidden (mobile)
+                const $toolbar = $('.asm-toolbar');
+                if ($toolbar.length === 0 || !$toolbar.is(':visible')) {
+                    $('.floating-save-container').show();
+                }
+                
                 // Hide floating buttons when original toolbar is visible
                 $(window).scroll(function() {
                     const $toolbar = $('.asm-toolbar');
-                    if ($toolbar.length > 0) {
+                    if ($toolbar.length > 0 && $toolbar.is(':visible')) {
                         const toolbarTop = $toolbar.offset().top;
                         const windowBottom = $(window).scrollTop() + $(window).height();
                         
@@ -1200,6 +1206,9 @@ $(function() {
                             // Original toolbar not visible, show floating buttons
                             $('.floating-save-container').fadeIn(200);
                         }
+                    } else {
+                        // No toolbar or toolbar is hidden (mobile), always show floating buttons
+                        $('.floating-save-container').fadeIn(200);
                     }
                 });
             }
