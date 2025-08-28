@@ -419,7 +419,7 @@ $(function() {
                                 tableform.render_select({ post_field: "basecolour", justwidget: true, options: { displayfield: "BASECOLOUR", rows: controller.colours }}),
                 '            </div>',
                 '        </div>',
-                '        <div class="field-row">',
+                '        <div class="field-row" id="coattyperow">',
                 '            <div class="field-label">' + _("Coat Type") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_select({ post_field: "coattype", justwidget: true, options: { displayfield: "COATTYPE", rows: controller.coattypes }}),
@@ -441,7 +441,7 @@ $(function() {
                 '                <label id="ozlabel">' + _("oz") + '</label>',
                 '            </div>',
                 '        </div>',
-                '        <div class="field-row">',
+                '        <div class="field-row" id="sizerow">',
                 '            <div class="field-label">' + _("Size") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_select({ post_field: "size", justwidget: true, options: { displayfield: "SIZE", rows: controller.sizes }}),
@@ -1993,7 +1993,24 @@ $(function() {
             $("#breed2").val(animal.BREED2ID);
             $("#crossbreed").prop("checked", animal.CROSSBREED == 1);
             $("#basecolour").val(animal.BASECOLOURID);
-            $("#coattype").val(animal.COATTYPEID);
+            // Coat type is stored as column "CoatType" (ID), not CoatTypeID
+            // Be defensive and fall back to any alternative property names
+            (function() {
+                const id = animal.COATTYPE !== undefined ? animal.COATTYPE : (animal.COATTYPEID !== undefined ? animal.COATTYPEID : "");
+                if (id !== "" && id !== null && id !== undefined) {
+                    $("#coattype").val(id);
+                } else if (animal.COATTYPENAME) {
+                    // Fallback by matching visible text if only the name is available
+                    let matched = false;
+                    $("#coattype option").each(function() {
+                        if ($(this).text() === String(animal.COATTYPENAME)) {
+                            $("#coattype").val($(this).val());
+                            matched = true;
+                            return false;
+                        }
+                    });
+                }
+            })();
             $("#size").val(animal.SIZE);
             
             // Set weight field

@@ -120,6 +120,8 @@ Complete patient induction workflow system for hedgehog rescue operations with m
 2. **Coordinator Field**: `coordinator` → `adoptioncoordinator` (matches standard animal form)  
 3. **Date Handling**: `estimatedage` → `estimateddob` (estimated date of birth checkbox)
 4. **Breed Picker**: Removed non-standard `breedp` field and related code
+5. **Coat Type Reload**: Patient Induction now reads `animal.COATTYPE` (ID) instead of non-existent `COATTYPEID`, so selections like “Spikes” persist across saves.
+6. **Robust Toggling**: Added missing row IDs `coattyperow` and `sizerow` so config options `AddAnimalsShowCoatType` and `AddAnimalsShowSize` work correctly.
 
 #### Root Cause:
 ASM3's `update_animal_from_form()` function expects specific field names. Mismatches caused:
