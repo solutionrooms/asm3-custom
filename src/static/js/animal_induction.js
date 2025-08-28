@@ -367,17 +367,7 @@ $(function() {
                 '        </div>',
                 '        <div class="field-row">',
                 '            <div class="field-label">' + _("Entry Age Range") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_select({ 
-                                    post_field: "entryagerange", 
-                                    justwidget: true, 
-                                    options: '<option value="">' + _("Select age range") + '</option>' +
-                                           '<option value="Baby">Baby</option>' +
-                                           '<option value="Juvenile">Juvenile</option>' +
-                                           '<option value="Adult">Adult</option>' +
-                                           '<option value="Senior">Senior</option>'
-                                }),
-                '            </div>',
+                '            <div class="field-input"><div id="entry-age-range-container"></div></div>',
                 '            <div class="field-callout">' + _("Select age range to auto-calculate estimated date of birth") + '</div>',
                 '        </div>',
                 '        <div class="field-row">',
@@ -875,6 +865,74 @@ $(function() {
                 animal_induction.init_remedial_actions_styling();
                 animal_induction.populate_remedial_actions_fields();
             }, 100);
+        },
+
+        /**
+         * Render the Entry Age Range additional field into the Basic Information section
+         */
+        render_entry_age_range_field: function() {
+            let $container = $("#entry-age-range-container");
+            if ($container.length == 0) { return; }
+            // Find the additional field named 'entryagerange'
+            let field = null;
+            $.each(controller.additional, function(i, f) {
+                if (f.FIELDNAME && f.FIELDNAME.toLowerCase() === 'entryagerange') { field = f; return false; }
+            });
+            let htmlOut = '';
+            if (field) {
+                htmlOut += '<select id="entryagerange" class="asm-selectbox additional" ' +
+                           'data-id="' + field.ID + '" data-post="a.' + field.MANDATORY + '.' + field.ID + '" ' +
+                           'title="' + html.title(field.TOOLTIP || '') + '">';
+                htmlOut += '<option value="">' + _("Select age range") + '</option>';
+                if (field.LOOKUPVALUES) {
+                    let values = field.LOOKUPVALUES.split('|');
+                    $.each(values, function(j, value) {
+                        let v = value.trim(); if (!v) { return; }
+                        htmlOut += '<option value="' + html.title(v) + '">' + v + '</option>';
+                    });
+                }
+                htmlOut += '</select>';
+            }
+            else {
+                // Fallback to static choices if additional field is missing
+                htmlOut += '<select id="entryagerange" class="asm-selectbox">' +
+                           '<option value="">' + _("Select age range") + '</option>' +
+                           '<option value="Baby">Baby</option>' +
+                           '<option value="Juvenile">Juvenile</option>' +
+                           '<option value="Adult">Adult</option>' +
+                           '<option value="Senior">Senior</option>' +
+                           '</select>';
+            }
+            $container.html(htmlOut);
+
+            // Populate from saved additional value if present
+            animal_induction.populate_entry_age_range_field();
+        },
+
+        /**
+         * Populate the Entry Age Range field from additional VALUE if available
+         */
+        populate_entry_age_range_field: function() {
+            let field = null;
+            $.each(controller.additional, function(i, f) {
+                if (f.FIELDNAME && f.FIELDNAME.toLowerCase() === 'entryagerange') { field = f; return false; }
+            });
+            if (!field || field.VALUE === undefined || field.VALUE === null) { return; }
+
+            const desired = String(field.VALUE);
+            const $sel = $("#entryagerange");
+            if ($sel.length == 0) { return; }
+            $sel.val(desired);
+            if ($sel.val() !== desired) {
+                // Fallback: match by visible text contains value
+                $sel.find('option').each(function() {
+                    const t = $(this).text();
+                    if (t && t.toLowerCase().indexOf(desired.toLowerCase()) !== -1) {
+                        $sel.val($(this).val());
+                        return false;
+                    }
+                });
+            }
         },
 
         /**
@@ -1556,10 +1614,10 @@ $(function() {
             $("label[for='broughtinby']").html(_("Brought In By")); 
             $("#broughtinby").personchooser("set_filter", "all");
 
-            // Set estimated age
-            $("#estimateddob").val("");
+            // Set estimated DOB flag based on default age config
+            $("#estimateddob").prop("checked", false);
             if (config.str("DefaultAnimalAge") != "0") {
-                $("#estimateddob").val(config.str("DefaultAnimalAge"));
+                $("#estimateddob").prop("checked", true);
             }
 
             // If auto non shelter is on click checkbox
@@ -1855,43 +1913,52 @@ $(function() {
             // Add floating save buttons
             animal_induction.add_floating_buttons();
 
-            // Populate age group options dynamically
-            animal_induction.populate_agegroup_options();
+            // Render Entry Age Range from Additional Fields
+            animal_induction.render_entry_age_range_field();
 
-            // Entry Age Range calculation
-            $("#entryagerange").change(function() {
-                const ageRange = $(this).val();
-                if (!ageRange) { return; }
-                
-                const today = new Date();
-                let estimatedBirthDate;
-                
-                // Calculate estimated birth date based on midpoint of age ranges
-                switch(ageRange) {
-                    case "Baby": // <1 year, midpoint = 6 months
-                        estimatedBirthDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate());
-                        break;
-                    case "Juvenile": // 1-2 years, midpoint = 1.5 years = 18 months
-                        estimatedBirthDate = new Date(today.getFullYear() - 1, today.getMonth() - 6, today.getDate());
-                        break;
-                    case "Adult": // 2-5 years, midpoint = 3.5 years
-                        estimatedBirthDate = new Date(today.getFullYear() - 3, today.getMonth() - 6, today.getDate());
-                        break;
-                    case "Senior": // 5+ years, estimate = 7 years (reasonable midpoint for senior range)
-                        estimatedBirthDate = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate());
-                        break;
-                    default:
-                        return;
+            // Entry Age Range calculation (handles dynamic labels like "Baby (<1)")
+            $(document).on('change', '#entryagerange', function() {
+                const label = $(this).val();
+                if (!label) {
+                    $("#dateofbirth").val("").change();
+                    $("#estimateddob").prop("checked", false).change();
+                    return;
                 }
-                
-                // Format date and set in the DOB field
+
+                const lower = String(label).toLowerCase();
+                let monthsBack = null;
+
+                // Try to parse numeric ranges in label, eg: "1-2" years, "<1", "5+"
+                const rangeMatch = label.match(/(\d+)\s*-\s*(\d+)/);
+                const ltOneMatch = /<\s*1/.test(label);
+                const plusMatch = label.match(/(\d+)\s*\+/);
+                if (rangeMatch) {
+                    const a = parseInt(rangeMatch[1], 10);
+                    const b = parseInt(rangeMatch[2], 10);
+                    monthsBack = Math.round(((a + b) / 2) * 12);
+                } else if (ltOneMatch) {
+                    monthsBack = 6; // midpoint for <1 year
+                } else if (plusMatch) {
+                    const n = parseInt(plusMatch[1], 10);
+                    monthsBack = (n + 2) * 12; // choose a reasonable midpoint beyond n
+                }
+
+                // Fallback to prefix matching if no numbers parsed
+                if (monthsBack === null) {
+                    if (lower.indexOf("baby") === 0) { monthsBack = 6; }
+                    else if (lower.indexOf("juvenile") === 0) { monthsBack = 18; }
+                    else if (lower.indexOf("adult") === 0) { monthsBack = 42; }
+                    else if (lower.indexOf("senior") === 0) { monthsBack = 84; }
+                }
+
+                if (monthsBack === null) { return; }
+
+                const estimatedBirthDate = new Date();
+                estimatedBirthDate.setMonth(estimatedBirthDate.getMonth() - monthsBack);
+
                 const formattedDate = format.date(estimatedBirthDate);
                 $("#dateofbirth").val(formattedDate);
-                
-                // Set Estimated DOB checkbox to true
                 $("#estimateddob").prop("checked", true);
-                
-                // Trigger change events to update any dependent logic
                 $("#dateofbirth").change();
                 $("#estimateddob").change();
             });
@@ -1961,18 +2028,56 @@ $(function() {
             } else {
                 $("#estimateddob").prop("checked", false);
             }
-            // Set entry age range from the calculated age group
-            let entryAgeValue = animal.AGEGROUP;
-            if (entryAgeValue && entryAgeValue.trim() !== "") {
-                // Use setTimeout with longer delay to ensure dropdown is fully rendered
-                setTimeout(function() {
-                    $("#entryagerange").val(entryAgeValue);
-                    // Force the select widget to update if val() doesn't work
-                    if ($("#entryagerange").val() !== entryAgeValue) {
-                        $("#entryagerange").select("value", entryAgeValue);
+            // Derive entry age range from Date of Birth if not explicitly set in additional field
+            const setAgeRangeFromDOB = function() {
+                // Prefer persisted additional value if available
+                let hasPersisted = false;
+                $.each(controller.additional, function(i, f) {
+                    if (f.FIELDNAME && f.FIELDNAME.toLowerCase() === 'entryagerange') {
+                        if (f.VALUE !== undefined && f.VALUE !== null && String(f.VALUE).trim() !== '') { hasPersisted = true; }
+                        return false;
                     }
-                }, 1000); // Increased delay to 1000ms to ensure full rendering
-            }
+                });
+                if (hasPersisted) { animal_induction.populate_entry_age_range_field(); return; }
+                if (!animal.DATEOFBIRTH) { return; }
+                const dob = format.date_js(animal.DATEOFBIRTH);
+                if (!dob) { return; }
+                const today = new Date();
+                let months = (today.getFullYear() - dob.getFullYear()) * 12 + (today.getMonth() - dob.getMonth());
+                if (today.getDate() < dob.getDate()) { months -= 1; }
+
+                let label = "";
+                if (months < 12) { label = "Baby"; }
+                else if (months < 24) { label = "Juvenile"; }
+                else if (months < 60) { label = "Adult"; }
+                else { label = "Senior"; }
+
+                const applyLabel = function(l) {
+                    const $sel = $("#entryagerange");
+                    $sel.val(l);
+                    if ($sel.val() !== l) {
+                        // Fallback: try to match by visible text contains label
+                        let matched = false;
+                        $sel.find('option').each(function() {
+                            const t = $(this).text().toLowerCase();
+                            if (t.indexOf(l.toLowerCase()) !== -1) {
+                                $sel.val($(this).val());
+                                matched = true;
+                                return false;
+                            }
+                        });
+                        if (!matched) {
+                            // As last resort, try widget API
+                            $sel.select && $sel.select("value", l);
+                        }
+                    }
+                };
+
+                // Delay to ensure dropdown is rendered and populated
+                setTimeout(function() { applyLabel(label); }, 500);
+            };
+
+            setAgeRangeFromDOB();
             $("#nonshelter").prop("checked", animal.NONSHELTERANIMAL == 1);
             $("#hold").prop("checked", animal.HASACTIVEHOLD == 1);
             if (animal.HOLDUNTILDATE) {
