@@ -9,6 +9,19 @@ $(function() {
         /** Only attempt to set the non-shelter animal type once per reset */
         set_nonsheltertype_once: false,
 
+        /**
+         * Populates age group options from server data
+         */
+        populate_agegroup_options: function() {
+            if (controller.agegroups && controller.agegroups.length > 0) {
+                let options = '<option value="">' + _("Select age range") + '</option>';
+                $.each(controller.agegroups, function(i, v) {
+                    options += '<option value="' + html.title(v) + '">' + html.title(v) + '</option>';
+                });
+                $("#entryagerange").html(options);
+            }
+        },
+
         render: function() {
             return [
                 '<div id="dialog-similar" style="display: none" title="' + _("Similar Animal") + '">',
@@ -359,10 +372,10 @@ $(function() {
                                     post_field: "entryagerange", 
                                     justwidget: true, 
                                     options: '<option value="">' + _("Select age range") + '</option>' +
-                                           '<option value="Baby">Baby (&lt;1)</option>' +
-                                           '<option value="Juvenile">Juvenile (1-2)</option>' +
-                                           '<option value="Adult">Adult (2-5)</option>' +
-                                           '<option value="Senior">Senior (5+)</option>'
+                                           '<option value="Baby">Baby</option>' +
+                                           '<option value="Juvenile">Juvenile</option>' +
+                                           '<option value="Adult">Adult</option>' +
+                                           '<option value="Senior">Senior</option>'
                                 }),
                 '            </div>',
                 '            <div class="field-callout">' + _("Select age range to auto-calculate estimated date of birth") + '</div>',
@@ -1842,6 +1855,9 @@ $(function() {
             // Add floating save buttons
             animal_induction.add_floating_buttons();
 
+            // Populate age group options dynamically
+            animal_induction.populate_agegroup_options();
+
             // Entry Age Range calculation
             $("#entryagerange").change(function() {
                 const ageRange = $(this).val();
@@ -1945,24 +1961,17 @@ $(function() {
             } else {
                 $("#estimateddob").prop("checked", false);
             }
-            // Set entry age range - check multiple possible field names
-            let entryAgeValue = animal.ENTRYAGERANGE || animal.AGEGROUP;
-            if (entryAgeValue) {
+            // Set entry age range from the calculated age group
+            let entryAgeValue = animal.AGEGROUP;
+            if (entryAgeValue && entryAgeValue.trim() !== "") {
+                // Use setTimeout with longer delay to ensure dropdown is fully rendered
                 setTimeout(function() {
                     $("#entryagerange").val(entryAgeValue);
-                    // Also try using select() method if val() doesn't work
+                    // Force the select widget to update if val() doesn't work
                     if ($("#entryagerange").val() !== entryAgeValue) {
                         $("#entryagerange").select("value", entryAgeValue);
                     }
-                    
-                    // Double-check after another brief delay in case something else overrides
-                    setTimeout(function() {
-                        if ($("#entryagerange").val() !== entryAgeValue) {
-                            $("#entryagerange").val(entryAgeValue);
-                            $("#entryagerange").select("value", entryAgeValue);
-                        }
-                    }, 200);
-                }, 500); // Increased delay to 500ms
+                }, 1000); // Increased delay to 1000ms to ensure full rendering
             }
             $("#nonshelter").prop("checked", animal.NONSHELTERANIMAL == 1);
             $("#hold").prop("checked", animal.HASACTIVEHOLD == 1);

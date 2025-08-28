@@ -2443,6 +2443,7 @@ class animal_induction(JSONEndpoint):
             "animal": animal,  # Will be None for new animals
             "autolitters": asm3.animal.get_active_litters_brief(dbo),
             "additional": asm3.additional.get_additional_fields(dbo, additional_target, "animal"),
+            "agegroups": asm3.configuration.age_groups(dbo),
             "animaltypes": asm3.lookups.get_animal_types(dbo),
             "species": asm3.lookups.get_species(dbo),
             "breeds": asm3.lookups.get_breeds_by_species(dbo),
