@@ -1614,6 +1614,52 @@ $(function() {
 
         },
 
+        /**
+         * Uploads a photo for the current animal via the mobile uploader endpoint.
+         * Requires an existing animal ID (ie: editing mode). Returns a promise.
+         */
+        upload_photo: function(file) {
+            let deferred = $.Deferred();
+            if (!controller.animal || !controller.animal.ID) {
+                header.show_info(_("Please save first to create this patient, then upload a photo."));
+                deferred.reject("noid");
+                return deferred.promise();
+            }
+            let reader = new FileReader();
+            reader.addEventListener("load", function() {
+                let formdata = "animalid=" + controller.animal.ID +
+                    "&type=gallery" +
+                    "&filename=" + encodeURIComponent(file.name) +
+                    "&filedata=" + encodeURIComponent(reader.result);
+                header.show_loading(_("Uploading..."));
+                $.ajax({
+                    method: "POST",
+                    url: "mobile_photo_upload",
+                    data: formdata,
+                    dataType: "text",
+                    mimeType: "textPlain",
+                    success: async function(mid) {
+                        try {
+                            // Try to set as web preferred so it shows on shelterview
+                            await common.ajax_post("media", "mode=web&ids=" + encodeURIComponent(mid));
+                        } catch (e) {}
+                        header.hide_loading();
+                        header.show_info(_("Photo successfully uploaded."));
+                        // Update preview
+                        $("#induction-photo-preview").attr("src", "/image?db=" + asm.useraccount + "&mode=media&id=" + mid).show();
+                        deferred.resolve(mid);
+                    },
+                    error: function(obj, error, errorthrown) {
+                        header.hide_loading();
+                        header.show_error(error || errorthrown || _("Failed to upload photo."));
+                        deferred.reject(error || errorthrown);
+                    }
+                });
+            }, false);
+            reader.readAsDataURL(file);
+            return deferred.promise();
+        },
+
         /* Update the breed selects to only show the breeds for the selected species.
          * If the species is not in the list of CrossbreedSpecies, hides the crossbreed/second species.
          * If there are no breeds for the species, includes a blank option with ID 0
@@ -1980,6 +2026,22 @@ $(function() {
 
             $("#button-save").button().click(function() {
                 animal_induction.save_progress();
+            });
+
+            // Photo upload
+            $("#button-upload-photo").button().click(function() {
+                if (!$("#induction-photo-file").val()) {
+                    $("#induction-photo-file").trigger("click");
+                    return;
+                }
+                let f = $("#induction-photo-file")[0].files[0];
+                if (!f) { return; }
+                animal_induction.upload_photo(f);
+            });
+            $("#induction-photo-file").change(function() {
+                let f = $("#induction-photo-file")[0].files[0];
+                if (!f) { return; }
+                animal_induction.upload_photo(f);
             });
 
             $("#button-animalname")
