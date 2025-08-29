@@ -41,6 +41,60 @@ $(function() {
                 '    padding: 30px;',
                 '    box-shadow: 0 8px 32px rgba(0,0,0,0.1);',
                 '}',
+                /* Mobile-friendly photo uploader tile */
+                '.photo-upload-tile {',
+                '    position: relative;',
+                '    display: flex;',
+                '    align-items: center;',
+                '    justify-content: center;',
+                '    gap: 10px;',
+                '    width: 100%;',
+                '    min-height: 140px;',
+                '    border: 2px dashed #cfd6df;',
+                '    border-radius: 10px;',
+                '    background: #f9fbfd;',
+                '    color: #6c757d;',
+                '    cursor: pointer;',
+                '    transition: all .2s ease;',
+                '}',
+                '.photo-upload-tile:hover {',
+                '    background: #f0f5ff;',
+                '    border-color: #8fb1ff;',
+                '}',
+                '.photo-upload-icon {',
+                '    font-size: 22px;',
+                '}',
+                '.photo-upload-text {',
+                '    font-weight: 600;',
+                '    font-size: 14px;',
+                '}',
+                '.photo-upload-tile img {',
+                '    display: none;',
+                '    position: absolute;',
+                '    inset: 0;',
+                '    width: 100%;',
+                '    height: 100%;',
+                '    object-fit: cover;',
+                '    border-radius: 10px;',
+                '}',
+                '.photo-upload-tile.has-photo img {',
+                '    display: block;',
+                '}',
+                '.photo-upload-tile.uploading::after {',
+                '    content: "Uploading…";',
+                '    position: absolute;',
+                '    inset: 0;',
+                '    background: rgba(255,255,255,0.7);',
+                '    display: flex;',
+                '    align-items: center;',
+                '    justify-content: center;',
+                '    font-weight: 600;',
+                '    color: #2c3e50;',
+                '    border-radius: 10px;',
+                '}',
+                '@media (max-width: 768px) {',
+                '  #button-upload-photo { display: none; }',
+                '}',
                 '.form-section {',
                 '    display: block;',
                 '    margin-bottom: 30px;',
@@ -358,12 +412,18 @@ $(function() {
                 '        <h3>' + _("Basic Information") + '</h3>',
                 '        <div class="field-row" id="photorow">',
                 '            <div class="field-label">' + _("Photo") + '</div>',
-                '            <div class="field-input">',
-                '                <input id="induction-photo-file" type="file" accept="image/*" />',
-                '                <button id="button-upload-photo" type="button" class="ui-button ui-widget ui-state-default ui-corner-all">' +
-                '                    <span class="ui-icon ui-icon-image"></span> ' + _("Upload Photo") +
-                '                </button>',
-                '                <img id="induction-photo-preview" style="display:none; height:48px; margin-left:8px; border-radius:4px;" alt="" />',
+                '            <div class="field-input" style="flex-direction: column; align-items: stretch;">',
+                '                <input id="induction-photo-file" type="file" accept="image/*" capture="environment" style="display:none;" />',
+                '                <div id="photo-upload-tile" class="photo-upload-tile" role="button" aria-label="' + _("Add photo") + '">',
+                '                    <div class="photo-upload-icon">📷</div>',
+                '                    <div class="photo-upload-text">' + _("Tap to add a photo") + '</div>',
+                '                    <img id="induction-photo-preview" alt="" />',
+                '                </div>',
+                '                <div style="margin-top:8px;">',
+                '                  <button id="button-upload-photo" type="button" class="ui-button ui-widget ui-state-default ui-corner-all">' +
+                '                      <span class="ui-icon ui-icon-image"></span> ' + _("Upload Photo") +
+                '                  </button>',
+                '                </div>',
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row" id="coderow">',
@@ -1631,6 +1691,7 @@ $(function() {
                     "&type=gallery" +
                     "&filename=" + encodeURIComponent(file.name) +
                     "&filedata=" + encodeURIComponent(reader.result);
+                $("#photo-upload-tile").addClass("uploading");
                 header.show_loading(_("Uploading..."));
                 $.ajax({
                     method: "POST",
@@ -1645,14 +1706,21 @@ $(function() {
                         } catch (e) {}
                         header.hide_loading();
                         header.show_info(_("Photo successfully uploaded."));
-                        // Update preview
-                        $("#induction-photo-preview").attr("src", "/image?db=" + asm.useraccount + "&mode=media&id=" + mid).show();
+                        // Update preview and tile state
+                        $("#induction-photo-preview")
+                            .attr("src", "/image?db=" + asm.useraccount + "&mode=media&id=" + mid)
+                            .show();
+                        $("#photo-upload-tile").addClass("has-photo");
+                        $("#induction-photo-file").val("");
                         deferred.resolve(mid);
                     },
                     error: function(obj, error, errorthrown) {
                         header.hide_loading();
                         header.show_error(error || errorthrown || _("Failed to upload photo."));
                         deferred.reject(error || errorthrown);
+                    },
+                    complete: function() {
+                        $("#photo-upload-tile").removeClass("uploading");
                     }
                 });
             }, false);
@@ -2029,6 +2097,9 @@ $(function() {
             });
 
             // Photo upload
+            $("#photo-upload-tile").off("click").on("click", function() {
+                $("#induction-photo-file").trigger("click");
+            });
             $("#button-upload-photo").button().click(function() {
                 if (!$("#induction-photo-file").val()) {
                     $("#induction-photo-file").trigger("click");
@@ -2208,6 +2279,16 @@ $(function() {
             if (animal.ANIMALCOMMENTS !== undefined && animal.ANIMALCOMMENTS !== null) {
                 $("#comments").val(animal.ANIMALCOMMENTS);
             }
+            // If there is a preferred web media, show it in the uploader tile
+            try {
+                if (animal && animal.WEBSITEMEDIANAME) {
+                    const src = common.img_src(animal, "animal");
+                    if (src) {
+                        $("#induction-photo-preview").attr("src", src).show();
+                        $("#photo-upload-tile").addClass("has-photo");
+                    }
+                }
+            } catch(e) {}
             
             // Set weight field
             if (animal.WEIGHT) {
