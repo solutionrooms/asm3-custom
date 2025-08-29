@@ -1380,6 +1380,8 @@ $(function() {
             // Debug logging removed for production
             
             try {
+                // Mark as not dirty while attempting to save. If it fails, we'll restore it.
+                if (typeof validate !== 'undefined' && validate.dirty) { validate.dirty(false); }
                 const response = await common.ajax_post("animal_induction", formdata);
                 // Debug logging removed for production
                 const [createdID, newCode] = response.split(" ");
@@ -1458,6 +1460,8 @@ $(function() {
                 if (controller.animal && animalID) {
                     controller.animal.RECORDVERSION = parseInt(controller.animal.RECORDVERSION) + 1;
                 }
+                // Clear dirty flag after a successful save
+                if (typeof validate !== 'undefined' && validate.dirty) { validate.dirty(false); }
                 
                 if (animalID && animalID !== "0") {
                     if (controller.animal) {
@@ -1490,6 +1494,8 @@ $(function() {
             }
             catch(err) {
                 header.show_error(_("Failed to save progress: ") + err);
+                // Restore dirty flag so the user can try again
+                if (typeof validate !== 'undefined' && validate.dirty) { validate.dirty(true); }
             }
             finally {
                 $(".asm-content button").button("enable");
