@@ -1659,8 +1659,16 @@ $(function() {
         update_units: async function() {
             let opts = ['<option value=""></option>'];
             $("#unit").empty();
-            const response = await common.ajax_post("animal_induction", "mode=units&locationid=" + $("#internallocation").val());
-            $.each(html.decode(response).split("&&"), function(i, v) {
+            let response = null;
+            try {
+                response = await common.ajax_post("animal_induction", "mode=units&locationid=" + $("#internallocation").val());
+            }
+            catch (err) {
+                // If unit load fails, leave the list empty but don't crash
+                response = "";
+            }
+            const decoded = (response === undefined || response === null) ? "" : html.decode(response);
+            $.each(String(decoded).split("&&"), function(i, v) {
                 let [unit, desc] = v.split("|");
                 if (!unit) { return false; }
                 if (!desc) { desc = _("(available)"); }
