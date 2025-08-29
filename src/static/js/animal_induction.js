@@ -2041,21 +2041,31 @@ $(function() {
             if (typeof validate !== 'undefined') {
                 // Provide a save routine for the global Unsaved Changes dialog
                 validate.save = async function(callback) {
+                    // Use minimal validation for dialog-driven save
+                    const name = $("#animalname").val();
+                    if (!name || String(name).trim() === "") {
+                        header.show_error(_("Animal name is required to save progress"));
+                        $("#animalname").focus();
+                        return;
+                    }
+                    validate.dirty(false);
+                    let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
+                    if (controller.animal) {
+                        formdata += "&id=" + controller.animal.ID;
+                        formdata += "&recordversion=" + controller.animal.RECORDVERSION;
+                    }
+                    let response;
                     try {
-                        if (!animal_induction.validation()) { return; }
-                        validate.dirty(false);
-                        let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
-                        if (controller.animal) {
-                            formdata += "&id=" + controller.animal.ID;
-                            formdata += "&recordversion=" + controller.animal.RECORDVERSION;
-                        }
-                        await common.ajax_post("animal_induction", formdata);
-                        if (callback) { callback(); }
+                        response = await common.ajax_post("animal_induction", formdata);
                     }
                     catch (err) {
                         validate.dirty(true);
                         header.show_error(_("Failed to save progress: ") + err);
+                        return;
                     }
+                    // Defer the navigation callback outside the try/catch so route errors
+                    // are not reported as save failures
+                    if (callback) { setTimeout(function(){ callback(response); }, 0); }
                 };
                 // Activate change tracking + beforeunload guard
                 validate.bind_dirty();
