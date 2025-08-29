@@ -1383,8 +1383,10 @@ $(function() {
                 // Mark as not dirty while attempting to save. If it fails, we'll restore it.
                 if (typeof validate !== 'undefined' && validate.dirty) { validate.dirty(false); }
                 const response = await common.ajax_post("animal_induction", formdata);
-                // Debug logging removed for production
-                const [createdID, newCode] = response.split(" ");
+                // Defensive parsing in case response is missing or a different shape
+                const parts = String(response || "").trim().split(/\s+/);
+                const createdID = parts[0] || "0";
+                const newCode = parts[1] || "";
                 // Debug logging removed for production
                 
                 // Update record version after successful save to prevent "changed by another user" errors
@@ -1454,7 +1456,9 @@ $(function() {
             }
             try {
                 const response = await common.ajax_post("animal_induction", formdata);
-                const [animalID, code] = response.split(" ");
+                const parts = String(response || "").trim().split(/\s+/);
+                const animalID = parts[0] || "0";
+                const code = parts[1] || "";
                 
                 // Update record version after successful save to prevent "changed by another user" errors
                 if (controller.animal && animalID) {
