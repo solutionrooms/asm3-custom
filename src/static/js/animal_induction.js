@@ -2025,6 +2025,30 @@ $(function() {
                 $("#estimateddob").change();
             });
 
+            // Unsaved changes handling
+            if (typeof validate !== 'undefined') {
+                // Provide a save routine for the global Unsaved Changes dialog
+                validate.save = async function(callback) {
+                    try {
+                        if (!animal_induction.validation()) { return; }
+                        validate.dirty(false);
+                        let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
+                        if (controller.animal) {
+                            formdata += "&id=" + controller.animal.ID;
+                            formdata += "&recordversion=" + controller.animal.RECORDVERSION;
+                        }
+                        await common.ajax_post("animal_induction", formdata);
+                        if (callback) { callback(); }
+                    }
+                    catch (err) {
+                        validate.dirty(true);
+                        header.show_error(_("Failed to save progress: ") + err);
+                    }
+                };
+                // Activate change tracking + beforeunload guard
+                validate.bind_dirty();
+            }
+
 
         },
 
