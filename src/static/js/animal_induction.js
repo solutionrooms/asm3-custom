@@ -2235,6 +2235,7 @@ $(function() {
         },
 
         destroy: function() {
+            if (typeof validate !== 'undefined' && validate.unbind_dirty) { validate.unbind_dirty(); }
             common.widget_destroy("#dialog-similar");
             common.widget_destroy("#nsowner", "personchooser");
             common.widget_destroy("#coordinator", "personchooser");
