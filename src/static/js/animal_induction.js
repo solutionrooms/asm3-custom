@@ -356,6 +356,16 @@ $(function() {
                 '<div class="form-section">',
                 '    <div class="form-group">',
                 '        <h3>' + _("Basic Information") + '</h3>',
+                '        <div class="field-row" id="photorow">',
+                '            <div class="field-label">' + _("Photo") + '</div>',
+                '            <div class="field-input">',
+                '                <input id="induction-photo-file" type="file" accept="image/*" />',
+                '                <button id="button-upload-photo" type="button" class="ui-button ui-widget ui-state-default ui-corner-all">' +
+                '                    <span class="ui-icon ui-icon-image"></span> ' + _("Upload Photo") +
+                '                </button>',
+                '                <img id="induction-photo-preview" style="display:none; height:48px; margin-left:8px; border-radius:4px;" alt="" />',
+                '            </div>',
+                '        </div>',
                 '        <div class="field-row" id="coderow">',
                 '            <div class="field-label">' + _("Code") + '</div>',
                 '            <div class="field-input">',
@@ -450,6 +460,12 @@ $(function() {
                 '            <div class="field-label">' + _("Size") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_select({ post_field: "size", justwidget: true, options: { displayfield: "SIZE", rows: controller.sizes }}),
+                '            </div>',
+                '        </div>',
+                '        <div class="field-row" id="descriptionrow">',
+                '            <div class="field-label" style="align-self: flex-start; padding-top: 8px;">' + _("Description") + '</div>',
+                '            <div class="field-input">',
+                                tableform.render_textarea({ post_field: "comments", justwidget: true, rows: 4 }),
                 '            </div>',
                 '        </div>',
                 '        <!-- Hidden fields for hedgehog constants -->',
@@ -1680,7 +1696,7 @@ $(function() {
 
         reset: function() {
 
-            $("#animalname, #dateofbirth, #weight, #weightlb").val("").change();
+            $("#animalname, #dateofbirth, #weight, #weightlb, #comments").val("").change();
             $(".asm-checkbox").prop("checked", false).change();
             $(".asm-personchooser").personchooser("clear");
 
@@ -2126,6 +2142,10 @@ $(function() {
                 }
             })();
             $("#size").val(animal.SIZE);
+            // Description
+            if (animal.ANIMALCOMMENTS !== undefined && animal.ANIMALCOMMENTS !== null) {
+                $("#comments").val(animal.ANIMALCOMMENTS);
+            }
             
             // Set weight field
             if (animal.WEIGHT) {
