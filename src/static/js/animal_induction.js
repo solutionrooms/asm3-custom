@@ -2085,6 +2085,12 @@ $(function() {
                 // New animal mode - reset form
                 animal_induction.reset();
             }
+            // After initial programmatic setup, ensure we don't warn as dirty
+            if (typeof validate !== 'undefined' && validate.dirty) {
+                try { validate.dirty(false); } catch(e) {}
+                // Some initial UI adjustments are delayed; clear again shortly after
+                setTimeout(function(){ try { validate.dirty(false); } catch(e) {} }, 800);
+            }
         },
 
         /**
