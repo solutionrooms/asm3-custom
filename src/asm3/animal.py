@@ -3486,8 +3486,21 @@ def update_animal_from_form(dbo: Database, post: PostedData, username: str) -> N
     # Look up the row pre-change so that we can see if any log messages need to be triggered
     prerow = dbo.first_row(dbo.query("SELECT DeceasedDate, ShelterLocation, ShelterLocationUnit, Weight, IsHold, AdditionalFlags, AnimalName FROM animal WHERE ID=?", [aid]))
 
+    # Determine new internal location from form (support both keys)
+    new_internallocation = post.integer("internallocation")
+    if new_internallocation == 0:
+        # Standard animal edit screen posts this as "location"
+        altloc = post.integer("location")
+        if altloc != 0:
+            new_internallocation = altloc
+
     # Record the location if it has changed
-    insert_animallocation(dbo, username, aid, post["animalname"], post["sheltercode"], prerow.shelterlocation, prerow.shelterlocationunit, post.integer("internallocation"), post["unit"])
+    insert_animallocation(
+        dbo, username, aid,
+        post["animalname"], post["sheltercode"],
+        prerow.shelterlocation, prerow.shelterlocationunit,
+        new_internallocation, post["unit"]
+    )
 
     # If the option is on and the hold status has changed, log it
     if asm3.configuration.hold_change_log(dbo):
@@ -3557,7 +3570,8 @@ def update_animal_from_form(dbo: Database, post: PostedData, username: str) -> N
         "Breed2ID":             post.integer("breed2"),
         "BreedName":            get_breedname(dbo, post.integer("breed1"), post.integer("breed2")),
         "Crossbreed":           post.boolean("crossbreed"),
-        "ShelterLocation":      post.integer("internallocation"),
+        # Accept location value from either "internallocation" (new screens) or "location" (standard edit)
+        "ShelterLocation":      new_internallocation,
         "ShelterLocationUnit":  post["unit"],
         "DateOfBirth":          post.date("dateofbirth"),
         "EstimatedDOB":         post.boolean("estimateddob"),
@@ -6919,4 +6933,3 @@ def maintenance_animal_figures(dbo: Database, includeMonths: bool = True, includ
         for y in years:
             asm3.al.debug("update_animal_figures_annual: year=%d" % y.theyear, "animal.maintenance_animal_figures", dbo)
             update_animal_figures_annual(dbo, y.theyear)
-

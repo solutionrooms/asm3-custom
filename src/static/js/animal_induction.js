@@ -334,6 +334,11 @@ $(function() {
                 '.inspection-item.inspection-slight { border-color: #ffc107; background: #fff3cd; }',
                 '.inspection-item.inspection-moderate { border-color: #fd7e14; background: #ffeaa7; }',
                 '.inspection-item.inspection-severe { border-color: #dc3545; background: #f8d7da; }',
+                /* Default-value match coloring for Physical Inspection */
+                '.inspection-item.default-ok { border-color: #28a745; background: #d4edda; }',
+                '.inspection-item.default-mismatch { border-color: #dc3545; background: #f8d7da; }',
+                '.inspection-item.yesno-field.default-ok { background: #d4edda !important; border-color: #28a745 !important; color: #155724; }',
+                '.inspection-item.yesno-field.default-mismatch { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24; }',
                 '.field-callout {',
                 '    grid-column: 2;',
                 '    font-size: 12px;',
@@ -630,6 +635,11 @@ $(function() {
                     
                     inspectionHtml += '<div class="' + itemClass + '" data-field-id="' + fieldId + '">';
                     
+                    // Determine default value for field (string form)
+                    let defaultVal = '';
+                    if (field.DEFAULTVALUE !== undefined && field.DEFAULTVALUE !== null) {
+                        defaultVal = String(field.DEFAULTVALUE);
+                    }
                     // Render the appropriate field widget based on field type
                     if (field.FIELDTYPE == 0) { // YESNO - Clickable card
                         inspectionHtml += '<div class="yesno-label">' + label;
@@ -638,8 +648,10 @@ $(function() {
                         }
                         inspectionHtml += '</div>';
                         inspectionHtml += '<div class="yesno-status">No</div>';
+                        // Store default as 1/0 for yes/no
+                        let defyn = (String(defaultVal).trim().toLowerCase() == '1' || String(defaultVal).trim().toLowerCase() == 'yes' || String(defaultVal).trim().toLowerCase() == 'true') ? '1' : '0';
                         inspectionHtml += '<input id="' + fieldId + '" type="checkbox" class="asm-checkbox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + defyn + '" ';
                         inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                         
                     } else {
@@ -652,32 +664,32 @@ $(function() {
                         
                         if (field.FIELDTYPE == 1) { // TEXT - Text input
                             inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                             
                         } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
                             inspectionHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
                             
                         } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
                             inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                             
                         } else if (field.FIELDTYPE == 4) { // DATE - Date input
                             inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                             
                         } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
                             inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                             
                         } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
                             inspectionHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
                             inspectionHtml += '<option value="">' + _("Select...") + '</option>';
                             
@@ -693,8 +705,11 @@ $(function() {
                             inspectionHtml += '</select>';
                             
                         } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
+                            // Normalise default list values for comparison
+                            let deflist = [];
+                            if (defaultVal) { deflist = defaultVal.split('|').map(function(s){ return s.trim(); }).filter(Boolean).sort(); }
                             inspectionHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(deflist.join('|')) + '" ';
                             inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
                             
                             // Parse the lookup values for multi-select
@@ -903,7 +918,18 @@ $(function() {
                            '<option value="Senior">Senior</option>' +
                            '</select>';
             }
+            // Always include a hidden mirror that posts by stable name
+            htmlOut += '<input id="entryagerange_post" type="hidden" class="asm-field" data-post="additionalentryagerange" />';
             $container.html(htmlOut);
+
+            // Keep mirror value in sync
+            const syncMirror = function() {
+                const v = $("#entryagerange").val() || "";
+                $("#entryagerange_post").val(v);
+            };
+            $(document).off('change.asm_entryage', '#entryagerange').on('change.asm_entryage', '#entryagerange', syncMirror);
+            // Initial sync
+            syncMirror();
 
             // Populate from saved additional value if present
             animal_induction.populate_entry_age_range_field();
@@ -913,25 +939,50 @@ $(function() {
          * Populate the Entry Age Range field from additional VALUE if available
          */
         populate_entry_age_range_field: function() {
-            let field = null;
-            $.each(controller.additional, function(i, f) {
-                if (f.FIELDNAME && f.FIELDNAME.toLowerCase() === 'entryagerange') { field = f; return false; }
-            });
-            if (!field || field.VALUE === undefined || field.VALUE === null) { return; }
-
-            const desired = String(field.VALUE);
             const $sel = $("#entryagerange");
             if ($sel.length == 0) { return; }
-            $sel.val(desired);
-            if ($sel.val() !== desired) {
-                // Fallback: match by visible text contains value
-                $sel.find('option').each(function() {
-                    const t = $(this).text();
-                    if (t && t.toLowerCase().indexOf(desired.toLowerCase()) !== -1) {
-                        $sel.val($(this).val());
-                        return false;
+            // Try additional value first
+            let desired = null;
+            $.each(controller.additional, function(i, f) {
+                if (f.FIELDNAME && f.FIELDNAME.toLowerCase() === 'entryagerange') {
+                    if (f.VALUE !== undefined && f.VALUE !== null && String(f.VALUE).trim() !== '') {
+                        desired = String(f.VALUE);
                     }
-                });
+                    return false;
+                }
+            });
+            const applySelect = function(val) {
+                if (!val) { return; }
+                $sel.val(val);
+                if ($sel.val() !== val) {
+                    $sel.find('option').each(function() {
+                        const t = $(this).text();
+                        if (t && t.toLowerCase().indexOf(String(val).toLowerCase()) !== -1) {
+                            $sel.val($(this).val());
+                            return false;
+                        }
+                    });
+                }
+                $("#entryagerange_post").val($sel.val() || "");
+            };
+            if (desired) {
+                applySelect(desired);
+            } else {
+                // Derive from DOB if no additional value present
+                if (controller.animal && controller.animal.DATEOFBIRTH) {
+                    const dob = format.date_js(controller.animal.DATEOFBIRTH);
+                    if (dob) {
+                        const today = new Date();
+                        let months = (today.getFullYear() - dob.getFullYear()) * 12 + (today.getMonth() - dob.getMonth());
+                        if (today.getDate() < dob.getDate()) { months -= 1; }
+                        let label = "";
+                        if (months < 12) { label = "Baby"; }
+                        else if (months < 24) { label = "Juvenile"; }
+                        else if (months < 60) { label = "Adult"; }
+                        else { label = "Senior"; }
+                        applySelect(label);
+                    }
+                }
             }
         },
 
@@ -1008,6 +1059,10 @@ $(function() {
                         }
                     }
                 }
+            });
+            // Apply default coloring after values are populated
+            $("#inspection-fields input, #inspection-fields select, #inspection-fields textarea").each(function(){
+                $(this).trigger('change');
             });
         },
 
@@ -1205,30 +1260,44 @@ $(function() {
          * Initialize inspection dropdown styling and color coding
          */
         init_inspection_styling: function() {
-            $("#inspection-fields select").each(function() {
-                // Add color coding based on selected value
-                $(this).change(function() {
-                    const value = $(this).val();
-                    const item = $(this).closest('.inspection-item');
-                    
-                    // Remove previous state classes
-                    item.removeClass('inspection-no inspection-slight inspection-moderate inspection-severe');
-                    
-                    // Add appropriate class based on selection
-                    if (value === 'No') {
-                        item.addClass('inspection-no');
-                    } else if (value === 'Slight') {
-                        item.addClass('inspection-slight');
-                    } else if (value === 'Moderate') {
-                        item.addClass('inspection-moderate');
-                    } else if (value === 'Severe') {
-                        item.addClass('inspection-severe');
-                    }
-                });
-                
-                // Trigger change event to apply initial styling
-                $(this).trigger('change');
+            // Utility to normalise values for comparison
+            const normalise = function(v) {
+                if (v === undefined || v === null) { return ''; }
+                return String(v).trim().toLowerCase();
+            };
+            const equalsDefault = function($el) {
+                const rawFtype = $el.data('ftype');
+                const ftype = (rawFtype === undefined || rawFtype === null) ? -1 : parseInt(rawFtype, 10);
+                const rawDef = $el.data('default');
+                const def = (rawDef === undefined || rawDef === null) ? '' : String(rawDef).trim();
+                if (ftype === 0) {
+                    // Yes/No checkbox
+                    const val = $el.prop('checked') ? '1' : '0';
+                    return val === (def === '' ? '0' : def);
+                } else if (ftype === 7) {
+                    // Multi select
+                    const sel = $el.val() || [];
+                    const sval = sel.map(function(s){ return String(s).trim(); }).filter(Boolean).sort().join('|');
+                    const dval = def.split('|').map(function(s){ return String(s).trim(); }).filter(Boolean).sort().join('|');
+                    return sval === dval;
+                } else {
+                    const val = normalise($el.val());
+                    const dval = normalise(def);
+                    return val === dval;
+                }
+            };
+            const applyClass = function($el) {
+                const $item = $el.closest('.inspection-item');
+                $item.removeClass('default-ok default-mismatch inspection-no inspection-slight inspection-moderate inspection-severe');
+                if (equalsDefault($el)) { $item.addClass('default-ok'); } else { $item.addClass('default-mismatch'); }
+            };
+
+            // Bind to changes on all inputs in the inspection grid
+            $("#inspection-fields").on('change keyup', 'input, select, textarea', function() {
+                applyClass($(this));
             });
+            // Initial pass
+            $("#inspection-fields input, #inspection-fields select, #inspection-fields textarea").each(function(){ applyClass($(this)); });
         },
 
         /**
@@ -1301,41 +1370,29 @@ $(function() {
             if (controller.animal) {
                 formdata += "&id=" + controller.animal.ID;
                 formdata += "&recordversion=" + controller.animal.RECORDVERSION;
-                console.log("Editing existing animal ID:", controller.animal.ID, "RecordVersion:", controller.animal.RECORDVERSION);
+                // Debug logging removed for production
             } else {
-                console.log("Creating new animal");
+                // Debug logging removed for production
             }
-            console.log("FULL ADD ANIMAL FORM DATA:", formdata);
+            // Debug logging removed for production
             
             // Parse and log specific key fields  
-            const formParams = new URLSearchParams(formdata);
-            console.log("ADD ANIMAL - Key Fields:");
-            console.log("  mode:", formParams.get('mode'));
-            console.log("  id:", formParams.get('id'));
-            console.log("  animalname:", formParams.get('animalname'));
-            console.log("  breed1:", formParams.get('breed1'));
-            console.log("  location:", formParams.get('location'));
-            console.log("  shelterlocationunit:", formParams.get('shelterlocationunit'));
-            console.log("  recordversion:", formParams.get('recordversion'));
+            // Debug logging removed for production
             
             try {
                 const response = await common.ajax_post("animal_induction", formdata);
-                console.log("ADD ANIMAL: Raw response from server:", response);
+                // Debug logging removed for production
                 const [createdID, newCode] = response.split(" ");
-                console.log("ADD ANIMAL: Parsed createdID:", createdID, "newCode:", newCode);
-                console.log("ADD ANIMAL: controller.animal exists?", !!controller.animal);
-                console.log("ADD ANIMAL: Old RECORDVERSION:", controller.animal ? controller.animal.RECORDVERSION : "N/A");
+                // Debug logging removed for production
                 
                 // Update record version after successful save to prevent "changed by another user" errors
                 if (controller.animal && createdID) {
-                    const oldVersion = controller.animal.RECORDVERSION;
                     controller.animal.RECORDVERSION = parseInt(controller.animal.RECORDVERSION) + 1;
-                    console.log("ADD ANIMAL: Updated RECORDVERSION from", oldVersion, "to", controller.animal.RECORDVERSION);
                     
                     // After successful save, the controller.animal object may have stale data
                     // For now, just let the normal sync process handle it
                 } else {
-                    console.log("ADD ANIMAL: NOT updating RECORDVERSION - controller.animal:", !!controller.animal, "createdID:", createdID);
+                    // Debug logging removed for production
                 }
                 
                 if (mode == "add") {
@@ -1346,17 +1403,16 @@ $(function() {
                         if (controller.animal) {
                             // Check if location was changed away from Induction
                             const currentLocation = $("#internallocation option:selected").text();
-                            console.log("ADD ANIMAL: Current selected location:", currentLocation);
                             
                             if (currentLocation && !currentLocation.toLowerCase().includes("induction")) {
                                 // Location changed away from Induction, go to normal animal view
-                                console.log("ADD ANIMAL: Location changed away from Induction, redirecting to animal view");
+                                // Debug logging removed for production
                                 setTimeout(function() {
                                     common.route("animal?id=" + createdID);
                                 }, 1000);
                             } else {
                                 // Still in Induction, reload current page
-                                console.log("ADD ANIMAL: Still in Induction location, reloading page");
+                                // Debug logging removed for production
                                 setTimeout(function() {
                                     common.route_reload();
                                 }, 1000);
@@ -2030,7 +2086,14 @@ $(function() {
                 $("#internallocation").val(""); // Set to empty if null/0
                 $("#unit").val("");
             }
-            $("#entrytype").val(animal.ENTRYTYPEID);
+            // Ensure select widgets are set via the widget API
+            if (animal.ENTRYTYPEID !== undefined && animal.ENTRYTYPEID !== null && animal.ENTRYTYPEID !== "") {
+                $("#entrytype").select && $("#entrytype").select("value", animal.ENTRYTYPEID);
+            }
+            // Populate Entry Category (Entry Reason)
+            if (animal.ENTRYREASONID !== undefined && animal.ENTRYREASONID !== null && animal.ENTRYREASONID !== "") {
+                $("#entryreason").select && $("#entryreason").select("value", animal.ENTRYREASONID);
+            }
             $("#datebroughtin").val(format.date(animal.DATEBROUGHTIN));
             if (animal.TIMEBROUGHTIN) {
                 $("#timebroughtin").val(format.time(animal.TIMEBROUGHTIN));
@@ -2103,6 +2166,37 @@ $(function() {
             
             // Load additional fields data
             $("#asm-content input[data-id], #asm-content select[data-id], #asm-content textarea[data-id]").fromJSON(animal);
+
+            // Populate Found Location static fields from additional values if present
+            (function populate_found_location_fields() {
+                if (!controller.additional) { return; }
+                let addmap = {};
+                $.each(controller.additional, function(i, f) {
+                    if (!f.FIELDNAME) { return; }
+                    addmap[String(f.FIELDNAME).toLowerCase()] = f;
+                });
+                // Weather Conditions
+                if (addmap["entrylocationweather"] && addmap["entrylocationweather"].VALUE !== undefined) {
+                    $("#entrylocationweather").val(addmap["entrylocationweather"].VALUE);
+                }
+                // Found By person
+                if (addmap["entryfoundbyperson"] && addmap["entryfoundbyperson"].VALUE) {
+                    let pid = parseInt(addmap["entryfoundbyperson"].VALUE, 10) || 0;
+                    if (pid > 0) { $("#entryfoundbyperson").personchooser("loadbyid", pid); }
+                }
+                // Location description
+                if (addmap["entrylocationdescription"] && addmap["entrylocationdescription"].VALUE !== undefined) {
+                    $("#entrylocationdescription").val(addmap["entrylocationdescription"].VALUE);
+                }
+            })();
+
+            // Set fosterer chooser from active foster movement (uses CurrentOwnerID on active movement)
+            if (animal.ACTIVEMOVEMENTTYPE == 2 && animal.CURRENTOWNERID) {
+                $("#fosterer").personchooser("loadbyid", animal.CURRENTOWNERID);
+            } else {
+                // Clear if not fostered
+                $("#fosterer").personchooser("clear");
+            }
             
             // Enable/disable widgets based on loaded data
             animal_induction.enable_widgets();

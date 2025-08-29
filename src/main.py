@@ -2464,6 +2464,20 @@ class animal_induction(JSONEndpoint):
         animalid = o.post.integer("id")
         asm3.al.debug("post_save called with id=%d" % animalid, "main.animal_induction", o.dbo)
         try:
+            # Map fixed induction fields to additional field posts if defined
+            # This allows static UI controls to persist via the additional fields system
+            additional_map_fields = [
+                "entrylocationweather",
+                "entryfoundbyperson",
+                "entrylocationdescription",
+                # Allow direct mapping if UI posts a plain entryage range value
+                "entryagerange"
+            ]
+            for fname in additional_map_fields:
+                if fname in o.post:
+                    # additional.save_values_for_link expects keys like "additionalFIELDNAME"
+                    o.post.data[f"additional{fname}"] = o.post[fname]
+
             if animalid != 0:
                 # Updating existing animal
                 self.check(asm3.users.CHANGE_ANIMAL)
@@ -2479,6 +2493,35 @@ class animal_induction(JSONEndpoint):
                 asm3.al.debug("recordversion: %s" % o.post["recordversion"], "main.animal_induction", o.dbo)
                 asm3.al.debug("=== END FORM DATA DEBUG ===", "main.animal_induction", o.dbo)
                 asm3.animal.update_animal_from_form(o.dbo, o.post, o.user)
+                # If a fosterer was selected, ensure a matching foster movement exists/updated
+                fostererid = o.post.integer("fosterer")
+                if fostererid > 0:
+                    from asm3.i18n import python2display
+                    # Use Date Brought In if valid, otherwise today
+                    fosterdate = o.post["datebroughtin"]
+                    if o.post.date("datebroughtin") is None:
+                        fosterdate = python2display(o.locale, o.dbo.today())
+                    move_post = asm3.utils.PostedData({
+                        "person": str(fostererid),
+                        "animal": str(animalid),
+                        "fosterdate": fosterdate,
+                        "permanentfoster": "",
+                        "movementnumber": "",
+                        "returndate": "",
+                        "amount": "",
+                        "comments": ""
+                    }, o.locale)
+                    try:
+                        # insert_foster_from_form will return any existing foster
+                        # and move to the new person if different, or raise if already the same person
+                        asm3.movement.insert_foster_from_form(o.dbo, o.user, move_post)
+                    except Exception as mfex:
+                        msg = str(mfex)
+                        if "Already fostered to this person" in msg:
+                            # Ignore benign case where nothing to change
+                            pass
+                        else:
+                            asm3.al.error("Foster movement not created for %d: %s" % (animalid, msg), "main.animal_induction", o.dbo)
                 # Get the animal code for response
                 a = asm3.animal.get_animal(o.dbo, animalid)
                 code = a and a.SHELTERCODE or ""
@@ -8301,4 +8344,3 @@ elif DEPLOYMENT_TYPE == "fcgi":
 
 if __name__ == "__main__":
     app.run()
-

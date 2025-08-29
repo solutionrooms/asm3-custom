@@ -122,6 +122,8 @@ Complete patient induction workflow system for hedgehog rescue operations with m
 4. **Breed Picker**: Removed non-standard `breedp` field and related code
 5. **Coat Type Reload**: Patient Induction now reads `animal.COATTYPE` (ID) instead of non-existent `COATTYPEID`, so selections like “Spikes” persist across saves.
 6. **Robust Toggling**: Added missing row IDs `coattyperow` and `sizerow` so config options `AddAnimalsShowCoatType` and `AddAnimalsShowSize` work correctly.
+7. **Induction Additional Mapping**: Mapped `entrylocationweather`, `entryfoundbyperson`, and `entrylocationdescription` to the additional-field saving pipeline so they persist when corresponding Additional Fields exist.
+8. **Fosterer on Edit**: If a fosterer is selected while editing, the system creates a foster movement (when animal is on-shelter) to persist the choice.
 
 #### Root Cause:
 ASM3's `update_animal_from_form()` function expects specific field names. Mismatches caused:
