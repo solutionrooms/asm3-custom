@@ -2281,12 +2281,19 @@ $(function() {
             }
             // If there is a preferred web media, show it in the uploader tile
             try {
-                if (animal && animal.WEBSITEMEDIANAME) {
-                    const src = common.img_src(animal, "animal");
-                    if (src) {
+                // Prefer robust check via image endpoint with nopic=404 so we don't show a placeholder
+                if (animal && animal.ID) {
+                    let src = "image?db=" + asm.useraccount + "&mode=animal&id=" + animal.ID + "&nopic=404";
+                    if (animal.WEBSITEMEDIADATE) {
+                        try { src += "&date=" + encodeURIComponent(animal.WEBSITEMEDIADATE); } catch(e) {}
+                    }
+                    const testImg = new Image();
+                    testImg.onload = function() {
                         $("#induction-photo-preview").attr("src", src).show();
                         $("#photo-upload-tile").addClass("has-photo");
-                    }
+                    };
+                    testImg.onerror = function() { /* No preferred photo, leave tile empty */ };
+                    testImg.src = src;
                 }
             } catch(e) {}
             
