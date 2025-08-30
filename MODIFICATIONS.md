@@ -4,7 +4,7 @@
 
 ## 🚀 Major Features Added
 
-### 1. Enhanced Patient Induction System (Hedghog Module)
+### 1. Enhanced Patient Induction System (Hedgehog Module)
 **Date**: 2025-08-24 to 2025-08-25  
 **Branch**: develop  
 **Latest Update**: 2025-08-25 (Major UI overhaul and feature additions)
@@ -13,9 +13,9 @@
 Complete patient induction workflow system for hedgehog rescue operations with modern 2-column UI, automated calculations, and dynamic inspection system.
 
 #### Files Modified:
-- `src/asm3/html.py` - Added Hedghog menu system
-- `src/asm3/users.py` - Added ACCESS_HEDGHOG permission
-- `src/asm3/roles.js` - Added Hedghog access permission to roles
+- `src/asm3/html.py` - Added Hedgehog menu system
+- `src/asm3/users.py` - Added ACCESS_Hedgehog permission
+- `src/asm3/roles.js` - Added Hedgehog access permission to roles
 - `src/main.py` - Added animal_induction endpoint class
 - `src/static/js/animal_induction.js` - Complete patient induction interface (1,200+ lines)
 - `src/static/js/animal.js` - Added redirect logic for Induction location animals
@@ -68,11 +68,11 @@ Complete patient induction workflow system for hedgehog rescue operations with m
 #### Technical Implementation:
 - **Backend**: JSONEndpoint class in main.py with controller/post_save methods
 - **Frontend**: Complete jQuery-based form with AJAX save operations
-- **Permissions**: Layered security (ACCESS_HEDGHOG + ADD_ANIMAL/CHANGE_ANIMAL)
+- **Permissions**: Layered security (ACCESS_Hedgehog + ADD_ANIMAL/CHANGE_ANIMAL)
 - **Field Mapping**: Corrected field name mismatches (internallocation→location, estimatedage→estimateddob, etc.)
 
 #### User Permissions Required:
-- `ACCESS_HEDGHOG` - Access to Hedghog menu and Patient Induction screen
+- `ACCESS_Hedgehog` - Access to Hedgehog menu and Patient Induction screen
 - `ADD_ANIMAL` - Create new animals through Patient Induction
 - `CHANGE_ANIMAL` - Edit existing animals through Patient Induction
 
@@ -164,7 +164,7 @@ Aligned all form field names with ASM3's standard animal form conventions, ensur
 **Files**: `src/asm3/users.py`, `src/static/js/roles.js`
 
 #### Added Permissions:
-- `ACCESS_HEDGHOG = "ahh"` - Controls access to Hedghog menu and Patient Induction functionality
+- `ACCESS_Hedgehog = "ahh"` - Controls access to Hedgehog menu and Patient Induction functionality
 - Integrated into role management interface for easy assignment
 
 #### Security Model:

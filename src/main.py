@@ -2521,7 +2521,13 @@ class animal_induction(JSONEndpoint):
                             # Ignore benign case where nothing to change
                             pass
                         else:
-                            asm3.al.error("Foster movement not created for %d: %s" % (animalid, msg), "main.animal_induction", o.dbo)
+                            # Some validation exceptions (ASMValidationError) set web.ctx.status=500
+                            # which persists even if caught. Reset status so the overall save stays 200.
+                            try:
+                                web.ctx.status = "200 OK"
+                            except Exception:
+                                pass
+                            asm3.al.warn("Foster movement not created for %d: %s" % (animalid, msg), "main.animal_induction", o.dbo)
                 # Get the animal code for response
                 a = asm3.animal.get_animal(o.dbo, animalid)
                 code = a and a.SHELTERCODE or ""

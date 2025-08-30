@@ -22,6 +22,16 @@ $(function() {
             }
         },
 
+        /** Ensure the photo tile matches the image aspect ratio */
+        update_photo_tile_aspect: function(w, h) {
+            try {
+                const W = parseInt(w, 10);
+                const H = parseInt(h, 10);
+                if (!W || !H) { return; }
+                $("#photo-upload-tile").css("aspect-ratio", W + " / " + H);
+            } catch (e) {}
+        },
+
         render: function() {
             return [
                 '<div id="dialog-similar" style="display: none" title="' + _("Similar Animal") + '">',
@@ -50,6 +60,7 @@ $(function() {
                 '    gap: 10px;',
                 '    width: 100%;',
                 '    min-height: 140px;',
+                '    aspect-ratio: 4 / 3;',
                 '    border: 2px dashed #cfd6df;',
                 '    border-radius: 10px;',
                 '    background: #f9fbfd;',
@@ -74,11 +85,15 @@ $(function() {
                 '    inset: 0;',
                 '    width: 100%;',
                 '    height: 100%;',
-                '    object-fit: cover;',
+                '    object-fit: contain;',
                 '    border-radius: 10px;',
                 '}',
                 '.photo-upload-tile.has-photo img {',
                 '    display: block;',
+                '}',
+                '.photo-upload-tile.has-photo .photo-upload-icon,',
+                '.photo-upload-tile.has-photo .photo-upload-text {',
+                '    display: none;',
                 '}',
                 '.photo-upload-tile.uploading::after {',
                 '    content: "Uploading…";',
@@ -1710,6 +1725,16 @@ $(function() {
                         $("#induction-photo-preview")
                             .attr("src", "/image?db=" + asm.useraccount + "&mode=media&id=" + mid)
                             .show();
+                        // Match tile aspect ratio to the loaded image
+                        (function() {
+                            const $img = $("#induction-photo-preview");
+                            const applyAR = function() {
+                                const el = $img.get(0);
+                                if (!el) { return; }
+                                animal_induction.update_photo_tile_aspect(el.naturalWidth, el.naturalHeight);
+                            };
+                            if ($img.get(0) && $img.get(0).complete) { applyAR(); } else { $img.one("load", applyAR); }
+                        })();
                         $("#photo-upload-tile").addClass("has-photo");
                         $("#induction-photo-file").val("");
                         deferred.resolve(mid);
@@ -1864,6 +1889,10 @@ $(function() {
 
             // Change additional fields to default
             additional.reset_default(controller.additional);
+
+            // Reset photo preview/tile UI and aspect ratio to default
+            $("#induction-photo-preview").attr("src", "").hide();
+            $("#photo-upload-tile").removeClass("has-photo uploading").css("aspect-ratio", "4 / 3");
         },
 
         validation: function() {
@@ -2291,6 +2320,7 @@ $(function() {
                     testImg.onload = function() {
                         $("#induction-photo-preview").attr("src", src).show();
                         $("#photo-upload-tile").addClass("has-photo");
+                        animal_induction.update_photo_tile_aspect(testImg.naturalWidth, testImg.naturalHeight);
                     };
                     testImg.onerror = function() { /* No preferred photo, leave tile empty */ };
                     testImg.src = src;
