@@ -420,14 +420,14 @@ $(function() {
                                 tableform.render_text({ post_field: "shortcode", justwidget: true, placeholder: "Short" }),
                 '            </div>',
                 '        </div>',
-                '        <div class="field-row">',
+                '        <div class="field-row" id="namerow">',
                 '            <div class="field-label">' + _("Name") + ' <span class="asm-has-validation">*</span></div>',
                 '            <div class="field-input">',
                                 tableform.render_text({ post_field: "animalname", justwidget: true }),
                 '                <button id="button-animalname" type="button" title="' + _("Generate a random name for this animal") + '">🎲</button>',
                 '            </div>',
                 '        </div>',
-                '        <div class="field-row">',
+                '        <div class="field-row" id="entryagerangerow">',
                 '            <div class="field-label">' + _("Entry Age Range") + ' <span class="asm-has-validation">*</span></div>',
                 '            <div class="field-input"><div id="entry-age-range-container"></div></div>',
                 '            <div class="field-callout">' + _("Select age range to auto-calculate estimated date of birth") + '</div>',
@@ -713,7 +713,8 @@ $(function() {
                 '</div>',
                 tableform.buttons_render([
                    { id: "save", icon: "save", text: _("Save") },
-                   { id: "reset", icon: "delete", text: _("Reset") }
+                   { id: "reset", icon: "delete", text: _("Reset") },
+                   { id: "delete", icon: "delete", text: _("Delete") }
                 ], { centered: true }),
                 html.content_footer()
             ].join("\n");
@@ -1556,6 +1557,15 @@ $(function() {
                 $("#animalname").focus();
                 return;
             }
+            // If creating new, require Entry Age Range as well
+            if (!controller.animal || !controller.animal.ID) {
+                const ear = $("#entryagerange").val();
+                if (!ear || String(ear).trim() === "") {
+                    header.show_error(_("Entry Age Range is required"));
+                    $("#entryagerange").focus();
+                    return;
+                }
+            }
 
             $(".asm-content button").button("disable");
             header.show_loading(_("Saving progress..."));
@@ -1992,6 +2002,27 @@ $(function() {
             } catch (e) {}
         },
 
+        /** Show only the minimum fields for a new record (Name + Entry Age Range) */
+        apply_minimal_mode: function() {
+            const isNew = !controller.animal || !controller.animal.ID;
+            // Always show everything for existing animals
+            if (!isNew) {
+                $(".form-group, .inspection-section").show();
+                $(".form-group .field-row").show();
+                return;
+            }
+            // Hide all groups except the first Basic Information group
+            const $groups = $(".patient-induction-form .form-group");
+            $groups.hide();
+            const $basic = $groups.first();
+            $basic.show();
+            // Hide all rows except Name and Entry Age Range
+            $basic.find('.field-row').hide();
+            $basic.find('#namerow, #entryagerangerow').show();
+            // Hide other full-width sections
+            $(".inspection-section").hide();
+        },
+
         /* Update the breed selects to only show the breeds for the selected species.
          * If the species is not in the list of CrossbreedSpecies, hides the crossbreed/second species.
          * If there are no breeds for the species, includes a blank option with ID 0
@@ -2143,7 +2174,24 @@ $(function() {
             header.hide_error();
             validate.reset();
 
-            // code
+            // Minimal mode: new record — only require Name and Entry Age Range
+            const isNew = !controller.animal || !controller.animal.ID;
+            if (isNew) {
+                if (common.trim($("#animalname").val()) == "") {
+                    header.show_error(_("Name cannot be blank"));
+                    validate.highlight("animalname");
+                    return false;
+                }
+                const ear = $("#entryagerange").val();
+                if (!ear || String(ear).trim() === "") {
+                    header.show_error(_("Entry Age Range is required"));
+                    $("#entryagerange").focus();
+                    return false;
+                }
+                return true;
+            }
+
+            // Full validation for editing existing record
             if (config.bool("ManualCodes")) {
                 if (common.trim($("#sheltercode").val()) == "") {
                     header.show_error(_("Shelter code cannot be blank"));
@@ -2151,24 +2199,23 @@ $(function() {
                     return false;
                 }
             }
-
-            // name
             if (common.trim($("#animalname").val()) == "") {
                 header.show_error(_("Name cannot be blank"));
                 validate.highlight("animalname");
                 return false;
             }
-
-            // date of birth
-            if (common.trim($("#dateofbirth").val()) == "" && common.trim($("#estimateddob").val()) == "") {
-                header.show_error(_("Date of birth cannot be blank"));
-                validate.highlight("dateofbirth");
-                return false;
+            // If an Entry Age Range was chosen, accept DOB via auto-calc; otherwise enforce DOB/estimated DOB
+            const hasEAR = $("#entryagerange").val() && String($("#entryagerange").val()).trim() !== "";
+            if (!hasEAR) {
+                const dob = common.trim($("#dateofbirth").val());
+                const est = $("#estimateddob").is(":checked");
+                if (dob === "" && !est) {
+                    header.show_error(_("Date of birth cannot be blank"));
+                    validate.highlight("dateofbirth");
+                    return false;
+                }
             }
-
-            // mandatory additional fields
             if (!additional.validate_mandatory()) { return false; }
-
             return true;
         },
 
@@ -2368,6 +2415,17 @@ $(function() {
                 animal_induction.save_progress();
             });
 
+            // Delete button (only for existing records)
+            if (!controller.animal || !controller.animal.ID) {
+                $("#button-delete").hide();
+            } else {
+                $("#button-delete").button().click(async function() {
+                    await tableform.delete_dialog(null, _("This will permanently remove this animal, are you sure?"));
+                    await common.ajax_post("animal", "mode=delete&animalid=" + controller.animal.ID);
+                    common.route("main");
+                });
+            }
+
             // Media upload: select file and upload to next available slot
             $("#button-upload-photo").button().click(async function() {
                 // Ensure name present before opening picker
@@ -2500,6 +2558,9 @@ $(function() {
                 validate.bind_dirty();
             }
 
+            // Minimal mode on new animals: show only Name and Entry Age Range
+            animal_induction.apply_minimal_mode();
+
 
         },
 
@@ -2520,6 +2581,8 @@ $(function() {
                 // Some initial UI adjustments are delayed; clear again shortly after
                 setTimeout(function(){ try { validate.dirty(false); } catch(e) {} }, 800);
             }
+            // Apply minimal mode visibility if needed
+            animal_induction.apply_minimal_mode();
         },
 
         /**
