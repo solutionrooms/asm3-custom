@@ -403,6 +403,9 @@ $(function() {
                 '    margin-top: 5px;',
                 '    font-style: italic;',
                 '}',
+                '#microchiprow .field-input { flex-direction: column; align-items: flex-start; }',
+                '#microchiprow .chip-subrow { display: flex; gap: 10px; margin-top: 6px; width: 100%; }',
+                '@media (max-width: 640px) { #microchiprow .chip-subrow { flex-direction: column; gap: 6px; } }',
                 '@media (max-width: 768px) {',
                 '    .form-section { grid-template-columns: 1fr; gap: 20px; }',
                 '    .field-row { grid-template-columns: 1fr; gap: 8px; }',
@@ -461,8 +464,10 @@ $(function() {
                 '            <div class="field-label">' + _("Microchipped") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_check({ post_field: "identichipped", justwidget: true }),
-                                tableform.render_date({ post_field: "identichipdate", justwidget: true, placeholder: _("Date") }),
-                                tableform.render_text({ post_field: "identichipnumber", maxlength: 15, justwidget: true, placeholder: _("Number") }),
+                '                <div class="chip-subrow">',
+                                    tableform.render_date({ post_field: "identichipdate", justwidget: true, placeholder: _("Date") }),
+                                    tableform.render_text({ post_field: "identichipnumber", maxlength: 15, justwidget: true, placeholder: _("Number") }),
+                '                </div>',
                 '            </div>',
                 '        </div>',
                 '    </div>',
@@ -1703,6 +1708,9 @@ $(function() {
             $("#jurisdictionrow").hide();
             if (config.bool("AddAnimalsShowJurisdiction")) { $("#jurisdictionrow").show(); }
 
+            // Force-hide fields that should be permanently removed in this flow
+            $("#coordinatorrow, #feerow, #kilosrow, #poundsrow").hide();
+
             // If transfer in is available and ticked, change the broughtinby label
             if (!config.bool("AddAnimalsShowEntryType") && $("#transferin").is(":checked")) {
                 $("label[for='broughtinby']").html(_("Transferred From")); 
@@ -2147,7 +2155,7 @@ $(function() {
 
             // Set date/time defaults
             $("#datebroughtin").val(format.date(new Date()));
-            if (config.bool("AddAnimalsShowTimeBroughtIn")) {
+            if ($("#timebroughtin").length) {
                 $("#timebroughtin").val(format.time(new Date()));
             }
 
@@ -2557,6 +2565,9 @@ $(function() {
                 // Activate change tracking + beforeunload guard
                 validate.bind_dirty();
             }
+
+            // Permanently hide unwanted rows/fields
+            $("#kilosrow, #poundsrow, #coordinatorrow, #feerow").hide();
 
             // Minimal mode on new animals: show only Name and Entry Age Range
             animal_induction.apply_minimal_mode();
