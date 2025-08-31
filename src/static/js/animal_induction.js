@@ -421,14 +421,14 @@ $(function() {
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row">',
-                '            <div class="field-label">' + _("Name") + '</div>',
+                '            <div class="field-label">' + _("Name") + ' <span class="asm-has-validation">*</span></div>',
                 '            <div class="field-input">',
                                 tableform.render_text({ post_field: "animalname", justwidget: true }),
                 '                <button id="button-animalname" type="button" title="' + _("Generate a random name for this animal") + '">🎲</button>',
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row">',
-                '            <div class="field-label">' + _("Entry Age Range") + '</div>',
+                '            <div class="field-label">' + _("Entry Age Range") + ' <span class="asm-has-validation">*</span></div>',
                 '            <div class="field-input"><div id="entry-age-range-container"></div></div>',
                 '            <div class="field-callout">' + _("Select age range to auto-calculate estimated date of birth") + '</div>',
                 '        </div>',
@@ -1716,9 +1716,17 @@ $(function() {
          */
         upload_photo: function(file) {
             let deferred = $.Deferred();
+            // Ensure record exists before attempting upload
             if (!controller.animal || !controller.animal.ID) {
-                header.show_info(_("Please save first to create this patient, then upload a photo."));
-                deferred.reject("noid");
+                // Try a silent save to create the record if a name has been entered
+                animal_induction.ensure_saved_for_media()
+                    .then(function(){
+                        // retry upload after save
+                        return animal_induction.upload_photo(file).then(deferred.resolve, deferred.reject);
+                    })
+                    .fail(function(err){
+                        deferred.reject(err || "noid");
+                    });
                 return deferred.promise();
             }
             let reader = new FileReader();
@@ -1756,6 +1764,39 @@ $(function() {
                 });
             }, false);
             reader.readAsDataURL(file);
+            return deferred.promise();
+        },
+
+        /**
+         * Ensures the animal has been created server-side so media can attach.
+         * Returns a promise that resolves when an ID is available.
+         * Does minimal validation: requires Name to be present.
+         */
+        ensure_saved_for_media: function() {
+            let deferred = $.Deferred();
+            const name = $("#animalname").val();
+            if (!name || String(name).trim() === "") {
+                header.show_error(_("Please enter a name before adding photos."));
+                $("#animalname").focus();
+                deferred.reject("noname");
+                return deferred.promise();
+            }
+            if (controller.animal && controller.animal.ID) {
+                deferred.resolve(controller.animal.ID);
+                return deferred.promise();
+            }
+            // Silent minimal save without routing or UI disruption
+            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
+            common.ajax_post("animal_induction", formdata)
+                .then(function(response){
+                    const parts = String(response || "").trim().split(/\s+/);
+                    const animalID = parts[0] || "0";
+                    if (!animalID || animalID === "0") { deferred.reject("savefailed"); return; }
+                    if (!controller.animal) { controller.animal = { ID: parseInt(animalID, 10), RECORDVERSION: 0 }; }
+                    else { controller.animal.ID = parseInt(animalID, 10); }
+                    deferred.resolve(controller.animal.ID);
+                })
+                .fail(function(err){ deferred.reject(err); });
             return deferred.promise();
         },
 
@@ -1885,6 +1926,13 @@ $(function() {
                 if ($(e.target).is('button') || $(e.target).is('img')) { return; }
                 const isFilled = $(this).hasClass('filled');
                 if (!isFilled) {
+                    // Require name before allowing upload
+                    const name = $("#animalname").val();
+                    if (!name || String(name).trim() === "") {
+                        header.show_error(_("Please enter a name before adding photos."));
+                        $("#animalname").focus();
+                        return;
+                    }
                     $("#induction-photo-file").trigger('click');
                 }
             });
@@ -2321,18 +2369,30 @@ $(function() {
             });
 
             // Media upload: select file and upload to next available slot
-            $("#button-upload-photo").button().click(function() {
+            $("#button-upload-photo").button().click(async function() {
+                // Ensure name present before opening picker
+                const name = $("#animalname").val();
+                if (!name || String(name).trim() === "") {
+                    header.show_error(_("Please enter a name before adding photos."));
+                    $("#animalname").focus();
+                    return;
+                }
                 $("#induction-photo-file").trigger("click");
             });
-            $("#induction-photo-file").off('change').on('change', function() {
+            $("#induction-photo-file").off('change').on('change', async function() {
                 let f = $("#induction-photo-file")[0].files[0];
                 if (!f) { return; }
                 // Enforce max 4 photos
                 const used = $("#media-grid .media-slot.filled").length;
-                if (used >= 4) { header.show_error(_("Maximum 4 photos allowed")); return; }
-                animal_induction.upload_photo(f)
-                    .then(function() { animal_induction.load_media_list(); })
-                    .always(function() { $("#induction-photo-file").val(""); });
+                if (used >= 4) { header.show_error(_("Maximum 4 photos allowed")); $(this).val(""); return; }
+                try {
+                    // Ensure the record exists (auto-save silently)
+                    await animal_induction.ensure_saved_for_media();
+                    await animal_induction.upload_photo(f);
+                    animal_induction.load_media_list();
+                } finally {
+                    $("#induction-photo-file").val("");
+                }
             });
 
             $("#button-animalname")
