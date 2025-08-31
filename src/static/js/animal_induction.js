@@ -40,6 +40,9 @@ $(function() {
                 '<span class="similar-animal"></span>',
                 '</p>',
                 '</div>',
+                '<div id="dialog-media-viewer" style="display:none;" title="' + _("Photo") + '">',
+                '  <img id="dialog-media-viewer-img" alt="" style="max-width:90vw;max-height:80vh;display:block;margin:0 auto;" />',
+                '</div>',
                 html.content_header(_("Patient Induction")),
                 '<div class="patient-induction-form">',
                 '<style>',
@@ -51,62 +54,47 @@ $(function() {
                 '    padding: 30px;',
                 '    box-shadow: 0 8px 32px rgba(0,0,0,0.1);',
                 '}',
-                /* Mobile-friendly photo uploader tile */
-                '.photo-upload-tile {',
-                '    position: relative;',
-                '    display: flex;',
-                '    align-items: center;',
-                '    justify-content: center;',
-                '    gap: 10px;',
-                '    width: 100%;',
-                '    min-height: 140px;',
-                '    aspect-ratio: 4 / 3;',
-                '    border: 2px dashed #cfd6df;',
-                '    border-radius: 10px;',
-                '    background: #f9fbfd;',
-                '    color: #6c757d;',
-                '    cursor: pointer;',
-                '    transition: all .2s ease;',
+                /* Media grid (thumbnails up to 4) */
+                '.media-grid {',
+                '  display: grid;',
+                '  grid-template-columns: repeat(4, minmax(80px, 1fr));',
+                '  gap: 10px;',
                 '}',
-                '.photo-upload-tile:hover {',
-                '    background: #f0f5ff;',
-                '    border-color: #8fb1ff;',
+                '@media (max-width: 900px) { .media-grid { grid-template-columns: repeat(3, 1fr); } }',
+                '@media (max-width: 640px) { .media-grid { grid-template-columns: repeat(2, 1fr); } }',
+                '.media-slot {',
+                '  position: relative;',
+                '  background: #f9fbfd;',
+                '  border: 1px dashed #cfd6df;',
+                '  border-radius: 8px;',
+                '  aspect-ratio: 1 / 1;',
+                '  overflow: hidden;',
+                '  display: flex;',
+                '  align-items: center;',
+                '  justify-content: center;',
                 '}',
-                '.photo-upload-icon {',
-                '    font-size: 22px;',
+                '.media-slot img {',
+                '  width: 100%; height: 100%; object-fit: cover; display: none;',
                 '}',
-                '.photo-upload-text {',
-                '    font-weight: 600;',
-                '    font-size: 14px;',
+                '.media-slot.filled img { display: block; }',
+                '.media-slot .media-empty-hint {',
+                '  font-size: 12px; color: #6c757d; text-align: center; padding: 6px;',
                 '}',
-                '.photo-upload-tile img {',
-                '    display: none;',
-                '    position: absolute;',
-                '    inset: 0;',
-                '    width: 100%;',
-                '    height: 100%;',
-                '    object-fit: contain;',
-                '    border-radius: 10px;',
+                '.media-actions {',
+                '  position: absolute; bottom: 4px; left: 4px; right: 4px;',
+                '  display: flex; gap: 4px; justify-content: space-between;',
                 '}',
-                '.photo-upload-tile.has-photo img {',
-                '    display: block;',
+                '.media-actions button {',
+                '  font-size: 11px; padding: 2px 6px; line-height: 1.2;',
                 '}',
-                '.photo-upload-tile.has-photo .photo-upload-icon,',
-                '.photo-upload-tile.has-photo .photo-upload-text {',
-                '    display: none;',
+                '.media-badge {',
+                '  position: absolute; top: 4px; left: 4px;',
+                '  background: #28a745; color: #fff; font-size: 10px;',
+                '  padding: 2px 5px; border-radius: 10px;',
+                '  display: none;',
                 '}',
-                '.photo-upload-tile.uploading::after {',
-                '    content: "Uploading…";',
-                '    position: absolute;',
-                '    inset: 0;',
-                '    background: rgba(255,255,255,0.7);',
-                '    display: flex;',
-                '    align-items: center;',
-                '    justify-content: center;',
-                '    font-weight: 600;',
-                '    color: #2c3e50;',
-                '    border-radius: 10px;',
-                '}',
+                '.media-slot.default .media-badge { display: inline-block; }',
+                '.media-slot.dragover { outline: 2px dashed #8fb1ff; outline-offset: -2px; }',
                 '@media (max-width: 768px) {',
                 '  #button-upload-photo { display: none; }',
                 '}',
@@ -425,22 +413,6 @@ $(function() {
                 '<div class="form-section">',
                 '    <div class="form-group">',
                 '        <h3>' + _("Basic Information") + '</h3>',
-                '        <div class="field-row" id="photorow">',
-                '            <div class="field-label">' + _("Photo") + '</div>',
-                '            <div class="field-input" style="flex-direction: column; align-items: stretch;">',
-                '                <input id="induction-photo-file" type="file" accept="image/*" capture="environment" style="display:none;" />',
-                '                <div id="photo-upload-tile" class="photo-upload-tile" role="button" aria-label="' + _("Add photo") + '">',
-                '                    <div class="photo-upload-icon">📷</div>',
-                '                    <div class="photo-upload-text">' + _("Tap to add a photo") + '</div>',
-                '                    <img id="induction-photo-preview" alt="" />',
-                '                </div>',
-                '                <div style="margin-top:8px;">',
-                '                  <button id="button-upload-photo" type="button" class="ui-button ui-widget ui-state-default ui-corner-all">' +
-                '                      <span class="ui-icon ui-icon-image"></span> ' + _("Upload Photo") +
-                '                  </button>',
-                '                </div>',
-                '            </div>',
-                '        </div>',
                 '        <div class="field-row" id="coderow">',
                 '            <div class="field-label">' + _("Code") + '</div>',
                 '            <div class="field-input">',
@@ -541,6 +513,55 @@ $(function() {
                 '            <div class="field-label" style="align-self: flex-start; padding-top: 8px;">' + _("Description") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_textarea({ post_field: "comments", justwidget: true, rows: 4 }),
+                '            </div>',
+                '        </div>',
+                '        <div class="field-row" id="photosrow">',
+                '            <div class="field-label" style="align-self:flex-start; padding-top:8px;">' + _("Photos") + '</div>',
+                '            <div class="field-input" style="flex-direction: column; align-items: stretch;">',
+                '                <input id="induction-photo-file" type="file" accept="image/*" capture="environment" style="display:none;" />',
+                '                <div id="media-grid" class="media-grid">',
+                '                    <div class="media-slot" data-index="0">',
+                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-badge">' + _("Default") + '</span>',
+                '                      <img alt="" />',
+                '                      <div class="media-actions" style="display:none;">',
+                '                        <button type="button" class="make-default">' + _("Make default") + '</button>',
+                '                        <button type="button" class="delete">' + _("Delete") + '</button>',
+                '                      </div>',
+                '                    </div>',
+                '                    <div class="media-slot" data-index="1">',
+                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-badge">' + _("Default") + '</span>',
+                '                      <img alt="" />',
+                '                      <div class="media-actions" style="display:none;">',
+                '                        <button type="button" class="make-default">' + _("Make default") + '</button>',
+                '                        <button type="button" class="delete">' + _("Delete") + '</button>',
+                '                      </div>',
+                '                    </div>',
+                '                    <div class="media-slot" data-index="2">',
+                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-badge">' + _("Default") + '</span>',
+                '                      <img alt="" />',
+                '                      <div class="media-actions" style="display:none;">',
+                '                        <button type="button" class="make-default">' + _("Make default") + '</button>',
+                '                        <button type="button" class="delete">' + _("Delete") + '</button>',
+                '                      </div>',
+                '                    </div>',
+                '                    <div class="media-slot" data-index="3">',
+                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-badge">' + _("Default") + '</span>',
+                '                      <img alt="" />',
+                '                      <div class="media-actions" style="display:none;">',
+                '                        <button type="button" class="make-default">' + _("Make default") + '</button>',
+                '                        <button type="button" class="delete">' + _("Delete") + '</button>',
+                '                      </div>',
+                '                    </div>',
+                '                </div>',
+                '                <div style="margin-top:8px;">',
+                '                  <button id="button-upload-photo" type="button" class="ui-button ui-widget ui-state-default ui-corner-all">' +
+                '                      <span class="ui-icon ui-icon-image"></span> ' + _("Upload Photo") +
+                '                  </button>',
+                '                </div>',
                 '            </div>',
                 '        </div>',
                 '        <!-- Hidden fields for hedgehog constants -->',
@@ -1706,7 +1727,6 @@ $(function() {
                     "&type=gallery" +
                     "&filename=" + encodeURIComponent(file.name) +
                     "&filedata=" + encodeURIComponent(reader.result);
-                $("#photo-upload-tile").addClass("uploading");
                 header.show_loading(_("Uploading..."));
                 $.ajax({
                     method: "POST",
@@ -1716,27 +1736,15 @@ $(function() {
                     mimeType: "textPlain",
                     success: async function(mid) {
                         try {
-                            // Try to set as web preferred so it shows on shelterview
-                            await common.ajax_post("media", "mode=web&ids=" + encodeURIComponent(mid));
+                            // If this is the first photo, set as default
+                            const hasAny = $("#media-grid .media-slot.filled").length > 0;
+                            if (!hasAny) {
+                                await common.ajax_post("media", "mode=web&ids=" + encodeURIComponent(mid));
+                            }
                         } catch (e) {}
                         header.hide_loading();
                         header.show_info(_("Photo successfully uploaded."));
-                        // Update preview and tile state
-                        $("#induction-photo-preview")
-                            .attr("src", "/image?db=" + asm.useraccount + "&mode=media&id=" + mid)
-                            .show();
-                        // Match tile aspect ratio to the loaded image
-                        (function() {
-                            const $img = $("#induction-photo-preview");
-                            const applyAR = function() {
-                                const el = $img.get(0);
-                                if (!el) { return; }
-                                animal_induction.update_photo_tile_aspect(el.naturalWidth, el.naturalHeight);
-                            };
-                            if ($img.get(0) && $img.get(0).complete) { applyAR(); } else { $img.one("load", applyAR); }
-                        })();
-                        $("#photo-upload-tile").addClass("has-photo");
-                        $("#induction-photo-file").val("");
+                        // Grid will be refreshed by caller
                         deferred.resolve(mid);
                     },
                     error: function(obj, error, errorthrown) {
@@ -1744,13 +1752,186 @@ $(function() {
                         header.show_error(error || errorthrown || _("Failed to upload photo."));
                         deferred.reject(error || errorthrown);
                     },
-                    complete: function() {
-                        $("#photo-upload-tile").removeClass("uploading");
-                    }
+                    complete: function() {}
                 });
             }, false);
             reader.readAsDataURL(file);
             return deferred.promise();
+        },
+
+        /**
+         * Loads media list for current animal and renders the 4-slot grid
+         */
+        load_media_list: async function() {
+            try {
+                if (!controller.animal || !controller.animal.ID) {
+                    // Clear grid if no animal
+                    $("#media-grid .media-slot").each(function() {
+                        $(this).removeClass('filled default').attr('data-mid', '');
+                        $(this).find('img').attr('src','').hide();
+                        $(this).find('.media-actions').hide();
+                        $(this).find('.media-empty-hint').show();
+                    });
+                    return;
+                }
+                const response = await common.ajax_post("mobile", "mode=loadanimal&id=" + controller.animal.ID);
+                let data = {};
+                try { data = jQuery.parseJSON(response); } catch(e) { data = {}; }
+                let media = (data && data.media) ? data.media : [];
+                // filter to jpg/jpeg images not excluded
+                media = media.filter(function(m){
+                    const name = String(m.MEDIANAME || "").toLowerCase();
+                    const mimetype = String(m.MEDIAMIMETYPE || "").toLowerCase();
+                    const isimg = mimetype.indexOf('image/jpeg') !== -1 || name.endsWith('.jpg') || name.endsWith('.jpeg');
+                    const notexcluded = (m.EXCLUDEFROMPUBLISH === 0 || m.EXCLUDEFROMPUBLISH === null || m.EXCLUDEFROMPUBLISH === undefined);
+                    return isimg && notexcluded;
+                });
+                // preferred first, then by Date desc (already desc from backend)
+                media.sort(function(a,b){
+                    const ap = (a.WEBSITEPHOTO ? 1 : 0);
+                    const bp = (b.WEBSITEPHOTO ? 1 : 0);
+                    if (ap !== bp) { return bp - ap; }
+                    return 0;
+                });
+                animal_induction.render_media_grid(media.slice(0,4));
+            } catch (e) {
+                // Silent failure: keep grid as-is
+            }
+        },
+
+        /**
+         * Renders given media array into the 4-slot grid and binds actions
+         */
+        render_media_grid: function(items) {
+            const $slots = $("#media-grid .media-slot");
+            // Reset all
+            $slots.each(function(){
+                $(this).removeClass('filled default').attr('data-mid', '');
+                $(this).find('img').attr('src','').hide();
+                $(this).find('.media-actions').hide();
+                $(this).find('.media-empty-hint').show();
+            });
+            // Fill slots
+            $.each(items, function(i, m){
+                const $slot = $slots.eq(i);
+                if ($slot.length === 0) { return false; }
+                const mid = m.ID;
+                const isDefault = !!m.WEBSITEPHOTO;
+                $slot.attr('data-mid', mid);
+                $slot.addClass('filled');
+                if (isDefault) { $slot.addClass('default'); }
+                $slot.find('.media-empty-hint').hide();
+                $slot.find('img')
+                    .attr('src', 'image?db=' + asm.useraccount + '&mode=media&id=' + encodeURIComponent(mid))
+                    .show();
+                $slot.find('.media-actions').show();
+            });
+            // Bind action handlers
+            animal_induction.bind_media_action_handlers();
+        },
+
+        /**
+         * Binds Make Default and Delete handlers for media grid
+         */
+        bind_media_action_handlers: function() {
+            $("#media-grid .media-slot .make-default").off('click').on('click', async function(e){
+                e.preventDefault();
+                const mid = $(this).closest('.media-slot').attr('data-mid');
+                if (!mid) { return; }
+                try {
+                    await common.ajax_post("media", "mode=web&ids=" + encodeURIComponent(mid));
+                    animal_induction.load_media_list();
+                } catch (ex) {}
+            });
+            $("#media-grid .media-slot .delete").off('click').on('click', async function(e){
+                e.preventDefault();
+                const mid = $(this).closest('.media-slot').attr('data-mid');
+                if (!mid) { return; }
+                if (!confirm(_("Delete this photo?"))) { return; }
+                try {
+                    await common.ajax_post("media", "mode=delete&ids=" + encodeURIComponent(mid));
+                    animal_induction.load_media_list();
+                } catch (ex) {}
+            });
+            // View larger
+            $("#media-grid .media-slot img").off('click').on('click', function(){
+                const mid = $(this).closest('.media-slot').attr('data-mid');
+                if (!mid) { return; }
+                animal_induction.open_media_viewer(mid);
+            });
+            // Enable drag-to-reorder
+            $("#media-grid .media-slot").attr('draggable', true)
+                .off('dragstart').on('dragstart', function(ev){
+                    try { ev.originalEvent.dataTransfer.setData('text/plain', $(this).attr('data-index')); } catch(e) {}
+                    $(this).addClass('dragging');
+                })
+                .off('dragend').on('dragend', function(){ $(this).removeClass('dragging'); })
+                .off('dragover').on('dragover', function(ev){ ev.preventDefault(); $(this).addClass('dragover'); })
+                .off('dragleave').on('dragleave', function(){ $(this).removeClass('dragover'); })
+                .off('drop').on('drop', function(ev){
+                    ev.preventDefault();
+                    $(this).removeClass('dragover');
+                    let src = 0;
+                    try { src = parseInt(ev.originalEvent.dataTransfer.getData('text/plain'), 10) || 0; } catch(e) { src = 0; }
+                    const dst = parseInt($(this).attr('data-index'), 10) || 0;
+                    if (src === dst) { return; }
+                    animal_induction.swap_media_slots(src, dst);
+                    animal_induction.apply_reorder();
+                });
+        },
+
+        /** Swap the contents of two media slots by index */
+        swap_media_slots: function(i, j) {
+            const $slots = $("#media-grid .media-slot");
+            const $a = $slots.eq(i), $b = $slots.eq(j);
+            if ($a.length === 0 || $b.length === 0) { return; }
+            // Grab state of A
+            const aMid = $a.attr('data-mid') || '';
+            const aSrc = $a.find('img').attr('src') || '';
+            const aFilled = $a.hasClass('filled');
+            const aDefault = $a.hasClass('default');
+            // Grab state of B
+            const bMid = $b.attr('data-mid') || '';
+            const bSrc = $b.find('img').attr('src') || '';
+            const bFilled = $b.hasClass('filled');
+            const bDefault = $b.hasClass('default');
+            // Apply A->B
+            $b.attr('data-mid', aMid);
+            $b.toggleClass('filled', aFilled);
+            $b.toggleClass('default', aDefault);
+            $b.find('img').attr('src', aSrc).toggle(!!aSrc);
+            $b.find('.media-actions').toggle(aFilled);
+            $b.find('.media-empty-hint').toggle(!aFilled);
+            // Apply B->A
+            $a.attr('data-mid', bMid);
+            $a.toggleClass('filled', bFilled);
+            $a.toggleClass('default', bDefault);
+            $a.find('img').attr('src', bSrc).toggle(!!bSrc);
+            $a.find('.media-actions').toggle(bFilled);
+            $a.find('.media-empty-hint').toggle(!bFilled);
+        },
+
+        /** After a reorder, ensure slot 0 is the default on server */
+        apply_reorder: async function() {
+            const mid0 = $("#media-grid .media-slot").eq(0).attr('data-mid');
+            if (!mid0) { return; }
+            try {
+                await common.ajax_post("media", "mode=web&ids=" + encodeURIComponent(mid0));
+                // Refresh grid to reflect default badge according to server state
+                animal_induction.load_media_list();
+            } catch (e) {}
+        },
+
+        /** Open a dialog to view a larger version of a photo */
+        open_media_viewer: function(mid) {
+            try {
+                const src = 'image?db=' + asm.useraccount + '&mode=media&id=' + encodeURIComponent(mid);
+                const $dlg = $("#dialog-media-viewer");
+                const $img = $("#dialog-media-viewer-img");
+                $img.attr('src', src);
+                const w = Math.min($(window).width()*0.9, 1000);
+                $dlg.dialog({ modal: true, width: w, resizable: true });
+            } catch (e) {}
         },
 
         /* Update the breed selects to only show the breeds for the selected species.
@@ -1890,9 +2071,13 @@ $(function() {
             // Change additional fields to default
             additional.reset_default(controller.additional);
 
-            // Reset photo preview/tile UI and aspect ratio to default
-            $("#induction-photo-preview").attr("src", "").hide();
-            $("#photo-upload-tile").removeClass("has-photo uploading").css("aspect-ratio", "4 / 3");
+            // Clear media grid
+            $("#media-grid .media-slot").each(function() {
+                $(this).removeClass('filled default').attr('data-mid', '');
+                $(this).find('img').attr('src','').hide();
+                $(this).find('.media-actions').hide();
+                $(this).find('.media-empty-hint').show();
+            });
         },
 
         validation: function() {
@@ -2125,23 +2310,19 @@ $(function() {
                 animal_induction.save_progress();
             });
 
-            // Photo upload
-            $("#photo-upload-tile").off("click").on("click", function() {
+            // Media upload: select file and upload to next available slot
+            $("#button-upload-photo").button().click(function() {
                 $("#induction-photo-file").trigger("click");
             });
-            $("#button-upload-photo").button().click(function() {
-                if (!$("#induction-photo-file").val()) {
-                    $("#induction-photo-file").trigger("click");
-                    return;
-                }
+            $("#induction-photo-file").off('change').on('change', function() {
                 let f = $("#induction-photo-file")[0].files[0];
                 if (!f) { return; }
-                animal_induction.upload_photo(f);
-            });
-            $("#induction-photo-file").change(function() {
-                let f = $("#induction-photo-file")[0].files[0];
-                if (!f) { return; }
-                animal_induction.upload_photo(f);
+                // Enforce max 4 photos
+                const used = $("#media-grid .media-slot.filled").length;
+                if (used >= 4) { header.show_error(_("Maximum 4 photos allowed")); return; }
+                animal_induction.upload_photo(f)
+                    .then(function() { animal_induction.load_media_list(); })
+                    .always(function() { $("#induction-photo-file").val(""); });
             });
 
             $("#button-animalname")
@@ -2308,24 +2489,8 @@ $(function() {
             if (animal.ANIMALCOMMENTS !== undefined && animal.ANIMALCOMMENTS !== null) {
                 $("#comments").val(animal.ANIMALCOMMENTS);
             }
-            // If there is a preferred web media, show it in the uploader tile
-            try {
-                // Prefer robust check via image endpoint with nopic=404 so we don't show a placeholder
-                if (animal && animal.ID) {
-                    let src = "image?db=" + asm.useraccount + "&mode=animal&id=" + animal.ID + "&nopic=404";
-                    if (animal.WEBSITEMEDIADATE) {
-                        try { src += "&date=" + encodeURIComponent(animal.WEBSITEMEDIADATE); } catch(e) {}
-                    }
-                    const testImg = new Image();
-                    testImg.onload = function() {
-                        $("#induction-photo-preview").attr("src", src).show();
-                        $("#photo-upload-tile").addClass("has-photo");
-                        animal_induction.update_photo_tile_aspect(testImg.naturalWidth, testImg.naturalHeight);
-                    };
-                    testImg.onerror = function() { /* No preferred photo, leave tile empty */ };
-                    testImg.src = src;
-                }
-            } catch(e) {}
+            // Load and render media thumbnails
+            animal_induction.load_media_list();
             
             // Set weight field
             if (animal.WEIGHT) {
