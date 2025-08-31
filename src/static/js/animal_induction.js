@@ -96,7 +96,7 @@ $(function() {
                 '.media-slot.default .media-badge { display: inline-block; }',
                 '.media-slot.dragover { outline: 2px dashed #8fb1ff; outline-offset: -2px; }',
                 '@media (max-width: 768px) {',
-                '  #button-upload-photo { display: none; }',
+                '  #button-upload-photo { width: 100%; font-size: 16px; padding: 10px 14px; }',
                 '}',
                 '.form-section {',
                 '    display: block;',
@@ -521,7 +521,7 @@ $(function() {
                 '                <input id="induction-photo-file" type="file" accept="image/*" capture="environment" style="display:none;" />',
                 '                <div id="media-grid" class="media-grid">',
                 '                    <div class="media-slot" data-index="0">',
-                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-empty-hint">' + _("Tap to add a photo") + '</span>',
                 '                      <span class="media-badge">' + _("Default") + '</span>',
                 '                      <img alt="" />',
                 '                      <div class="media-actions" style="display:none;">',
@@ -530,7 +530,7 @@ $(function() {
                 '                      </div>',
                 '                    </div>',
                 '                    <div class="media-slot" data-index="1">',
-                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-empty-hint">' + _("Tap to add a photo") + '</span>',
                 '                      <span class="media-badge">' + _("Default") + '</span>',
                 '                      <img alt="" />',
                 '                      <div class="media-actions" style="display:none;">',
@@ -539,7 +539,7 @@ $(function() {
                 '                      </div>',
                 '                    </div>',
                 '                    <div class="media-slot" data-index="2">',
-                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-empty-hint">' + _("Tap to add a photo") + '</span>',
                 '                      <span class="media-badge">' + _("Default") + '</span>',
                 '                      <img alt="" />',
                 '                      <div class="media-actions" style="display:none;">',
@@ -548,7 +548,7 @@ $(function() {
                 '                      </div>',
                 '                    </div>',
                 '                    <div class="media-slot" data-index="3">',
-                '                      <span class="media-empty-hint">' + _("Empty") + '</span>',
+                '                      <span class="media-empty-hint">' + _("Tap to add a photo") + '</span>',
                 '                      <span class="media-badge">' + _("Default") + '</span>',
                 '                      <img alt="" />',
                 '                      <div class="media-actions" style="display:none;">',
@@ -1878,6 +1878,16 @@ $(function() {
                     animal_induction.swap_media_slots(src, dst);
                     animal_induction.apply_reorder();
                 });
+
+            // Click empty slot to upload (mobile friendly)
+            $("#media-grid .media-slot").off('click.empty').on('click.empty', function(e){
+                // Ignore clicks on action buttons or images (those have their own handlers)
+                if ($(e.target).is('button') || $(e.target).is('img')) { return; }
+                const isFilled = $(this).hasClass('filled');
+                if (!isFilled) {
+                    $("#induction-photo-file").trigger('click');
+                }
+            });
         },
 
         /** Swap the contents of two media slots by index */
