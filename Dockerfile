@@ -37,7 +37,8 @@ RUN pip install --no-cache-dir \
     pymysql \
     requests \
     lxml \
-    python-memcached
+    python-memcached \
+    boto3
 
 # Note: Customization script removed - using direct source approach
 

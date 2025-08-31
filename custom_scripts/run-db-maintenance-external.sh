@@ -133,6 +133,51 @@ log "Creating compressed database backup: $BACKUP_FILE"
 if docker-compose exec -T postgres pg_dump -U asm3 -Fc asm3 > "$BACKUP_FILE"; then
     BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
     log "Backup created successfully: $BACKUP_FILE (Size: $BACKUP_SIZE)"
+    # Optionally mirror backup to S3 if enabled in .env
+    # Load environment variables from .env if present
+    if [ -f .env ]; then
+        set -a
+        . ./.env
+        set +a
+    fi
+    if [ "${BACKUP_S3_ENABLED}" = "true" ] || [ "${BACKUP_S3_ENABLED}" = "1" ]; then
+        S3_BUCKET="${BACKUP_S3_BUCKET}"
+        S3_PREFIX="${BACKUP_S3_PREFIX:-db-backups}"
+        if [ -z "$S3_BUCKET" ]; then
+            log "ERROR: BACKUP_S3_ENABLED is true but BACKUP_S3_BUCKET is not set"
+        else
+            S3_URI="s3://${S3_BUCKET}/${S3_PREFIX}/$(basename "$BACKUP_FILE")"
+            log "Uploading backup to ${S3_URI}"
+            # Prepare AWS environment vars if provided
+            export AWS_ACCESS_KEY_ID="${BACKUP_S3_ACCESS_KEY_ID}"
+            export AWS_SECRET_ACCESS_KEY="${BACKUP_S3_SECRET_ACCESS_KEY}"
+            export AWS_DEFAULT_REGION="${BACKUP_S3_REGION}"
+            # For non-AWS S3 (e.g., MinIO/DO Spaces) support custom endpoint
+            if [ -n "${BACKUP_S3_ENDPOINT_URL}" ]; then
+                export AWS_ENDPOINT_URL_S3="${BACKUP_S3_ENDPOINT_URL}"
+            fi
+            # Try local aws cli first, fallback to dockerized aws cli
+            if command -v aws >/dev/null 2>&1; then
+                if aws s3 cp "$BACKUP_FILE" "$S3_URI" --only-show-errors; then
+                    log "S3 upload successful: $S3_URI"
+                else
+                    log "ERROR: S3 upload failed via local aws cli"
+                fi
+            else
+                log "aws CLI not found locally, attempting dockerized aws-cli"
+                if docker run --rm \
+                    -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL_S3 \
+                    -v "$BACKUP_DIR":/backups \
+                    amazon/aws-cli s3 cp "/backups/$(basename "$BACKUP_FILE")" "$S3_URI" --only-show-errors; then
+                    log "S3 upload successful (dockerized aws-cli): $S3_URI"
+                else
+                    log "ERROR: S3 upload failed via dockerized aws-cli"
+                fi
+            fi
+        fi
+    else
+        log "S3 mirroring disabled (BACKUP_S3_ENABLED is not true)"
+    fi
 else
     log "ERROR: Database backup failed with exit code $?"
     # Don't exit here - backup failure shouldn't stop the maintenance process

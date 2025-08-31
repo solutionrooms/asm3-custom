@@ -30,7 +30,28 @@ deployment_type = wsgi
 session_secure_cookie = false
 
 # File storage
-dbfs_store = database
+# Use env var to control DBFS storage mode (database|file|s3)
+dbfs_store = ${ASM3_DBFS_STORE}
+
+# S3 storage configuration (used when dbfs_store = s3)
+# If keys are empty, the app will fall back to instance/role or ~/.aws/credentials
+dbfs_s3_bucket = ${ASM3_DBFS_S3_BUCKET}
+dbfs_s3_access_key_id = ${ASM3_DBFS_S3_ACCESS_KEY_ID}
+dbfs_s3_secret_access_key = ${ASM3_DBFS_S3_SECRET_ACCESS_KEY}
+# For AWS, leave blank; for S3-compatible providers set endpoint (e.g., https://s3.eu-west-1.amazonaws.com or https://nyc3.digitaloceanspaces.com)
+dbfs_s3_endpoint_url = ${ASM3_DBFS_S3_ENDPOINT_URL}
+
+# Optional: synchronous backup to a second S3 (leave blank to disable)
+dbfs_s3_backup_bucket = ${ASM3_DBFS_S3_BACKUP_BUCKET}
+dbfs_s3_backup_access_key_id = ${ASM3_DBFS_S3_BACKUP_ACCESS_KEY_ID}
+dbfs_s3_backup_secret_access_key = ${ASM3_DBFS_S3_BACKUP_SECRET_ACCESS_KEY}
+dbfs_s3_backup_endpoint_url = ${ASM3_DBFS_S3_BACKUP_ENDPOINT_URL}
+
+# Optional: migrate-on-read from previous provider (leave blank to disable)
+dbfs_s3_migrate_bucket = ${ASM3_DBFS_S3_MIGRATE_BUCKET}
+dbfs_s3_migrate_access_key_id = ${ASM3_DBFS_S3_MIGRATE_ACCESS_KEY_ID}
+dbfs_s3_migrate_secret_access_key = ${ASM3_DBFS_S3_MIGRATE_SECRET_ACCESS_KEY}
+dbfs_s3_migrate_endpoint_url = ${ASM3_DBFS_S3_MIGRATE_ENDPOINT_URL}
 
 # Error handling
 email_errors = false

@@ -353,3 +353,55 @@ entryinspection* - Select - No|Slight|Moderate|Severe (auto-detected)
 **Last Updated**: 2025-08-25  
 **Documentation Status**: Complete  
 **Testing Status**: Functional testing completed
+
+---
+
+## 🖼️ S3 Media Storage (DBFS → S3)
+**Date**: 2025-08-30  
+**Branch**: develop
+
+### Overview
+Enable storing images/documents in S3 instead of the database. Configuration is driven by environment variables to keep secrets out of the repo.
+
+### Changes
+- `Dockerfile`: Add `boto3` to Python dependencies to support S3 client usage by `src/asm3/dbfs.py`.
+- `asm3.conf.template`: Switch DBFS settings to env-driven values and add S3 config placeholders (`dbfs_s3_*`).
+- `docker-compose.yml`: Pass new `ASM3_DBFS_*` environment variables into the container.
+- `.env.example`: Add `ASM3_DBFS_STORE` and S3-related env variables for secure configuration.
+- `Makefile`: Add `dbfs-migrate` target to run `maint_switch_dbfs_storage` inside the container.
+
+### Usage
+- Set in `.env`: `ASM3_DBFS_STORE=s3`, `ASM3_DBFS_S3_BUCKET=...`, and optionally access keys/endpoint (or rely on IAM/role/instance creds).
+- Apply config: `make stop && make start`
+- Migrate existing files: `make dbfs-migrate`
+
+### Rationale: Why `asm3.conf.template`?
+- We generate the runtime `asm3.conf` via `envsubst` on container start, so secrets live in `.env` (or orchestrator secrets), not in a committed config file.
+- Keeps a single portable template across environments (dev/staging/prod) without editing the file for each environment.
+- The committed `asm3.conf` file is retained for non-Docker/local workflows; Docker uses the generated `/app/asm3.conf`.
+
+---
+
+## 💾 Database Backups Mirrored to S3
+**Date**: 2025-08-30  
+**Branch**: develop
+
+### Overview
+Extend external DB maintenance cron to upload created PostgreSQL backups to an S3 bucket (separate from media bucket). Uses `.env` for credentials and falls back to host AWS profile/role if keys not set.
+
+### Changes
+- `custom_scripts/run-db-maintenance-external.sh`: After creating `backups/backup_*.dump`, optionally uploads to `s3://$BACKUP_S3_BUCKET/$BACKUP_S3_PREFIX/` when `BACKUP_S3_ENABLED=true`.
+  - Uses local `aws` CLI if installed; otherwise runs dockerized `amazon/aws-cli` image.
+  - Supports custom endpoint via `BACKUP_S3_ENDPOINT_URL` for S3-compatible providers.
+- `.env.example`: Added `BACKUP_S3_*` variables.
+
+### Configure
+- Set in `.env`:
+  - `BACKUP_S3_ENABLED=true`
+  - `BACKUP_S3_BUCKET=your-backup-bucket`
+  - Optional: `BACKUP_S3_PREFIX=asm3/backups`, `BACKUP_S3_REGION=eu-west-1`, `BACKUP_S3_ENDPOINT_URL=https://...`
+  - Optional creds: `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` (prefer IAM/profile on host)
+
+### Notes
+- Retention: local keeps last 3 backups; manage S3 retention via bucket lifecycle rules.
+- Cron: Use `make install-cron` to schedule `custom_scripts/run-db-maintenance-external.sh` daily.

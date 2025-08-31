@@ -16,6 +16,9 @@ help:
 	@echo "  logs-weight   - Show weight monitor logs"
 	@echo "  logs-cron     - Show all cron job logs"
 	@echo "  logs-db       - Show database maintenance logs"
+	@echo "  dbfs-migrate  - Move existing DBFS files to current storage (eg, S3)"
+	@echo "  dbfs-reupload-cache - Re-upload S3 objects from disk cache (one-off repair)"
+	@echo "  dbfs-migrate-safe - Synchronous DBFS -> S3 migration (no VACUUM, no threads)"
 	@echo "  clean         - Stop and remove all containers and volumes"
 	@echo "  cleanup       - Clean up Docker space and log files"
 	@echo "  update        - Update ASM3 base and rebuild"
@@ -206,6 +209,24 @@ dev: build start logs
 # Check if everything is running
 status:
 	docker-compose ps
+
+# Migrate DBFS storage to the current backend (eg, after switching to S3)
+dbfs-migrate:
+	@echo "Running DBFS storage migration (maint_switch_dbfs_storage)..."
+	docker-compose exec asm3 sh -lc 'ASM3_CONF=/app/asm3.conf python3 /app/src/cron.py maint_switch_dbfs_storage'
+	@echo "Done. Check logs if any errors occurred: make logs"
+
+# One-off repair: upload missing S3 objects using disk cache contents
+dbfs-reupload-cache:
+	@echo "Uploading missing S3 objects from disk cache..."
+	docker-compose exec asm3 sh -lc 'ASM3_CONF=/app/asm3.conf python3 /app/custom_scripts/reupload_dbfs_s3_from_cache.py'
+	@echo "Done. Check logs if any errors occurred: make logs"
+
+# Safe synchronous migration using a custom script that uploads each file and then updates DBFS URL
+dbfs-migrate-safe:
+	@echo "Running safe DBFS -> S3 migration..."
+	docker-compose exec asm3 sh -lc 'ASM3_CONF=/app/asm3.conf python3 /app/custom_scripts/migrate_dbfs_to_s3.py'
+	@echo "Done. Check logs if any errors occurred: make logs"
 
 # Show current ASM3 version
 version:
@@ -565,5 +586,3 @@ o_deps:
 	apt-get install python3-sphinx python3-sphinx-rtd-theme texlive-latex-base texlive-latex-extra latexmk
 	apt-get install exuberant-ctags flake8 imagemagick wkhtmltopdf nodejs npm memcached
 	npm install
-
-
