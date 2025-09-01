@@ -2465,23 +2465,29 @@ $(function() {
                     $("#animalname").focus();
                     return;
                 }
-                $("#induction-photo-file").trigger("click");
+                animal_induction.prompt_photo_source();
             });
-            $("#induction-photo-file").off('change').on('change', async function() {
+            // Common change handler for both camera and library inputs
+            const onPhotoFileChange = async function(input) {
                 let f = $("#induction-photo-file")[0].files[0];
+                if (input && input.id === 'induction-photo-library') {
+                    f = $("#induction-photo-library")[0].files[0];
+                }
                 if (!f) { return; }
                 // Enforce max 4 photos
                 const used = $("#media-grid .media-slot.filled").length;
-                if (used >= 4) { header.show_error(_("Maximum 4 photos allowed")); $(this).val(""); return; }
+                if (used >= 4) { header.show_error(_("Maximum 4 photos allowed")); $(input).val(""); return; }
                 try {
                     // Ensure the record exists (auto-save silently)
                     await animal_induction.ensure_saved_for_media();
                     await animal_induction.upload_photo(f);
                     animal_induction.load_media_list();
                 } finally {
-                    $("#induction-photo-file").val("");
+                    $("#induction-photo-file, #induction-photo-library").val("");
                 }
-            });
+            };
+            $("#induction-photo-file").off('change').on('change', function(){ onPhotoFileChange(this); });
+            $("#induction-photo-library").off('change').on('change', function(){ onPhotoFileChange(this); });
 
             $("#button-animalname")
                 .button({ icons: { primary: "ui-icon-tag" }, text: false })
