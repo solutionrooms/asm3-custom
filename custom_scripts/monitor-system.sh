@@ -2,9 +2,6 @@
 # Lightweight system monitoring for ASM3
 # Runs every 5 minutes, minimal overhead
 
-# Get the directory where this script is located, then go up one level to project root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="/var/log/asm3"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 DATE_ONLY=$(date '+%Y-%m-%d')
@@ -26,40 +23,43 @@ log_event() {
 MEMORY_INFO=$(free -m | awk 'NR==2{printf "total:%sMB used:%sMB free:%sMB avail:%sMB", $2,$3,$4,$7}')
 log_metric "MEMORY $MEMORY_INFO"
 
-# Get container stats (if containers are running)
+# Get container stats (if docker is available)
 if command -v docker >/dev/null 2>&1; then
-    cd "$PROJECT_DIR" 2>/dev/null || exit 1
-    
-    # Check if containers are running
-    if docker-compose ps | grep -q "Up"; then
-        # Get container memory usage (lightweight)
+    ASM3_ID=$(docker ps -q -f "label=com.docker.compose.service=asm3")
+    PG_ID=$(docker ps -q -f "label=com.docker.compose.service=postgres")
+    NGINX_ID=$(docker ps -q -f "label=com.docker.compose.service=nginx")
+
+    if [ -n "$ASM3_ID$PG_ID$NGINX_ID" ]; then
+        # Container mem/cpu snapshot
         CONTAINER_STATS=$(docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}" 2>/dev/null | grep -E "(asm3|postgres|nginx)" | tr '\n' '|' | sed 's/|$//')
         if [ -n "$CONTAINER_STATS" ]; then
             log_metric "CONTAINERS $CONTAINER_STATS"
         fi
-        
-        # Check for container restarts (indicates crashes)
-        RESTART_COUNT=$(docker-compose ps --format "table {{.Name}}\t{{.Status}}" | grep -c "Restarting\|Exit")
+
+        # Check for container restarts (Restarting/Exited)
+        RESTART_COUNT=$(docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(asm3|postgres|nginx)" | grep -cE "Restarting|Exited")
         if [ "$RESTART_COUNT" -gt 0 ]; then
             log_event "ERROR Container restarts detected: $RESTART_COUNT"
         fi
-        
-        # Check nginx error rate (last 5 minutes of logs)
-        NGINX_ERRORS=$(docker-compose logs --since=5m nginx 2>/dev/null | grep -c "error\|502\|503\|504" || echo "0")
-        if [ "$NGINX_ERRORS" -gt 0 ]; then
-            log_event "WARNING Nginx errors in last 5min: $NGINX_ERRORS"
+
+        # Last 5 minutes of logs
+        if [ -n "$NGINX_ID" ]; then
+            NGINX_ERRORS=$(docker logs --since=5m "$NGINX_ID" 2>/dev/null | grep -cE "error|502|503|504" || echo "0")
+            if [ "$NGINX_ERRORS" -gt 0 ]; then
+                log_event "WARNING Nginx errors in last 5min: $NGINX_ERRORS"
+            fi
         fi
-        
-        # Check for database connection issues
-        DB_ERRORS=$(docker-compose logs --since=5m asm3 2>/dev/null | grep -c -i "database.*error\|connection.*failed\|psycopg2.*error" || echo "0")
-        if [ "$DB_ERRORS" -gt 0 ]; then
-            log_event "ERROR Database connection issues in last 5min: $DB_ERRORS"
-        fi
-        
-        # Check for Python memory errors
-        MEMORY_ERRORS=$(docker-compose logs --since=5m asm3 2>/dev/null | grep -c -i "out of memory\|memoryerror\|killed.*signal" || echo "0")
-        if [ "$MEMORY_ERRORS" -gt 0 ]; then
-            log_event "CRITICAL Memory errors in last 5min: $MEMORY_ERRORS"
+
+        if [ -n "$ASM3_ID" ]; then
+            DB_ERRORS=$(docker logs --since=5m "$ASM3_ID" 2>/dev/null | grep -c -iE "database.*error|connection.*failed|psycopg2.*error" || echo "0")
+            if [ "$DB_ERRORS" -gt 0 ]; then
+                log_event "ERROR Database connection issues in last 5min: $DB_ERRORS"
+            fi
+
+            MEMORY_ERRORS=$(docker logs --since=5m "$ASM3_ID" 2>/dev/null | grep -c -iE "out of memory|memoryerror|killed.*signal" || echo "0")
+            if [ "$MEMORY_ERRORS" -gt 0 ]; then
+                log_event "CRITICAL Memory errors in last 5min: $MEMORY_ERRORS"
+            fi
         fi
     else
         log_event "ERROR Containers not running"

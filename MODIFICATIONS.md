@@ -107,6 +107,19 @@ Complete patient induction workflow system for hedgehog rescue operations with m
 - Multiple maintenance scripts in `scripts/` directory
 - Performance monitoring and log cleanup automation
 
+### 2.1 Cron Scripts: Docker Exec by Labels (Robustness Fix)
+**Date**: 2025-09-01  
+**Summary**: Updated external cron scripts to resolve containers by Docker Compose service labels and use `docker exec` instead of relying on `docker-compose` in the project directory. Prevents false "containers are not running" errors when scripts are installed to `/usr/local/bin`.
+
+#### Files Modified:
+- `custom_scripts/run-daily-tasks-external.sh` — use `docker exec` on container with `com.docker.compose.service=asm3`.
+- `custom_scripts/run-weight-monitor-external.sh` — same resolution as above.
+- `custom_scripts/run-db-maintenance-external.sh` — resolve `asm3` and `postgres` by labels; backup dir now defaults to `/var/backups/asm3` (overridable via `ASM3_BACKUP_DIR`).
+- `custom_scripts/monitor-system.sh` — remove `docker-compose` dependency; use `docker ps`/`docker logs` with label-based targeting.
+
+#### Rationale:
+Previous scripts assumed they were executed from within the repo (derived `PROJECT_DIR` from script location). After `make install-cron`, scripts live under `/usr/local/bin`, so `docker-compose ps` had no compose file context and erroneously reported containers as not running. Label-based resolution is project-name agnostic and works from any working directory.
+
 ---
 
 ## 📋 Field Name Corrections & Bug Fixes
