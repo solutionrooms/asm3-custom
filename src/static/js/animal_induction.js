@@ -43,6 +43,9 @@ $(function() {
                 '<div id="dialog-media-viewer" style="display:none;" title="' + _("Photo") + '">',
                 '  <img id="dialog-media-viewer-img" alt="" style="max-width:90vw;max-height:80vh;display:block;margin:0 auto;" />',
                 '</div>',
+                '<div id="dialog-photo-source" style="display:none;" title="' + _("Add Photo") + '">',
+                '  <p>' + _("How would you like to add a photo?") + '</p>',
+                '</div>',
                 html.content_header(_("Patient Induction")),
                 '<div class="patient-induction-form">',
                 '<style>',
@@ -524,6 +527,7 @@ $(function() {
                 '            <div class="field-label" style="align-self:flex-start; padding-top:8px;">' + _("Photos") + '</div>',
                 '            <div class="field-input" style="flex-direction: column; align-items: stretch;">',
                 '                <input id="induction-photo-file" type="file" accept="image/*" capture="environment" style="display:none;" />',
+                '                <input id="induction-photo-library" type="file" accept="image/*" style="display:none;" />',
                 '                <div id="media-grid" class="media-grid">',
                 '                    <div class="media-slot" data-index="0">',
                 '                      <span class="media-empty-hint">' + _("Tap to add a photo") + '</span>',
@@ -1951,7 +1955,7 @@ $(function() {
                         $("#animalname").focus();
                         return;
                     }
-                    $("#induction-photo-file").trigger('click');
+                    animal_induction.prompt_photo_source();
                 }
             });
         },
@@ -2008,6 +2012,24 @@ $(function() {
                 const w = Math.min($(window).width()*0.9, 1000);
                 $dlg.dialog({ modal: true, width: w, resizable: true });
             } catch (e) {}
+        },
+
+        /** Prompt camera vs library before selecting a photo */
+        prompt_photo_source: function() {
+            try {
+                $("#dialog-photo-source").dialog({
+                    modal: true,
+                    width: Math.min($(window).width()*0.9, 420),
+                    buttons: [
+                        { text: _("Take Photo"), click: function(){ $(this).dialog('close'); $("#induction-photo-file").trigger('click'); } },
+                        { text: _("Choose from Library"), click: function(){ $(this).dialog('close'); $("#induction-photo-library").trigger('click'); } },
+                        { text: _("Cancel"), click: function(){ $(this).dialog('close'); } }
+                    ]
+                });
+            } catch (e) {
+                // Fallback to camera input
+                $("#induction-photo-file").trigger('click');
+            }
         },
 
         /** Show only the minimum fields for a new record (Name + Entry Age Range) */
