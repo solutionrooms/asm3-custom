@@ -466,10 +466,10 @@ $(function() {
                 '        <div class="field-row" id="microchiprow">',
                 '            <div class="field-label">' + _("Microchipped") + '</div>',
                 '            <div class="field-input">',
-                                tableform.render_check({ post_field: "identichipped", justwidget: true }),
+                                tableform.render_check({ post_field: "microchipped", justwidget: true }),
                 '                <div class="chip-subrow">',
-                                    tableform.render_date({ post_field: "identichipdate", justwidget: true, placeholder: _("Date") }),
-                                    tableform.render_text({ post_field: "identichipnumber", maxlength: 15, justwidget: true, placeholder: _("Number") }),
+                                    tableform.render_date({ post_field: "microchipdate", justwidget: true, placeholder: _("Date") }),
+                                    tableform.render_text({ post_field: "microchipnumber", maxlength: 15, justwidget: true, placeholder: _("Number") }),
                 '                </div>',
                 '            </div>',
                 '        </div>',
@@ -2391,6 +2391,14 @@ $(function() {
                 }
             });
 
+            // Setting microchip date or number ticks microchipped
+            $("#microchipdate").change(function() {
+                if ($("#microchipdate").val()) { $("#microchipped").prop("checked", true); }
+            });
+            $("#microchipnumber").change(function() {
+                if ($("#microchipnumber").val()) { $("#microchipped").prop("checked", true); }
+            });
+
             // Setting the pickup address or location sets the checkbox
             $("#pickuplocation").change(function() {
                 $("#pickedup").prop("checked", true);
@@ -2667,6 +2675,16 @@ $(function() {
             // Set weight field
             if (animal.WEIGHT) {
                 $("#weight").val(animal.WEIGHT);
+            }
+            // Microchip fields
+            if (animal.IDENTICHIPPED !== undefined) {
+                $("#microchipped").prop("checked", animal.IDENTICHIPPED == 1);
+            }
+            if (animal.IDENTICHIPNUMBER !== undefined && animal.IDENTICHIPNUMBER !== null) {
+                $("#microchipnumber").val(animal.IDENTICHIPNUMBER);
+            }
+            if (animal.IDENTICHIPDATE) {
+                $("#microchipdate").val(format.date(animal.IDENTICHIPDATE));
             }
             // Set internal location - handle null/0 values
             if (animal.SHELTERLOCATION && animal.SHELTERLOCATION != "0") {
