@@ -1,7 +1,7 @@
 
 # ASM3 Docker Management Makefile
 # Combined original ASM3 commands (prefixed with o_) and Docker management commands
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run
 
 # Default target - show help
 help:
@@ -22,11 +22,15 @@ help:
 	@echo "  clean         - Stop and remove all containers and volumes"
 	@echo "  cleanup       - Clean up Docker space and log files"
 	@echo "  update        - Update ASM3 base and rebuild"
-	@echo "  backup        - Backup the database (compressed format)"
-	@echo "  restore       - Restore database from backup file"
+	@echo "  backup        - Backup DB; or 'make backup TABLE' for single table"
+	@echo "  backup-table  - Backup a single table (usage: make backup-table TABLE=name)"
+	@echo "  restore       - Restore DB from FILE; or 'make restore TABLE [FILE=...]' to restore one table"
+	@echo "  restore-table - Restore a single table (usage: make restore-table TABLE=name [FILE=...])"
 	@echo "  clear-cache   - Clear application cache and restart"
 	@echo "  shell         - Open shell in ASM3 container"
 	@echo "  db-shell      - Open database shell"
+	@echo "  run <task>    - Run utility tasks inside containers (see below)"
+	@echo "                 Tasks: weightmonitor, daily, db-maintenance, backup"
 	@echo "  testdata      - Generate test data (usage: make testdata TYPE COUNT)"
 	@echo "                  Types: animals, people"
 	@echo "  version       - Show current ASM3 version"
@@ -128,60 +132,151 @@ update:
 	docker-compose up -d
 	@echo "Update complete!"
 
-# Backup database (compressed format)
+# Backup database or a single table (compressed format)
 backup:
-	@echo "Creating compressed database backup..."
-	@backup_file="backup_$$(date +%Y%m%d_%H%M%S).dump"; \
-	docker-compose exec -T postgres pg_dump -U asm3 -Fc asm3 > "$$backup_file"; \
-	echo "Backup created: $$backup_file"
-
-# Restore database from backup file
-restore:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Usage: make restore FILE=backup_file.dump [SOURCE_DB=source_db_name]"; \
-		echo "  FILE: Path to backup file"; \
-		echo "  SOURCE_DB: Original database name (if different from 'asm3')"; \
-		echo "Available backup files:"; \
-		ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"; \
-		exit 1; \
-	fi; \
-	if [ ! -f "$(FILE)" ]; then \
-		echo "Error: Backup file $(FILE) not found"; \
-		exit 1; \
-	fi; \
-	SOURCE_DB_NAME=$${SOURCE_DB:-asm3}; \
-	echo "WARNING: This will overwrite the current database!"; \
-	echo "Source database: $$SOURCE_DB_NAME -> Target database: asm3"; \
-	read -p "Are you sure you want to restore from $(FILE)? [y/N] " confirm; \
-	if [ "$$confirm" = "y" ]; then \
-		echo "Stopping ASM3 application..."; \
-		docker-compose stop asm3; \
-		echo "Dropping existing database..."; \
-		if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "DROP DATABASE IF EXISTS asm3;"; then \
-			echo "ERROR: Failed to drop database. Check for active connections (e.g., pgAdmin)."; \
-			docker-compose start asm3; \
-			exit 1; \
-		fi; \
-		echo "Creating new database..."; \
-		if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "CREATE DATABASE asm3;"; then \
-			echo "ERROR: Failed to create database."; \
-			docker-compose start asm3; \
-			exit 1; \
-		fi; \
-		echo "Restoring from backup..."; \
-		if echo "$(FILE)" | grep -q "\.dump$$"; then \
-			if [ "$$SOURCE_DB_NAME" != "asm3" ]; then \
-				echo "Note: Restoring from database '$$SOURCE_DB_NAME' to 'asm3'"; \
-			fi; \
-			cat "$(FILE)" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists; \
-		else \
-			cat "$(FILE)" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
-		fi; \
-		echo "Starting ASM3 application..."; \
-		docker-compose start asm3; \
-		echo "Restore complete!"; \
+	@TABLE=$$(word 2,$$(MAKECMDGOALS)); \
+	if [ -n "$$TABLE" ] && [ "$$TABLE" != "backup" ]; then \
+		SAFE_TABLE=$$(echo "$$TABLE" | tr -c '[:alnum:]_\n\r' '_'); \
+		BACKUP_FILE="backup_table_$$(echo $$SAFE_TABLE)_$$(date +%Y%m%d_%H%M%S).dump"; \
+		echo "Creating compressed backup for table: $$TABLE -> $$BACKUP_FILE"; \
+		docker-compose exec -T postgres pg_dump -U asm3 -Fc -t "public.$$TABLE" asm3 > "$$BACKUP_FILE"; \
+		echo "Table backup created: $$BACKUP_FILE"; \
 	else \
-		echo "Restore cancelled."; \
+		echo "Creating compressed database backup..."; \
+		backup_file="backup_$$(date +%Y%m%d_%H%M%S).dump"; \
+		docker-compose exec -T postgres pg_dump -U asm3 -Fc asm3 > "$$backup_file"; \
+		echo "Backup created: $$backup_file"; \
+	fi
+
+# Explicit: backup a single table (same as `make backup TABLE`)
+backup-table:
+	@if [ -z "$(TABLE)" ]; then \
+		echo "Usage: make backup-table TABLE=name"; \
+		exit 1; \
+	fi; \
+	SAFE_TABLE=$$(echo "$(TABLE)" | tr -c '[:alnum:]_\n\r' '_'); \
+	BACKUP_FILE="backup_table_$${SAFE_TABLE}_$$(date +%Y%m%d_%H%M%S).dump"; \
+	echo "Creating compressed backup for table: $(TABLE) -> $$BACKUP_FILE"; \
+	docker-compose exec -T postgres pg_dump -U asm3 -Fc -t "public.$(TABLE)" asm3 > "$$BACKUP_FILE"; \
+	echo "Table backup created: $$BACKUP_FILE"
+
+# Restore database or a single table from backup file
+restore:
+	@TABLE=$$(word 2,$$(MAKECMDGOALS)); \
+	if [ -n "$$TABLE" ] && [ "$$TABLE" != "restore" ]; then \
+		SAFE_TABLE=$$(echo "$$TABLE" | tr -c '[:alnum:]_\n\r' '_'); \
+		FILE_IN="$(FILE)"; \
+		if [ -z "$$FILE_IN" ]; then \
+			# Try to find the latest matching table backup
+			FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1); \
+			if [ -z "$$FILE_IN" ]; then \
+				FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1); \
+			fi; \
+		fi; \
+		if [ -z "$$FILE_IN" ]; then \
+			echo "Usage: make restore $$TABLE [FILE=path_to_table_backup.(dump|sql)]"; \
+			echo "  No FILE provided and no matching backup_table_$${SAFE_TABLE}_*.dump found."; \
+			exit 1; \
+		fi; \
+		if [ ! -f "$$FILE_IN" ]; then \
+			echo "Error: Backup file '$$FILE_IN' not found"; \
+			exit 1; \
+		fi; \
+		echo "WARNING: This will drop and recreate table 'public.$$TABLE' in database 'asm3'."; \
+		read -p "Are you sure you want to restore table $$TABLE from '$$FILE_IN'? [y/N] " confirm; \
+		if [ "$$confirm" = "y" ]; then \
+			if echo "$$FILE_IN" | grep -q "\.dump$$"; then \
+				cat "$$FILE_IN" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists -t "public.$$TABLE"; \
+			else \
+				cat "$$FILE_IN" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
+			fi; \
+			echo "Table restore complete!"; \
+		else \
+			echo "Table restore cancelled."; \
+		fi; \
+	else \
+		if [ -z "$(FILE)" ]; then \
+			echo "Usage: make restore FILE=backup_file.dump [SOURCE_DB=source_db_name]"; \
+			echo "  FILE: Path to backup file"; \
+			echo "  SOURCE_DB: Original database name (if different from 'asm3')"; \
+			echo "Available backup files:"; \
+			ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"; \
+			exit 1; \
+		fi; \
+		if [ ! -f "$(FILE)" ]; then \
+			echo "Error: Backup file $(FILE) not found"; \
+			exit 1; \
+		fi; \
+		SOURCE_DB_NAME=$${SOURCE_DB:-asm3}; \
+		echo "WARNING: This will overwrite the current database!"; \
+		echo "Source database: $$SOURCE_DB_NAME -> Target database: asm3"; \
+		read -p "Are you sure you want to restore from $(FILE)? [y/N] " confirm; \
+		if [ "$$confirm" = "y" ]; then \
+			echo "Stopping ASM3 application..."; \
+			docker-compose stop asm3; \
+			echo "Dropping existing database..."; \
+			if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "DROP DATABASE IF EXISTS asm3;"; then \
+				echo "ERROR: Failed to drop database. Check for active connections (e.g., pgAdmin)."; \
+				docker-compose start asm3; \
+				exit 1; \
+			fi; \
+			echo "Creating new database..."; \
+			if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "CREATE DATABASE asm3;"; then \
+				echo "ERROR: Failed to create database."; \
+				docker-compose start asm3; \
+				exit 1; \
+			fi; \
+			echo "Restoring from backup..."; \
+			if echo "$(FILE)" | grep -q "\.dump$$"; then \
+				if [ "$$SOURCE_DB_NAME" != "asm3" ]; then \
+					echo "Note: Restoring from database '$$SOURCE_DB_NAME' to 'asm3'"; \
+				fi; \
+				cat "$(FILE)" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists; \
+			else \
+				cat "$(FILE)" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
+			fi; \
+			echo "Starting ASM3 application..."; \
+			docker-compose start asm3; \
+			echo "Restore complete!"; \
+		else \
+			echo "Restore cancelled."; \
+		fi; \
+	fi
+
+# Explicit: restore a single table (same as `make restore TABLE [FILE=...]`)
+restore-table:
+	@if [ -z "$(TABLE)" ]; then \
+		echo "Usage: make restore-table TABLE=name [FILE=path_to_table_backup.(dump|sql)]"; \
+		exit 1; \
+	fi; \
+	SAFE_TABLE=$$(echo "$(TABLE)" | tr -c '[:alnum:]_\n\r' '_'); \
+	FILE_IN="$(FILE)"; \
+	if [ -z "$$FILE_IN" ]; then \
+		FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1); \
+		if [ -z "$$FILE_IN" ]; then \
+			FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1); \
+		fi; \
+	fi; \
+	if [ -z "$$FILE_IN" ]; then \
+		echo "Error: No matching backup found for table '$(TABLE)' and no FILE provided."; \
+		echo "  Expected pattern: backup_table_$${SAFE_TABLE}_*.dump (.sql supported too)"; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$$FILE_IN" ]; then \
+		echo "Error: Backup file '$$FILE_IN' not found"; \
+		exit 1; \
+	fi; \
+	echo "WARNING: This will drop and recreate table 'public.$(TABLE)' in database 'asm3'."; \
+	read -p "Are you sure you want to restore table $(TABLE) from '$$FILE_IN'? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ]; then \
+		if echo "$$FILE_IN" | grep -q "\.dump$$"; then \
+			cat "$$FILE_IN" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists -t "public.$(TABLE)"; \
+		else \
+			cat "$$FILE_IN" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
+		fi; \
+	echo "Table restore complete!"; \
+	else \
+		echo "Table restore cancelled."; \
 	fi
 
 # Clear application cache and restart
@@ -381,6 +476,35 @@ monitor-status:
 	@echo "Recent System Events:"
 	@echo "====================="
 	@tail -10 /var/log/asm3/system-events-$(date +%Y-%m-%d).log 2>/dev/null || echo "No events for today"
+
+# Run helper dispatcher
+run:
+	@if [ -z "$(filter-out run,$(MAKECMDGOALS))" ]; then \
+		echo "Usage: make run <task>"; \
+		echo "Tasks:"; \
+		echo "  weightmonitor   - Run weight monitor now"; \
+		echo "  daily           - Run all daily tasks now"; \
+		echo "  db-maintenance  - Run VACUUM (VERBOSE, ANALYZE)"; \
+		echo "  backup          - Create database backup"; \
+		exit 1; \
+	fi; \
+	TASK=$(word 2,$(MAKECMDGOALS)); \
+	if [ "$$TASK" = "weightmonitor" ]; then \
+		echo "Running weight monitor..."; \
+		docker-compose exec asm3 python3 /app/weight_monitor.py; \
+	elif [ "$$TASK" = "daily" ]; then \
+		echo "Running daily tasks..."; \
+		docker-compose exec asm3 python3 /app/src/cron.py all; \
+	elif [ "$$TASK" = "db-maintenance" ]; then \
+		echo "Running database VACUUM (VERBOSE, ANALYZE)..."; \
+		docker-compose exec postgres psql -U asm3 -d asm3 -c "VACUUM (VERBOSE, ANALYZE);"; \
+	elif [ "$$TASK" = "backup" ]; then \
+		$(MAKE) backup; \
+	else \
+		echo "Error: Unknown task '$$TASK'"; \
+		echo "Supported: weightmonitor, daily, db-maintenance, backup"; \
+		exit 1; \
+	fi
 
 # Generate test data
 testdata:

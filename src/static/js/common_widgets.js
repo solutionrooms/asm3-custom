@@ -1901,11 +1901,18 @@ $.widget("asm.htmleditor", {
     },
 
     append: function(s) {
-        this.options.editor.setValue(this.options.editor.getValue() + s);
+        if (this.options.editor) {
+            this.options.editor.setValue(this.options.editor.getValue() + s);
+        }
+        else {
+            this.element.val(String(this.element.val() || "") + s);
+        }
     },
 
     change: function() {
-        this.element.val( this.options.editor.getValue() );
+        if (this.options.editor) {
+            this.element.val( this.options.editor.getValue() );
+        }
     },
 
     destroy: function() {
@@ -1936,17 +1943,22 @@ $.widget("asm.htmleditor", {
     },
 
     refresh: function() {
-        this.options.editor.refresh();
+        if (this.options.editor) { this.options.editor.refresh(); }
     },
 
     value: function(newval) {
         if (newval === undefined) {
-            return this.options.editor.getValue();
+            return this.options.editor ? this.options.editor.getValue() : this.element.val();
         }
         if (!newval) { newval = ""; }
-        this.options.editor.setValue(newval);
-        this.options.editor.refresh();
-        this.change();
+        if (this.options.editor) {
+            this.options.editor.setValue(newval);
+            this.options.editor.refresh();
+            this.change();
+        }
+        else {
+            this.element.val(newval);
+        }
     }
 
 });
@@ -1996,11 +2008,18 @@ $.widget("asm.sqleditor", {
     },
 
     append: function(s) {
-        this.options.editor.setValue(this.options.editor.getValue() + s);
+        if (this.options.editor) {
+            this.options.editor.setValue(this.options.editor.getValue() + s);
+        }
+        else {
+            this.element.val(String(this.element.val() || "") + s);
+        }
     },
 
     change: function() {
-        this.element.val( this.options.editor.getValue() );
+        if (this.options.editor) {
+            this.element.val( this.options.editor.getValue() );
+        }
     },
 
     destroy: function() {
@@ -2031,17 +2050,22 @@ $.widget("asm.sqleditor", {
     },
 
     refresh: function() {
-        this.options.editor.refresh();
+        if (this.options.editor) { this.options.editor.refresh(); }
     },
 
     value: function(newval) {
         if (newval === undefined) {
-            return this.options.editor.getValue();
+            return this.options.editor ? this.options.editor.getValue() : this.element.val();
         }
         if (!newval) { newval = ""; }
-        this.options.editor.setValue(newval);
-        this.options.editor.refresh();
-        this.change();
+        if (this.options.editor) {
+            this.options.editor.setValue(newval);
+            this.options.editor.refresh();
+            this.change();
+        }
+        else {
+            this.element.val(newval);
+        }
     }
 
 });

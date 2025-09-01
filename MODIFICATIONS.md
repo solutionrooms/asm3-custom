@@ -122,6 +122,28 @@ Previous scripts assumed they were executed from within the repo (derived `PROJE
 
 ---
 
+### 2.2 Make: Single-Table Backup/Restore Helpers
+**Date**: 2025-09-01  
+**Summary**: Added convenient Make targets to back up or restore a single PostgreSQL table without dumping/restoring the whole database. Useful for moving data between environments selectively. Handles both custom-format archives and plain SQL; user is responsible for referential integrity.
+
+#### Changes
+- `Makefile`
+  - Enhanced `backup` to support `make backup TABLE_NAME` (creates `backup_table_<table>_<timestamp>.dump`).
+  - Added `backup-table` target (`make backup-table TABLE=name`).
+  - Enhanced `restore` to support `make restore TABLE_NAME [FILE=...]` (restores only that table; defaults to latest matching `backup_table_*.dump` when `FILE` is omitted).
+  - Added `restore-table` target (`make restore-table TABLE=name [FILE=...]`).
+  - Updated `help` with usage examples.
+
+#### Usage
+- Backup entire DB: `make backup`
+- Backup a table: `make backup animals` or `make backup-table TABLE=animals`
+- Restore entire DB: `make restore FILE=backup_YYYYmmdd_HHMMSS.dump`
+- Restore a table: `make restore animals [FILE=backup_table_animals_*.dump]` or `make restore-table TABLE=animals [FILE=...]`
+
+Notes:
+- For table restores, the command uses `pg_restore --clean --if-exists -t public.<table>` for `.dump` archives or pipes SQL into `psql` for `.sql` files.
+- The app container is not stopped for table-only restores; manage application access/locks as needed.
+
 ## 📋 Field Name Corrections & Bug Fixes
 
 ### 3. Form Field Standardization  

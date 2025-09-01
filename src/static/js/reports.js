@@ -447,7 +447,8 @@ $(function() {
                 $("#omitheaderfooterrow").hide();
                 $("#omitcriteriarow").hide();
                 $("#button-genhtml").hide();
-                $("#dialog-add").dialog("option", "height", "auto");
+                // Use the correct tableform dialog id
+                $("#dialog-tableform").dialog("option", "height", "auto");
             }
             else {
                 $("#htmlrow").show();
@@ -457,7 +458,8 @@ $(function() {
                 $("#omitheaderfooterrow").show();
                 $("#omitcriteriarow").show();
                 $("#button-genhtml").show();
-                $("#dialog-add").dialog("option", "height", "auto");
+                // Use the correct tableform dialog id
+                $("#dialog-tableform").dialog("option", "height", "auto");
             }
         },
 
