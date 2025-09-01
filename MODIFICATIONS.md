@@ -144,6 +144,22 @@ Notes:
 - For table restores, the command uses `pg_restore --clean --if-exists -t public.<table>` for `.dump` archives or pipes SQL into `psql` for `.sql` files.
 - The app container is not stopped for table-only restores; manage application access/locks as needed.
 
+### 2.3 Dev Hot-Reload for .py and .sh Scripts
+**Date**: 2025-09-01  
+**Summary**: Enabled live updates for key Python and shell scripts in Docker dev environment, similar to JS/static file hot-reload.
+
+#### Changes
+- `docker-compose.yml`
+  - Mount `./weight_monitor.py` to `/app/weight_monitor.py` (read-only) so edits take effect without rebuilding.
+  - Mount `./scripts` to `/app/scripts` (read-only) to reflect shell script updates inside the container.
+- `weight_monitor.py`
+  - Log file path updated to `/var/log/asm3/weight-monitor.log` for consistency with Make targets.
+
+#### Usage
+- After editing `weight_monitor.py`, re-run it to pick up changes: `make run weightmonitor`.
+- Shell scripts under `scripts/` and `custom_scripts/` are now bind-mounted; next invocation uses the updated version.
+- Apply new mounts by restarting containers: `make restart` (or `make stop && make start` for .env changes).
+
 ## 📋 Field Name Corrections & Bug Fixes
 
 ### 3. Form Field Standardization  

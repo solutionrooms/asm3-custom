@@ -108,8 +108,13 @@ class WeightMonitor:
         # In Docker, prefer stdout logging
         log_handlers = [logging.StreamHandler(sys.stdout)]
         
-        # Try to add file logging to a writable location
-        writable_paths = ['/tmp/weight_monitor.log', '/var/log/weight_monitor.log', './weight_monitor.log']
+        # Try to add file logging to a writable location (prefer container log path)
+        writable_paths = [
+            '/var/log/asm3/weight-monitor.log',
+            '/tmp/weight_monitor.log',
+            '/var/log/weight_monitor.log',
+            './weight_monitor.log'
+        ]
         
         for log_path in writable_paths:
             try:
@@ -290,10 +295,13 @@ class WeightMonitor:
                     auditdate,
                     username,
                     description,
-                    -- Extract animal name: everything between "Animal: " and the next comma
-                    TRIM(SUBSTRING(description FROM 'Animal: ([^,]+)')) as animal_name,
+                    -- Extract the animal token after 'Animal: ' up to next comma
+                    TRIM(SUBSTRING(description FROM 'Animal: ([^,]+)'))         AS animal_token,
+                    -- Split token into name and code on '::' if present
+                    TRIM(SPLIT_PART(SUBSTRING(description FROM 'Animal: ([^,]+)'), '::', 1)) AS animal_name,
+                    NULLIF(TRIM(SPLIT_PART(SUBSTRING(description FROM 'Animal: ([^,]+)'), '::', 2)), '')        AS animal_code,
                     -- Extract weight: everything between "Weight: " and the next comma or end
-                    TRIM(SUBSTRING(description FROM 'Weight: ([^,\\s]+)')) as animal_weight_text
+                    TRIM(SUBSTRING(description FROM 'Weight: ([^,\\s]+)'))     AS animal_weight_text
                 FROM public.audittrail
                 WHERE tablename = %s
                     AND description LIKE %s
@@ -305,9 +313,19 @@ class WeightMonitor:
                 pa.auditdate,
                 pa.username,
                 pa.animal_weight_text::REAL as weight,
-                pa.description
+                pa.description,
+                CASE
+                    WHEN LOWER(pa.animal_name) = LOWER(an.animalname) THEN 'name'
+                    WHEN pa.animal_code IS NOT NULL AND LOWER(pa.animal_code) = LOWER(an.sheltercode) THEN 'sheltercode'
+                    WHEN pa.animal_code IS NOT NULL AND LOWER(pa.animal_code) = LOWER(an.shortcode) THEN 'shortcode'
+                    ELSE 'unknown'
+                END AS join_via
             FROM parsed_audit pa
-            JOIN public.animal an ON LOWER(pa.animal_name) = LOWER(an.animalname)
+            JOIN public.animal an ON (
+                LOWER(pa.animal_name) = LOWER(an.animalname)
+                OR (pa.animal_code IS NOT NULL AND LOWER(pa.animal_code) = LOWER(an.sheltercode))
+                OR (pa.animal_code IS NOT NULL AND LOWER(pa.animal_code) = LOWER(an.shortcode))
+            )
             WHERE pa.animal_weight_text ~ '^[0-9.]+$'  -- Only valid numeric weights
                 AND pa.animal_weight_text::REAL > 0    -- Only positive weights
             ORDER BY pa.auditdate
@@ -320,9 +338,19 @@ class WeightMonitor:
             
             self.logger.info(f"Successfully parsed {len(results)} weight updates from {debug_result['count']} audit entries")
             
+            # If nothing parsed but audit entries exist, run extra diagnostics to help debugging
+            if len(results) == 0 and debug_result.get('count', 0) > 0:
+                try:
+                    self._log_join_diagnostics(last_audit_date)
+                except Exception as diag_err:
+                    self.logger.error(f"Error during diagnostics: {diag_err}")
+
             if results:
                 for i, result in enumerate(results[:3]):  # Log first 3 results
-                    self.logger.debug(f"Weight update {i+1}: Animal {result['animalid']} ({result['weight']}g) on {result['auditdate']}")
+                    # Note: weight here is numeric string parsed; conversion happens on update
+                    self.logger.debug(
+                        f"Weight update {i+1}: Animal {result['animalid']} ({result['weight']}g) on {result['auditdate']} via {result.get('join_via', 'unknown')}"
+                    )
             
             return results
             
@@ -331,6 +359,84 @@ class WeightMonitor:
             import traceback
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
             return []
+
+    def _log_join_diagnostics(self, last_audit_date: datetime) -> None:
+        """Extra debug logging to help understand why parsed entries didn't join to animals."""
+        self.logger.warning("No weight updates parsed from audit entries; running join diagnostics")
+        cursor = self.db_conn.cursor()
+
+        # 1) Show parsed fields (animal_name, weight_text) without joining to animal
+        parsed_sql = """
+            SELECT 
+                auditdate,
+                username,
+                TRIM(SUBSTRING(description FROM 'Animal: ([^,]+)')) AS animal_name,
+                TRIM(SUBSTRING(description FROM 'Weight: ([^,\\s]+)')) AS animal_weight_text,
+                description
+            FROM public.audittrail
+            WHERE tablename = %s
+                AND description LIKE %s
+                AND description LIKE %s
+                AND auditdate > %s
+            ORDER BY auditdate DESC
+            LIMIT 10
+        """
+        cursor.execute(parsed_sql, ('onlineformincoming', '%Weight%', '%=Processed=%', last_audit_date))
+        parsed_rows = cursor.fetchall()
+        if not parsed_rows:
+            self.logger.debug("Diagnostics: No parsed rows found without join either")
+        else:
+            for i, row in enumerate(parsed_rows, start=1):
+                desc_snippet = (row.get('description') or '')[:140]
+                self.logger.debug(
+                    f"Diag Parsed {i}: auditdate={row.get('auditdate')}, user={row.get('username')}, "
+                    f"animal_name='{row.get('animal_name')}', weight_text='{row.get('animal_weight_text')}', "
+                    f"desc='{desc_snippet}...'")
+
+        # 2) Inspect available columns in animal table
+        cursor.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema='public' AND table_name='animal'
+        """)
+        animal_cols = {r['column_name'] for r in cursor.fetchall()}
+        self.logger.debug(f"Diag Animal columns present: {sorted(animal_cols)}")
+
+        # 3) For up to 3 parsed rows, try matching by different fields/variants
+        likely_code_cols = [c for c in ('code', 'sheltercode', 'animalcode', 'shortcode') if c in animal_cols]
+        name_col = 'animalname' if 'animalname' in animal_cols else None
+        for row in parsed_rows[:3]:
+            raw_name = (row.get('animal_name') or '').strip()
+            if not raw_name:
+                self.logger.debug("Diag: Skipping row with empty animal_name")
+                continue
+            # Variants: original + split on '::'
+            variants = [raw_name]
+            if '::' in raw_name:
+                left, _, right = raw_name.partition('::')
+                if left and left not in variants:
+                    variants.append(left.strip())
+                code_part = right.strip()
+            else:
+                code_part = ''
+
+            self.logger.debug(f"Diag Variants for '{raw_name}': names={variants}, code_part='{code_part}'")
+
+            # Match by name
+            if name_col:
+                for v in variants:
+                    cursor.execute(f"SELECT id, {name_col} FROM public.animal WHERE LOWER({name_col}) = LOWER(%s) LIMIT 3", (v,))
+                    matches = cursor.fetchall()
+                    self.logger.debug(f"Diag Name match '{v}' -> {len(matches)} rows: {[m['id'] for m in matches]}")
+
+            # Match by likely code columns
+            if code_part and likely_code_cols:
+                for ccol in likely_code_cols:
+                    cursor.execute(f"SELECT id, {ccol} FROM public.animal WHERE LOWER({ccol}) = LOWER(%s) LIMIT 3", (code_part,))
+                    matches = cursor.fetchall()
+                    self.logger.debug(f"Diag Code match {ccol}='{code_part}' -> {len(matches)} rows: {[m['id'] for m in matches]}")
+
+        cursor.close()
     
     def update_animal_weight(self, animal_id: int, weight: float, username: str, weight_date: datetime):
         """Update an animal's weight and log to history table."""

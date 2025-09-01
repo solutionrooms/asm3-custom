@@ -75,6 +75,9 @@ services:
       - asm3_config:/app/config
       - ./customizations:/app/customizations:ro
       - ./custom_scripts:/app/custom_scripts:ro
+      # Live-mount key scripts for dynamic updates in dev
+      - ./weight_monitor.py:/app/weight_monitor.py:ro
+      - ./scripts:/app/scripts:ro
       - asm3_media:/app/media
       - /var/log/asm3:/var/log/asm3
       # Development: Mount source code for hot-reload
