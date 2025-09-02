@@ -1,0 +1,74 @@
+<!--
+ASM3 Online Form Helper: Disable animalname control
+Usage:
+1) Open your Online Form editor and paste the contents of this file
+   into the Form Header (recommended) or into a Raw Markup field.
+2) The script locks the Animal selector so users cannot change it,
+   while mirroring the selected value to a hidden input so it still
+   submits correctly.
+
+Target fields:
+- animalname (Shelter/Adoptable animal dropdowns rendered by ASM)
+
+To also lock reserveanimalname, add the selectors noted in the comment
+below to the selSelector string.
+-->
+
+<script>
+(function(){
+  // Default: lock animalname selectors (Shelter/Adoptable)
+  // To include reserveanimalname too, append:
+  //   + ',select.asm-onlineform-shelteranimal[name^="reserveanimalname"]'
+  //   + ',select.asm-onlineform-adoptableanimal[name^="reserveanimalname"]'
+  var selSelector =
+    'select.asm-onlineform-shelteranimal[name^="animalname"],' +
+    'select.asm-onlineform-adoptableanimal[name^="animalname"]';
+
+  function lock() {
+    var sels = document.querySelectorAll(selSelector);
+    if (!sels.length) return false;
+    sels.forEach(function(sel){
+      // Mirror value so it submits even if the select is disabled
+      var hidden = document.querySelector('input[type="hidden"][data-wf-mirror="1"][name="'+ sel.name +'"]');
+      if (!hidden) {
+        hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = sel.name;
+        hidden.setAttribute('data-wf-mirror','1');
+        sel.parentNode.insertBefore(hidden, sel);
+      }
+      hidden.value = sel.value;
+      sel.addEventListener('change', function(){ hidden.value = sel.value; });
+
+      // Lock the control visually and functionally
+      sel.disabled = true;
+      sel.style.background = '#eee';
+      sel.style.color = '#666';
+      sel.style.borderColor = '#ccc';
+      sel.style.cursor = 'not-allowed';
+    });
+    return true;
+  }
+
+  // Retry a few times in case ASM renders controls after DOMContentLoaded
+  function tryLock(n) { if (lock() || n <= 0) return; setTimeout(function(){ tryLock(n-1); }, 50); }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ tryLock(20); });
+  } else {
+    tryLock(20);
+  }
+
+  // Keep hidden mirror fresh just before submit
+  window.asm3_onlineform_submit = (function(prev){
+    return function() {
+      document.querySelectorAll(selSelector).forEach(function(sel){
+        var h = document.querySelector('input[type="hidden"][data-wf-mirror="1"][name="'+ sel.name +'"]');
+        if (h) h.value = sel.value;
+      });
+      if (typeof prev === 'function') prev();
+    };
+  })(window.asm3_onlineform_submit);
+})();
+</script>
+
