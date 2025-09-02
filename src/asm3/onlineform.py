@@ -1342,13 +1342,20 @@ def attach_form(dbo: Database, username: str, linktype: int, linkid: int, collat
     if attachmedia:
         fields = get_onlineformincoming_detail(dbo, collationid)
         for f in fields:
-            if f.VALUE.startswith("data:image/jpeg"):
+            if f.VALUE.startswith("data:image/jpeg") or f.VALUE.startswith("data:image/png"):
                 d = {
                     "retainfor":    str(retainfor),
                     "filename":     "image.jpg",
                     "filetype":     "image/jpeg",
                     "filedata":     f.VALUE
                 }
+                # Mark weight reading photo explicitly for downstream linking
+                if f.FIELDNAME == "weightphoto":
+                    d["flags"] = "WEIGHTPHOTO"
+                    d["comments"] = "Weight reading photo"
+                else:
+                    # Tag other uploaded images with their fieldname for traceability
+                    d["comments"] = f"onlineform:{f.FIELDNAME}"
                 if linktype == 0:
                     d["excludefrompublish"] = "1" # auto exclude images for animals to prevent them going to adoption websites
                 asm3.media.attach_file_from_form(dbo, username, linktype, linkid, asm3.media.MEDIASOURCE_ONLINEFORM, asm3.utils.PostedData(d, dbo.locale))
@@ -1870,4 +1877,3 @@ def auto_remove_old_incoming_forms(dbo: Database) -> None:
     for r in rows:
         delete_onlineformincoming(dbo, "system", r.COLLATIONID)
     asm3.al.debug("removed %s incoming forms older than %s days" % (len(rows), removeafter), "onlineform.auto_remove_old_incoming_forms", dbo)
-

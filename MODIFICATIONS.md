@@ -160,6 +160,26 @@ Notes:
 - Shell scripts under `scripts/` and `custom_scripts/` are now bind-mounted; next invocation uses the updated version.
 - Apply new mounts by restarting containers: `make restart` (or `make stop && make start` for .env changes).
 
+### 2.4 Weight Monitor: Photo Linking for Weight Readings
+**Date**: 2025-09-01  
+**Summary**: Link an online-form–uploaded animal photo to each weight reading.
+
+#### Changes
+- `weight_monitor.py`
+  - Table: adds `photo_mediaid INTEGER` to `animal_weight_history` (auto-migrates if table exists).
+  - Insert: stores `photo_mediaid` when a nearby media record is found (±15 min, `LinkTypeID=0`, `MediaSource=4`).
+  - Logging: reports linked `mediaid` and delta seconds.
+- `src/asm3/onlineform.py`
+  - Attach: accept `data:image/png` as well as `data:image/jpeg` for image fields.
+
+#### Form guidance
+- Add an image upload field to the online form. Recommended name: `weightphoto`.
+- Any image field submitted as a data URI (`data:image/jpeg;base64,...` or `data:image/png;base64,...`) is auto-attached to the animal; name is not required for processing.
+
+#### Notes
+- Images are attached with `ExcludeFromPublish=1` for animals.
+- Storage backend follows `dbfs_store` config (database/file/S3).
+
 ## 📋 Field Name Corrections & Bug Fixes
 
 ### 3. Form Field Standardization  

@@ -31,6 +31,7 @@ import codecs
 import logging
 import traceback
 from datetime import datetime, timezone
+from datetime import timedelta
 from typing import Dict, List, Tuple, Optional
 
 try:
@@ -182,6 +183,7 @@ class WeightMonitor:
                         weight_date TIMESTAMP NOT NULL,
                         username VARCHAR(255) NOT NULL,
                         weight REAL NOT NULL,
+                        photo_mediaid INTEGER NULL,
                         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
@@ -196,9 +198,30 @@ class WeightMonitor:
                     ON animal_weight_history (weight_date);
                 """)
                 
+                cursor.execute("""
+                    CREATE INDEX idx_animal_weight_history_photo_mediaid 
+                    ON animal_weight_history (photo_mediaid);
+                """)
+                
                 self.logger.info("animal_weight_history table created successfully")
             else:
                 self.logger.debug("animal_weight_history table already exists")
+                # Ensure photo_mediaid column exists (migrate older installs)
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns 
+                        WHERE table_schema = 'public'
+                        AND table_name = 'animal_weight_history'
+                        AND column_name = 'photo_mediaid'
+                    ) AS has_col;
+                """)
+                col_result = cursor.fetchone()
+                has_photo_col = col_result and (col_result.get('has_col') or col_result.get('exists') or col_result.get('has_col') is True)
+                if not has_photo_col:
+                    self.logger.info("Adding photo_mediaid column to animal_weight_history")
+                    cursor.execute("ALTER TABLE animal_weight_history ADD COLUMN photo_mediaid INTEGER NULL;")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_animal_weight_history_photo_mediaid ON animal_weight_history (photo_mediaid);")
                 
             cursor.close()
             
@@ -456,12 +479,23 @@ class WeightMonitor:
             # Update animal weight (ASM3 stores in kilograms)
             cursor.execute("UPDATE animal SET weight = %s WHERE id = %s", (weight_in_kg, animal_id))
             
+            # Try to find a related photo near the audit time (within +/- 15 minutes)
+            photo_mediaid = None
+            try:
+                photo_mediaid, delta_seconds = self._find_nearest_photo_mediaid(animal_id, weight_date)
+                if photo_mediaid:
+                    self.logger.debug(f"Linked photo mediaid {photo_mediaid} ({delta_seconds}s from reading time)")
+                else:
+                    self.logger.debug("No nearby photo found to link to this weight reading")
+            except Exception as pe:
+                self.logger.error(f"Error during photo lookup: {pe}")
+
             # Log to weight history (store in kilograms)
             cursor.execute("""
                 INSERT INTO animal_weight_history 
-                (animalid, weight_date, username, weight)
-                VALUES (%s, %s, %s, %s)
-            """, (animal_id, weight_date, username, weight_in_kg))
+                (animalid, weight_date, username, weight, photo_mediaid)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (animal_id, weight_date, username, weight_in_kg, photo_mediaid))
             
             cursor.close()
             
@@ -470,6 +504,36 @@ class WeightMonitor:
         except Exception as e:
             self.logger.error(f"Error updating animal {animal_id} weight: {e}")
             raise
+
+    def _find_nearest_photo_mediaid(self, animal_id: int, weight_date: datetime) -> Tuple[Optional[int], Optional[int]]:
+        """Find the nearest photo media id for the given animal around weight_date,
+        but only if the media is explicitly flagged as the weight photo (WEIGHTPHOTO).
+        Returns (mediaid, delta_seconds) or (None, None) if not found.
+        """
+        cursor = self.db_conn.cursor()
+        # Search window +/- 15 minutes
+        start = weight_date - timedelta(minutes=15)
+        end = weight_date + timedelta(minutes=15)
+        sql = """
+            SELECT id, Date AS media_date
+            FROM media
+            WHERE LinkTypeID = 0 -- ANIMAL
+              AND LinkID = %s
+              AND MediaSource = 4 -- ONLINEFORM
+              AND COALESCE(MediaFlags, '') ILIKE '%%WEIGHTPHOTO%%'
+              AND (LOWER(MediaMimeType) LIKE 'image/%%' OR LOWER(MediaName) LIKE '%%.jpg' OR LOWER(MediaName) LIKE '%%.jpeg')
+              AND Date BETWEEN %s AND %s
+            ORDER BY ABS(EXTRACT(EPOCH FROM (Date - %s))) ASC
+            LIMIT 1
+        """
+        cursor.execute(sql, (animal_id, start, end, weight_date))
+        row = cursor.fetchone()
+        cursor.close()
+        if not row:
+            return None, None
+        media_date = row['media_date']
+        delta_seconds = int(abs((media_date - weight_date).total_seconds())) if media_date else None
+        return row['id'], delta_seconds
     
     def process_weight_updates(self):
         """Main processing loop - check for weight updates and process them."""
