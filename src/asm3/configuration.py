@@ -124,6 +124,26 @@ DEFAULTS = {
     "Behave4Values": "",
     "Behave5Name": "Unusual Symptoms",
     "Behave5Values": "",
+    "Behave1Required": "No",
+    "Behave2Required": "No",
+    "Behave3Required": "No",
+    "Behave4Required": "No",
+    "Behave5Required": "No",
+    "Behave6Required": "No",
+    "Behave7Required": "No",
+    "Behave8Required": "No",
+    "Behave9Required": "No",
+    "Behave10Required": "No",
+    "Behave1Range": "",
+    "Behave2Range": "",
+    "Behave3Range": "",
+    "Behave4Range": "",
+    "Behave5Range": "",
+    "Behave6Range": "",
+    "Behave7Range": "",
+    "Behave8Range": "",
+    "Behave9Range": "",
+    "Behave10Range": "",
     "BoardingCostType": "1",
     "BoardingPaymentType": "7",
     "CancelReservesOnAdoption": "Yes",
@@ -1843,5 +1863,4 @@ def weight_change_log(dbo: Database) -> bool:
 
 def weight_change_log_type(dbo: Database) -> int:
     return cint(dbo, "WeightChangeLogType", DEFAULTS["WeightChangeLogType"])
-
 
