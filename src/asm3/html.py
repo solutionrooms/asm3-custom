@@ -667,6 +667,7 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
         )),
         (asm3.users.ACCESS_HEDGHOG, "hedghog", _("Hedgehog", l), (
             ( asm3.users.ACCESS_HEDGHOG, "", "", "animal_induction", "asm-icon-animal-add", _("Patient Induction", l) ),
+            ( asm3.users.ADD_LOG, "", "", "hedgehog_observation", "asm-icon-blank", _("Daily Observation (single)", l) ),
         ))
     )
 
@@ -1024,4 +1025,3 @@ def thumbnail_img_src(dbo: Database, row: ResultRow, mode: str) -> str:
         if "WEBSITEMEDIADATE" in row and row.WEBSITEMEDIADATE is not None:
             uri += "&date=%s" % row.WEBSITEMEDIADATE.isoformat()
         return uri
-

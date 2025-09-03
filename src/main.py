@@ -2576,6 +2576,51 @@ class animal_observations(JSONEndpoint):
             nocreated += 1
         return str(nocreated)
 
+class hedgehog_observation(JSONEndpoint):
+    url = "hedgehog_observation"
+    get_permissions = asm3.users.ADD_LOG
+
+    def controller(self, o):
+        dbo = o.dbo
+        # Try to resolve an animal from supplied params
+        animal = None
+        try:
+            aid = 0
+            # Prefer explicit id if present
+            if "id" in o.post.data and o.post["id"] != "":
+                aid = o.post.integer("id")
+            elif "animalid" in o.post.data and o.post["animalid"] != "":
+                aid = o.post.integer("animalid")
+            elif "animalname" in o.post.data and o.post["animalname"] != "":
+                # Find a recent/on-shelter animal with this name
+                rows = asm3.animal.get_recent_with_name(dbo, o.post["animalname"])
+                if len(rows) > 0:
+                    aid = rows[0]["ANIMALID"]
+            if aid:
+                a = asm3.animal.get_animal(dbo, aid)
+                if a is not None:
+                    animal = a
+        except Exception as e:
+            asm3.al.warn(f"hedgehog_observation controller lookup failed: {e}", "main.hedgehog_observation", dbo)
+
+        asm3.al.debug(f"hedgehog_observation resolved animal: {animal and animal['ID']}", "main.hedgehog_observation", dbo)
+        return {
+            "animal": animal,
+            "logtypes": asm3.lookups.get_log_types(dbo)
+        }
+
+    def post_save(self, o):
+        # Accept same packed format as animal_observations
+        self.check(asm3.users.ADD_LOG)
+        nocreated = 0
+        for row in o.post["logs"].split("^^"):
+            if not row:
+                continue
+            animalid, msg = row.split("==")
+            asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, asm3.utils.atoi(animalid), o.post.integer("logtype"), msg)
+            nocreated += 1
+        return str(nocreated)
+
 class animal_test(JSONEndpoint):
     url = "animal_test"
     js_module = "test"
