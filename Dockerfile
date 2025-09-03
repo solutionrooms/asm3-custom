@@ -1,6 +1,6 @@
 FROM python:3.9-slim AS runtime
 
-# Install system dependencies including make and Node.js
+# Install system dependencies including make, Node.js, and all optional ASM3 packages
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
@@ -13,7 +13,37 @@ RUN apt-get update && apt-get install -y \
     gettext-base \
     cron \
     procps \
+    imagemagick \
+    python3-xhtml2pdf \
+    python3-reportlab \
+    python3-requests \
+    python3-boto3 \
+    python3-openpyxl \
+    python3-qrcode \
+    python3-stripe \
+    python3-kombu \
+    exuberant-ctags \
+    python3-sphinx \
+    python3-sphinx-rtd-theme \
+    texlive-latex-base \
+    texlive-latex-extra \
+    latexmk \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install wkhtmltopdf from official releases since it's not in Debian repos
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "amd64" ]; then \
+        wget -q https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.bullseye_amd64.deb \
+        && dpkg -i wkhtmltox_0.12.6.1-3.bullseye_amd64.deb || apt-get install -f -y \
+        && rm wkhtmltox_0.12.6.1-3.bullseye_amd64.deb; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        wget -q https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.bullseye_arm64.deb \
+        && dpkg -i wkhtmltox_0.12.6.1-3.bullseye_arm64.deb || apt-get install -f -y \
+        && rm wkhtmltox_0.12.6.1-3.bullseye_arm64.deb; \
+    else \
+        echo "wkhtmltopdf not available for architecture $ARCH"; \
+    fi
 
 # Create app directory
 WORKDIR /app
@@ -38,7 +68,9 @@ RUN pip install --no-cache-dir \
     requests \
     lxml \
     python-memcached \
-    boto3
+    boto3 \
+    pyflakes \
+    pylint
 
 # Note: Customization script removed - using direct source approach
 
