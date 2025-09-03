@@ -521,26 +521,56 @@ $(function() {
                     { id: "tab-daily-observations", title: _("Daily Observations"), info: _("These are the values that can be recorded for animals on the daily observations screen"), fields: [
                         { id: "behavelogtype", post_field: "BehaveLogType", label: _("Log Type"), type: "select", options: html.list_to_options(controller.logtypes, "ID", "LOGTYPENAME")},
                         { id: "suppressblankobservations", post_field: "SuppressBlankObservations", label: _("Suppress blank observations"), type: "check" }, 
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave1Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave1Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave2Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave2Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave3Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave3Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave4Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave4Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave5Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave5Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave6Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave6Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave7Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave7Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave8Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave8Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave9Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave9Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) },
-                        { type: "raw", fullrow: true, markup: tableform.render_text({xattr: 'data="Behave10Name"', justwidget: true, placeholder: _("Name")}) + ' ' + 
-                            tableform.render_text({xattr: 'data="Behave10Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) }
+                        { type: "raw", fullrow: true, markup: 
+                            tableform.render_text({xattr: 'data="Behave1Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave1Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave1Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave1Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup: 
+                            tableform.render_text({xattr: 'data="Behave2Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave2Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave2Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave2Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave3Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave3Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave3Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave3Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave4Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave4Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave4Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave4Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave5Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave5Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave5Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave5Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave6Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave6Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave6Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave6Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave7Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave7Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave7Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave7Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave8Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave8Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave8Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave8Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave9Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave9Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave9Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave9Range"', justwidget: true, placeholder: _("min-max")}) },
+                        { type: "raw", fullrow: true, markup:
+                            tableform.render_text({xattr: 'data="Behave10Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
+                            tableform.render_text({xattr: 'data="Behave10Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave10Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_text({xattr: 'data="Behave10Range"', justwidget: true, placeholder: _("min-max")}) }
                     ]},
                     { id: "tab-data-protection", title: _("Data Protection"), fields: [
                         { id: "anonymisepersonaldata", post_field: "AnonymisePersonalData", label: _("Anonymize personal data after this many years"), type: "check", callout: _("This many years after creation of a person record, the name, address and telephone data will be anonymized."), xmarkup: '<input data="AnonymiseAfterYears" type="text" class="asm-textbox asm-halftextbox asm-intbox" />' }, 
