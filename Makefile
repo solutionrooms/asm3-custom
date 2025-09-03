@@ -27,6 +27,8 @@ help:
 	@echo "  restore       - Restore DB from FILE; or 'make restore TABLE [FILE=...]' to restore one table"
 	@echo "  restore-table - Restore a single table (usage: make restore-table TABLE=name [FILE=...])"
 	@echo "  clear-cache   - Clear application cache and restart"
+	@echo "  rebuild-all   - Rebundle JS, rebuild image (no cache), restart"
+	@echo "  js-rebundle   - Rebundle JS only and restart (fast)"
 	@echo "  shell         - Open shell in ASM3 container"
 	@echo "  db-shell      - Open database shell"
 	@echo "  run <task>    - Run utility tasks inside containers (see below)"
@@ -71,6 +73,24 @@ help:
 # Build the Docker images
 build:
 	docker-compose build
+
+# Rebundle JS, regenerate schema and version, rebuild image without cache and restart
+rebuild-all:
+	@echo "Rebundling JS, stamping version, generating schema..."
+	$(MAKE) o_all
+	@echo "Rebuilding Docker image without cache..."
+	docker-compose build --no-cache asm3
+	@echo "Restarting application..."
+	docker-compose up -d asm3
+	@echo "Done. Consider hard-refreshing your browser."
+
+# Fast path for UI changes: rebuild JS bundle and restart container
+js-rebundle:
+	@echo "Rebundling JavaScript (compat + rollup)..."
+	$(MAKE) o_rollup
+	@echo "Restarting application..."
+	docker-compose restart asm3
+	@echo "Done. If using rollup_js, the new bundle is now active."
 
 # Start the application
 start:
