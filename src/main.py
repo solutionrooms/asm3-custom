@@ -2292,6 +2292,27 @@ class animal_log(JSONEndpoint):
             "logtypes": asm3.lookups.get_log_types(dbo)
         }
 
+class animal_observations_history(JSONEndpoint):
+    url = "animal_observations_history"
+    get_permissions = asm3.users.VIEW_LOG
+
+    def controller(self, o):
+        dbo = o.dbo
+        a = asm3.animal.get_animal(dbo, o.post.integer("id"))
+        if a is None: self.notfound()
+        self.check_animal(a)
+        # Filter logs on the configured daily observations log type
+        behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
+        logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, o.post.integer("id"), behave_logtype)
+        asm3.al.debug("got %d observation logs for animal %s %s" % (len(logs), a["CODE"], a["ANIMALNAME"]), "main.animal_observations_history", dbo)
+        return {
+            "name": "animal_observations_history",
+            "animal": a,
+            "rows": logs,
+            "tabcounts": asm3.animal.get_satellite_counts(dbo, a["ID"])[0],
+            "logtypes": asm3.lookups.get_log_types(dbo)
+        }
+
 class animal_media(JSONEndpoint):
     url = "animal_media"
     js_module = "media"
@@ -2584,6 +2605,9 @@ class hedgehog_observation(JSONEndpoint):
         dbo = o.dbo
         # Try to resolve an animal from supplied params
         animal = None
+        recent = None
+        latest_media_id = 0
+        history7 = []
         try:
             aid = 0
             # Prefer explicit id if present
@@ -2600,13 +2624,40 @@ class hedgehog_observation(JSONEndpoint):
                 a = asm3.animal.get_animal(dbo, aid)
                 if a is not None:
                     animal = a
+                    # Latest image media (ignore publish exclusions)
+                    try:
+                        imgs = asm3.media.get_image_media(dbo, asm3.media.ANIMAL, aid, ignoreexcluded=True)
+                        if len(imgs) > 0:
+                            latest_media_id = imgs[0]["ID"]
+                    except Exception as e:
+                        asm3.al.warn(f"recent image lookup failed: {e}", "main.hedgehog_observation", dbo)
+                    # Find last observation log in the past 12 hours
+                    try:
+                        behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
+                        logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, aid, behave_logtype)
+                        cutoff = asm3.i18n.subtract_hours(dbo.now(), 12)
+                        # logs are returned newest first in many places, but ensure by sort desc on DATE
+                        for l in sorted(logs, key=lambda r: r["DATE"] or dbo.now(), reverse=True):
+                            if l["DATE"] is not None and l["DATE"] >= cutoff:
+                                recent = { "DATE": l["DATE"], "COMMENTS": l["COMMENTS"], "LOGID": l["ID"], "BY": l["LASTCHANGEDBY"] }
+                                break
+                        # Collect last 7 days of observation logs (for weight delta checks)
+                        cutoff7 = asm3.i18n.subtract_days(dbo.now(), 7)
+                        for l in sorted(logs, key=lambda r: r["DATE"] or dbo.now(), reverse=True):
+                            if l["DATE"] is not None and l["DATE"] >= cutoff7:
+                                history7.append({ "DATE": l["DATE"], "COMMENTS": l["COMMENTS"], "ID": l["ID"] })
+                    except Exception as e:
+                        asm3.al.warn(f"recent observation lookup failed: {e}", "main.hedgehog_observation", dbo)
         except Exception as e:
             asm3.al.warn(f"hedgehog_observation controller lookup failed: {e}", "main.hedgehog_observation", dbo)
 
         asm3.al.debug(f"hedgehog_observation resolved animal: {animal and animal['ID']}", "main.hedgehog_observation", dbo)
         return {
             "animal": animal,
-            "logtypes": asm3.lookups.get_log_types(dbo)
+            "logtypes": asm3.lookups.get_log_types(dbo),
+            "recent": recent,
+            "latestmediaid": latest_media_id,
+            "history7": history7
         }
 
     def post_save(self, o):
