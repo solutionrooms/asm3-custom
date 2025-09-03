@@ -38,16 +38,19 @@ RUN ARCH=$(dpkg --print-architecture) \
 # Create app directory
 WORKDIR /app
 
-# Copy ASM3 source code from local repository
+# Copy ASM3 source code and build tooling from local repository
 COPY ./src /app/src/
+COPY ./scripts /app/scripts/
 COPY ./VERSION /app/
 COPY ./package.json /app/
+COPY ./Makefile /app/
 
 # Run ASM3 build process to generate __version__.py and other build artifacts
 RUN cd /app && npm install && \
     echo "#!/usr/bin/env python3" > src/asm3/__version__.py && \
     echo "VERSION = \"`cat VERSION` [Custom Build `date`]\"" >> src/asm3/__version__.py && \
-    echo "BUILD = \"`date +%m%d%H%M%S`\"" >> src/asm3/__version__.py
+    echo "BUILD = \"`date +%m%d%H%M%S`\"" >> src/asm3/__version__.py && \
+    make o_rollup
 
 # Install Python dependencies (all via pip to ensure compatibility)
 RUN pip install --no-cache-dir \
