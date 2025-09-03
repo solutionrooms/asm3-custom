@@ -258,6 +258,7 @@ edit_header = {
             [ "costs", "animal_costs", _("Costs"), "cost", "cvad" ],
             [ "donations", "animal_donations", _("Payments"), "donation", "ovod" ],
             [ "media", "animal_media", _("Media"), "media", "vam" ],
+            [ "observations", "animal_observations_history", _("Observations"), "log", "vle" ],
             [ "diary", "animal_diary", _("Diary"), "diary", "vdn" ],
             [ "transport", "animal_transport", _("Transport"), "transport", "vtr" ],
             [ "movements", "animal_movements", _("Movements"), "movement", "vamv" ],
