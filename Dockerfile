@@ -1,6 +1,6 @@
 FROM python:3.9-slim AS runtime
 
-# Install system dependencies including make, Node.js, and all optional ASM3 packages
+# Install system dependencies including make, Node.js, and all optional ASM3 packages (system tools only)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
@@ -14,17 +14,7 @@ RUN apt-get update && apt-get install -y \
     cron \
     procps \
     imagemagick \
-    python3-xhtml2pdf \
-    python3-reportlab \
-    python3-requests \
-    python3-boto3 \
-    python3-openpyxl \
-    python3-qrcode \
-    python3-stripe \
-    python3-kombu \
     exuberant-ctags \
-    python3-sphinx \
-    python3-sphinx-rtd-theme \
     texlive-latex-base \
     texlive-latex-extra \
     latexmk \
@@ -59,7 +49,7 @@ RUN cd /app && npm install && \
     echo "VERSION = \"`cat VERSION` [Custom Build `date`]\"" >> src/asm3/__version__.py && \
     echo "BUILD = \"`date +%m%d%H%M%S`\"" >> src/asm3/__version__.py
 
-# Install Python dependencies
+# Install Python dependencies (all via pip to ensure compatibility)
 RUN pip install --no-cache-dir \
     cheroot \
     pillow \
@@ -70,7 +60,15 @@ RUN pip install --no-cache-dir \
     python-memcached \
     boto3 \
     pyflakes \
-    pylint
+    pylint \
+    xhtml2pdf \
+    reportlab \
+    openpyxl \
+    qrcode \
+    stripe \
+    kombu \
+    sphinx \
+    sphinx-rtd-theme
 
 # Note: Customization script removed - using direct source approach
 
