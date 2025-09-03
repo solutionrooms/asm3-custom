@@ -172,11 +172,94 @@ $(function() {
 
             $("#button-save").button().click(async function() {
                 if (!controller.animal) { return; }
-                let avs = [];
+                let avs = [], map = {};
+                let valid = true;
+                // reset highlights
+                $(".widget").css({ borderColor: "", background: "" });
+                // Build values + validate required + range
                 $(".widget").each(function() {
-                    if (config.bool("SuppressBlankObservations") && !$(this).val()) { return; }
-                    avs.push($(this).attr("data-name") + "=" + $(this).val());
+                    let nm = $(this).attr("data-name"), idx = $(this).attr("data-index");
+                    let val = $(this).val();
+                    map[nm] = val;
+                    // required check
+                    let meta = (hedgehog_observation.behave_meta || []).find(m => String(m.idx) === String(idx));
+                    if (meta && meta.required && (!val || val === "")) {
+                        $(this).css({ borderColor: "red", background: "#ffecec" });
+                        valid = false;
+                    }
+                    // numeric range check, format min-max
+                    if (meta && meta.range && val) {
+                        let parts = meta.range.split("-");
+                        if (parts.length === 2) {
+                            let v = parseFloat(val), lo = parseFloat(parts[0]), hi = parseFloat(parts[1]);
+                            if (!isNaN(v) && !isNaN(lo) && !isNaN(hi)) {
+                                if (v < lo || v > hi) {
+                                    $(this).css({ borderColor: "red", background: "#fff2e5" });
+                                    valid = false;
+                                }
+                            }
+                        }
+                    }
+                    if (config.bool("SuppressBlankObservations") && !val) { return; }
+                    avs.push(nm + "=" + val);
                 });
+                if (!valid) { header.show_error(_("Please fix highlighted fields.")); return; }
+
+                // Poo sample rule checks
+                const f = function(label){ return Object.keys(map).find(k => k.toLowerCase() === label.toLowerCase()); };
+                let triggers = [];
+                let weightField = f("Weight");
+                let drankField = f("Drunk");
+                let eatenField = f("Eaten");
+                let unusualField = f("Unusual Symptoms");
+                let pooInspectField = f("Poo Inspection");
+                if (unusualField && map[unusualField]) { triggers.push(unusualField); }
+                if (drankField && (map[drankField] || "").toLowerCase() === "none") { triggers.push(drankField); }
+                if (eatenField && (map[eatenField] || "").toLowerCase() === "none") { triggers.push(eatenField); }
+                if (pooInspectField && (map[pooInspectField] === "7" || map[pooInspectField] === "8")) { triggers.push(pooInspectField); }
+                // weight delta
+                const parseWeight = function(s) { let v = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return isNaN(v) ? null : v; };
+                if (weightField && map[weightField]) {
+                    let currentW = parseWeight(map[weightField]);
+                    if (currentW !== null && controller.history7 && controller.history7.length) {
+                        let within1d = null, within7d = null;
+                        let now = new Date();
+                        $.each(controller.history7, function(i, r){
+                            let m = hedgehog_observation.parse_observation_map(r.COMMENTS);
+                            let prev = parseWeight(m[weightField]);
+                            if (prev === null) { return; }
+                            let dt = new Date(r.DATE);
+                            let hours = Math.abs((now - dt) / 36e5);
+                            if (hours <= 24 && within1d === null) { within1d = prev; }
+                            if (hours <= 24*7 && within7d === null) { within7d = prev; }
+                        });
+                        if (within1d !== null && currentW <= within1d * 0.98) { triggers.push(weightField); }
+                        else if (within7d !== null && currentW <= within7d * 0.95) { triggers.push(weightField); }
+                    }
+                }
+
+                if (triggers.length && $("#poo-confirm").is(":hidden")) {
+                    // Highlight triggering fields
+                    $(".widget").each(function(){ let nm = $(this).attr("data-name"); if (triggers.indexOf(nm) !== -1) { $(this).css({ borderColor: "red", background: "#ffecec" }); }});
+                    let reason = triggers.join(', ');
+                    let pc = [
+                        '<div class="asm-warning" style="padding:8px">' + _("The following fields triggered a poo sample check: ") + html.title(reason) + '</div>',
+                        '<div style="margin-top:6px">',
+                        '<label><input type="radio" name="poosample" value="Yes" /> ' + _("Take poo sample now") + '</label> ',
+                        '<label style="margin-left:20px"><input type="radio" name="poosample" value="No" /> ' + _("Do not take a poo sample") + '</label>',
+                        '</div>'
+                    ];
+                    $("#poo-confirm").html(pc.join("\n")).show();
+                    header.show_info(_("Please confirm poo sample before saving."));
+                    return; // Block this save; user must confirm Yes/No
+                }
+
+                if ($("#poo-confirm").is(":visible")) {
+                    let v = $("input[name=poosample]:checked").val();
+                    if (!v) { header.show_error(_("Please select Yes or No for poo sample.")); return; }
+                    avs.push("Take poo sample=" + v);
+                }
+
                 let packed = controller.animal.ID + "==" + avs.join(", ");
                 // Use the configured log type from Options -> Daily Observations
                 let formdata = { "mode": "save", "logtype": config.str("BehaveLogType"), "logs": packed };
@@ -189,9 +272,7 @@ $(function() {
                     msg = _("Observation saved for {0}.").replace("{0}", html.title(controller.animal.ANIMALNAME));
                 }
                 header.show_info(msg, 5000);
-                // Attempt to close the form/tab after a short delay. If the
-                // window cannot be closed (most browsers unless opened by script),
-                // navigate back; if no history, go to main.
+                // Attempt to close the form/tab after a short delay.
                 setTimeout(function(){
                     try { window.close(); } catch(e) {}
                     if (window.history.length > 1) {
