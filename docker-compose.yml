@@ -86,8 +86,8 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    mem_limit: 350m
-    cpus: '0.5'
+    mem_limit: 750m
+    cpus: '1.0'
     command: >
       sh -c "envsubst < /app/asm3.conf.template > /app/asm3.conf && 
              python3 main.py 5000"
@@ -113,7 +113,7 @@ services:
       retries: 5
     restart: unless-stopped
     mem_limit: 300m
-    cpus: '0.5'
+    cpus: '1.0'
 
 volumes:
   postgres_data:
