@@ -77,6 +77,8 @@ build:
 # Rebundle JS, regenerate schema and version, rebuild image without cache and restart
 rebuild-all:
 	@echo "Rebundling JS, stamping version, generating schema..."
+	@echo "Installing/updating Node dependencies..."
+	npm install
 	$(MAKE) o_all
 	@echo "Rebuilding Docker image without cache..."
 	docker-compose build --no-cache asm3
@@ -87,6 +89,8 @@ rebuild-all:
 # Fast path for UI changes: rebuild JS bundle and restart container
 js-rebundle:
 	@echo "Rebundling JavaScript (compat + rollup)..."
+	@echo "Installing/updating Node dependencies..."
+	npm install
 	$(MAKE) o_rollup
 	@echo "Restarting application..."
 	docker-compose restart asm3
