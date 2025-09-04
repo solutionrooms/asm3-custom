@@ -48,3 +48,5 @@ customizations/sitedefs.py.local
 
 # Generated nginx config
 nginx-processed.conf
+
+raw_data/
