@@ -39,6 +39,8 @@ $(function() {
             $.each(names, function(i, n) {
                 columns.push({ field: "OBS_" + i, display: n });
             });
+            // Always include a column for poo sample results captured in comments
+            columns.push({ field: "POO_SAMPLE_RESULT", display: _("Poo Sample Result") });
             // Map rows to include OBS_i fields from comments
             let rows = [];
             $.each(controller.rows, function(i, r) {
@@ -51,6 +53,16 @@ $(function() {
                     row["OBS_" + ix] = v; 
                     if (v) { hasAny = true; }
                 });
+                // Also surface poo sample results if present (case-insensitive key)
+                let pooKey = "";
+                try {
+                    pooKey = Object.keys(m).find(function(k) { return (k || "").toLowerCase() === "poo_sample_result"; }) || "";
+                }
+                catch (e) {}
+                let pooVal = pooKey ? (m[pooKey] || "") : "";
+                row["POO_SAMPLE_RESULT"] = pooVal;
+                if (pooVal) { hasAny = true; }
+
                 if (hasAny) { rows.push(row); }
             });
             return { columns: columns, rows: rows };

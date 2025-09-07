@@ -476,3 +476,21 @@ Extend external DB maintenance cron to upload created PostgreSQL backups to an S
 ### Notes
 - Retention: local keeps last 3 backups; manage S3 retention via bucket lifecycle rules.
 - Cron: Use `make install-cron` to schedule `custom_scripts/run-db-maintenance-external.sh` daily.
+
+---
+
+## 🧪 Observations History: Poo Sample Column
+**Date**: 2025-09-07  
+**Branch**: develop
+
+### Overview
+Add a visible column to the animal observations history screen to display poo sample results recorded in observation logs (eg, `poo_sample_result=Clear`). Rows that only contain a poo sample result are now included alongside daily observations.
+
+### Changes
+- `src/static/js/animal_observations_history.js`
+  - Added a new table column `Poo Sample Result`.
+  - Parse `poo_sample_result` (case-insensitive) from log `COMMENTS` and surface as `POO_SAMPLE_RESULT` in the table rows.
+  - Include rows in the table when either configured Behave fields or `poo_sample_result` are present.
+
+### Rationale
+Observation logs sometimes record only poo sample outcomes with the same log type ID used for daily observations. Surfacing this value directly improves visibility without requiring users to open each log entry.
