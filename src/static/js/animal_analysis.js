@@ -66,11 +66,17 @@ $(function() {
                     raw: p
                 }));
                 const targetWeight = (data.targetweight !== null && data.targetweight !== undefined && data.targetweight !== "") ? parseFloat(data.targetweight) : null;
-                this.draw_weight_graph(canvas, ctx, points, targetWeight);
+                const pooPoints = (data.poo || []).map(p => ({
+                    t: new Date(p.dateiso),
+                    result: p.result || "",
+                    by: p.by || "",
+                    raw: p
+                }));
+                this.draw_weight_graph(canvas, ctx, points, targetWeight, pooPoints);
             });
         },
 
-        draw_weight_graph: function(canvas, ctx, points, targetWeight) {
+        draw_weight_graph: function(canvas, ctx, points, targetWeight, pooPoints) {
             const tooltip = $("#weight-tooltip");
             $("#weight-graph").hide(); // ensure PNG fallback hidden
             $(canvas).show();
@@ -103,7 +109,8 @@ $(function() {
                 maxW = Math.max(maxW, targetWeight);
             }
             const yPad = (maxW - minW) * 0.07 || 1;
-            const yMin = Math.floor((minW - yPad));
+            // Always start the Y axis at zero so baseline markers (e.g., poo samples) are visible
+            const yMin = 0;
             const yMax = Math.ceil((maxW + yPad));
 
             // Monday ticks (one label per week)
@@ -221,6 +228,19 @@ $(function() {
                     ctx.arc(x, y, dotR, 0, Math.PI*2);
                     ctx.fill();
                 });
+
+                // Poo Sample markers along x-axis baseline (brown dots)
+                if (pooPoints && pooPoints.length) {
+                    const baseY = Math.max(pad.top + 6, Math.min(pad.top + plotH - 6, yVal(0) - 6)); // just above 0 line
+                    ctx.fillStyle = "#8B4513"; // saddle brown
+                    pooPoints.forEach(p => {
+                        const x = xVal(p.t), y = baseY;
+                        p._px = x; p._py = y;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3.5, 0, Math.PI*2);
+                        ctx.fill();
+                    });
+                }
             };
 
             render_static();
@@ -230,10 +250,12 @@ $(function() {
                 const rect = canvas.getBoundingClientRect();
                 const mx = (ev.clientX - rect.left);
                 const my = (ev.clientY - rect.top);
-                const hit = points.reduce((acc, p) => {
-                    const dx = mx - p._px, dy = my - p._py;
-                    const d2 = dx*dx + dy*dy;
-                    if (d2 < (acc.d2 || Infinity)) return { p, d2 };
+                // Combine candidates: weight points + poo markers
+                const candidates = (points || []).map(p => ({kind:'w', p}))
+                    .concat((pooPoints || []).map(p => ({kind:'poo', p})));
+                const hit = candidates.reduce((acc, it) => {
+                    const p = it.p; const dx = mx - p._px, dy = my - p._py; const d2 = dx*dx + dy*dy;
+                    if (d2 < (acc.d2 || Infinity)) return { kind: it.kind, p, d2 };
                     return acc;
                 }, {});
                 const radius = 9; // px radius for hover
@@ -248,19 +270,26 @@ $(function() {
 
                     // Tooltip
                     const dt = hit.p.t;
-                    const dtStr = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
-                    let html = '<div><b>' + _('Weight') + ':</b> ' + this._escape(hit.p.wt) + '</div>';
-                    html += '<div><b>' + _('Date') + ':</b> ' + this._escape(dtStr) + '</div>';
-                    if (hit.p.by) html += '<div><b>' + _('By') + ':</b> ' + this._escape(hit.p.by) + '</div>';
-                    const keys = Object.keys(hit.p.extras || {});
-                    if (keys.length) {
-                        html += '<hr style="border:0;border-top:1px solid #555;margin:6px 0;">';
-                        keys.forEach(k => {
-                            const v = hit.p.extras[k];
-                            if (v !== undefined && v !== null && String(v) !== '') {
-                                html += '<div><b>' + this._escape(k) + ':</b> ' + this._escape(String(v)) + '</div>';
-                            }
-                        });
+                    const dtStr = dt.getDate().toString().padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + String(dt.getFullYear()).slice(-2).padStart(2,'0') + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+                    let html = '';
+                    if (hit.kind === 'poo') {
+                        html += '<div><b>' + this._escape(_('Poo Sample Result')) + ':</b> ' + this._escape(hit.p.result) + '</div>';
+                        html += '<div><b>' + this._escape(_('Date')) + ':</b> ' + this._escape(dtStr) + '</div>';
+                        if (hit.p.by) html += '<div><b>' + this._escape(_('By')) + ':</b> ' + this._escape(hit.p.by) + '</div>';
+                    } else {
+                        html += '<div><b>' + this._escape(_('Weight')) + ':</b> ' + this._escape(hit.p.wt) + '</div>';
+                        html += '<div><b>' + this._escape(_('Date')) + ':</b> ' + this._escape(dtStr) + '</div>';
+                        if (hit.p.by) html += '<div><b>' + this._escape(_('By')) + ':</b> ' + this._escape(hit.p.by) + '</div>';
+                        const keys = Object.keys(hit.p.extras || {});
+                        if (keys.length) {
+                            html += '<hr style="border:0;border-top:1px solid #555;margin:6px 0;">';
+                            keys.forEach(k => {
+                                const v = hit.p.extras[k];
+                                if (v !== undefined && v !== null && String(v) !== '') {
+                                    html += '<div><b>' + this._escape(k) + ':</b> ' + this._escape(String(v)) + '</div>';
+                                }
+                            });
+                        }
                     }
                     tooltip.html(html).css({ left: (mx + 12) + 'px', top: (my + 12) + 'px' }).show();
                 }
