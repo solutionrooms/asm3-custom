@@ -119,3 +119,30 @@ Behavior & safeguards
 - Duplicate guard: skips creating a log if an existing log for the same animal and date already has the same normalized weight.
 - Deletion scope (`--delete-existing`): only removes logs with `CreatedBy = --user`, `LinkType = animal`, and the selected log type. Deletes are audited.
 - Logging on macOS: if you see syslog errors, set a minimal config: create `/tmp/asm3_local.conf` with `log_location = stderr` and run with `ASM3_CONF=/tmp/asm3_local.conf`.
+
+## Poo Samples Import
+
+Import historical poo sample results and store them as Daily Observation logs.
+
+Script
+- `custom_scripts/import_poo_samples_history.py`
+- Stores to `log` table (LinkType=ANIMAL) using the configured Daily Observations log type.
+- Comments store a single `poo_sample_result` field with one of `Cap|Fluke|Lungworm|Clear`. If multiple are selected, joins with ` and ` (e.g., `Fluke and Cap`).
+
+CSV format
+- Required columns: `Date,Patient Name` plus any of `Poo Sample - Cap|Fluke|Lungworm|Clear`
+- Extra blank columns are ignored; values are normalized; output uses `poo_sample_result` only.
+
+Usage (local)
+- Example:
+  - `python custom_scripts/import_poo_samples_history.py --csv "raw_data/poo_samples_export.csv" --include-archived \`
+    `--db-type POSTGRESQL --db-host localhost --db-port 5432 --db-name asm3 --db-user asm3 --db-pass asm3`
+- Options:
+  - `--dry-run`: parse/print actions only
+  - `--include-archived`: match animals by name across all animals
+  - `--user USERNAME`: attribute logs (default: `poo-import`)
+  - `--delete-existing`: delete previous logs created by `--user` for this log type before import
+
+Notes
+- Duplicate guard: skips same-day entries with identical comment sets.
+- macOS logging: use `ASM3_CONF=/tmp/asm3_local.conf` with `log_location = stderr` if needed.
