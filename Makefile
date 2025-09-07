@@ -202,11 +202,11 @@ restore:
 	      exit 1; \
 	    fi; \
 	    if [ ! -f "$$FILE_IN" ]; then \
-	      echo "Error: Backup file '\''$$FILE_IN'\'' not found"; \
+	      echo "Error: Backup file $$FILE_IN not found"; \
 	      exit 1; \
 	    fi; \
-	    echo "WARNING: This will drop and recreate table 'public.$$TABLE' in database 'asm3'."; \
-	    printf "Are you sure you want to restore table %s from '\''%s'\''? [y/N] " "$$TABLE" "$$FILE_IN"; \
+	    echo "WARNING: This will drop and recreate table public.$$TABLE in database asm3."; \
+	    printf "Are you sure you want to restore table %s from %s? [y/N] " "$$TABLE" "$$FILE_IN"; \
 	    read confirm; \
 	    if [ "$$confirm" = "y" ]; then \
 	      if echo "$$FILE_IN" | grep -q "\\.dump$$"; then \
@@ -222,7 +222,7 @@ restore:
 	    if [ -z "$(FILE)" ]; then \
 	      echo "Usage: make restore FILE=backup_file.dump [SOURCE_DB=source_db_name]"; \
 	      echo "  FILE: Path to backup file"; \
-	      echo "  SOURCE_DB: Original database name (if different from '\''asm3'\'')"; \
+	      echo "  SOURCE_DB: Original database name (if different from asm3)"; \
 	      echo "Available backup files:"; \
 	      ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"; \
 	      exit 1; \
@@ -257,7 +257,7 @@ restore:
 	      echo "Restoring from backup..."; \
 	      if echo "$(FILE)" | grep -q "\\.dump$$"; then \
 	        if [ "$$SOURCE_DB_NAME" != "asm3" ]; then \
-	          echo "Note: Restoring from database '\''$$SOURCE_DB_NAME'\'' to '\''asm3'\''"; \
+	          echo "Note: Restoring from database $$SOURCE_DB_NAME to asm3"; \
 	        fi; \
 	        cat "$(FILE)" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists; \
 	      else \
@@ -286,17 +286,17 @@ restore-table:
 	    [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
 	  fi; \
 	  if [ -z "$$FILE_IN" ]; then \
-	    echo "Error: No matching backup found for table '\''$(TABLE)'\'' and no FILE provided."; \
+	    echo "Error: No matching backup found for table $(TABLE) and no FILE provided."; \
 
 	    echo "  Expected pattern: backup_table_$${SAFE_TABLE}_*.dump (.sql supported too)"; \
 	    exit 1; \
 	  fi; \
 	  if [ ! -f "$$FILE_IN" ]; then \
-	    echo "Error: Backup file '\''$$FILE_IN'\'' not found"; \
+	    echo "Error: Backup file $$FILE_IN not found"; \
 	    exit 1; \
 	  fi; \
-	  echo "WARNING: This will drop and recreate table '\''public.$(TABLE)'\'' in database '\''asm3'\''."; \
-	  printf "Are you sure you want to restore table %s from '\''%s'\''? [y/N] " "$(TABLE)" "$$FILE_IN"; \
+	  echo "WARNING: This will drop and recreate table public.$(TABLE) in database asm3."; \
+	  printf "Are you sure you want to restore table %s from %s? [y/N] " "$(TABLE)" "$$FILE_IN"; \
 	  read confirm; \
 	  if [ "$$confirm" = "y" ]; then \
 	    if echo "$$FILE_IN" | grep -q "\\.dump$$"; then \
