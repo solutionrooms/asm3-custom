@@ -2368,18 +2368,48 @@ class animal_weight_observations(JSONEndpoint):
         import re
         rx_num = re.compile(r"[-+]?\d*\.\d+|\d+")
         points = []
+        poo_points = []
         for r in obs_logs:
             m = parse_map(asm3.utils.nulltostr(r.get("COMMENTS", "")))
-            # locate weight value
+
+            # Always look for a poo sample result on every observation, even if
+            # that observation doesn't contain a weight value. Previously this
+            # only ran when a weight was present, which meant separate
+            # "poo-import" logs were ignored and no markers appeared on the
+            # analysis graph.
+            try:
+                def norm(s: str) -> str:
+                    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+                poo_key = None
+                for k in list(m.keys()):
+                    nk = norm(k)
+                    if nk in ("poosampleresult", "pooinspectionresult", "stoolsampleresult") or ("poo" in nk and "result" in nk):
+                        poo_key = k
+                        break
+                if poo_key:
+                    poo_val = asm3.utils.nulltostr(m.get(poo_key, "")).strip()
+                    if poo_val != "":
+                        poo_points.append({
+                            "date": r.get("DATE"),
+                            "dateiso": asm3.utils.iif(r.get("DATE") is None, "", r.get("DATE").isoformat()),
+                            "by": r.get("LASTCHANGEDBY"),
+                            "result": poo_val
+                        })
+            except Exception:
+                pass
+
+            # locate weight value (optional for a given observation)
             wkey = None
             for k in list(m.keys()):
                 if (k or "").lower() in [x.lower() for x in weight_keys] or "weight" in (k or "").lower():
                     wkey = k
                     break
-            if not wkey: continue
+            if not wkey:
+                continue
             vtxt = m.get(wkey, "")
             mm = rx_num.search(vtxt)
-            if not mm: continue
+            if not mm:
+                continue
             try:
                 wt = float(mm.group(0))
             except Exception:
@@ -2425,6 +2455,7 @@ class animal_weight_observations(JSONEndpoint):
             "animal": a,
             "names": names,
             "points": points,
+            "poo": poo_points,
             "targetweight": target_weight
         }
 
