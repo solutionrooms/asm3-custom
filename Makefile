@@ -186,128 +186,128 @@ backup-table:
 
 # Restore database or a single table from backup file (POSIX sh, single shell)
 restore:
-	@sh -e -c '\
-	  TABLE="$(word 2,$(MAKECMDGOALS))"; \
-	  if [ -n "$$TABLE" ] && [ "$$TABLE" != "restore" ]; then \
-	    SAFE_TABLE=$$(echo "$$TABLE" | tr -c "[:alnum:]_\n\r" "_"); \
-	    FILE_IN="$(FILE)"; \
-	    if [ -z "$$FILE_IN" ]; then \
-	      # Try to find the latest matching table backup \
-	      FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
-	      [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
-	    fi; \
-	    if [ -z "$$FILE_IN" ]; then \
-	      echo "Usage: make restore $$TABLE [FILE=path_to_table_backup.(dump|sql)]"; \
-	      echo "  No FILE provided and no matching backup_table_$${SAFE_TABLE}_*.dump found."; \
-	      exit 1; \
-	    fi; \
-	    if [ ! -f "$$FILE_IN" ]; then \
-	      echo "Error: Backup file $$FILE_IN not found"; \
-	      exit 1; \
-	    fi; \
-	    echo "WARNING: This will drop and recreate table public.$$TABLE in database asm3."; \
-	    printf "Are you sure you want to restore table %s from %s? [y/N] " "$$TABLE" "$$FILE_IN"; \
-	    read confirm; \
-	    if [ "$$confirm" = "y" ]; then \
-	      if echo "$$FILE_IN" | grep -q "\\.dump$$"; then \
-	        cat "$$FILE_IN" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists -t "public.$$TABLE"; \
-	      else \
-	        cat "$$FILE_IN" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
-	      fi; \
-	      echo "Table restore complete!"; \
-	    else \
-	      echo "Table restore cancelled."; \
-	    fi; \
-	  else \
-	    if [ -z "$(FILE)" ]; then \
-	      echo "Usage: make restore FILE=backup_file.dump [SOURCE_DB=source_db_name]"; \
-	      echo "  FILE: Path to backup file"; \
-	      echo "  SOURCE_DB: Original database name (if different from asm3)"; \
-	      echo "Available backup files:"; \
-	      ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"; \
-	      exit 1; \
-	    fi; \
-	    if [ ! -f "$(FILE)" ]; then \
-	      echo "Error: Backup file $(FILE) not found"; \
-	      exit 1; \
-	    fi; \
-	    SOURCE_DB_NAME=$${SOURCE_DB:-asm3}; \
-	    echo "WARNING: This will overwrite the current database!"; \
-	    echo "Source database: $$SOURCE_DB_NAME -> Target database: asm3"; \
-	    printf "Are you sure you want to restore from %s? [y/N] " "$(FILE)"; \
-	    read confirm; \
-	    if [ "$$confirm" = "y" ]; then \
-	      echo "Stopping ASM3 application..."; \
-	      docker-compose stop asm3; \
-
-	      echo "Dropping existing database..."; \
-	      if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "DROP DATABASE IF EXISTS asm3;"; then \
-	        echo "ERROR: Failed to drop database. Check for active connections (e.g., pgAdmin)."; \
-	        docker-compose start asm3; \
-	        exit 1; \
-	      fi; \
-
-	      echo "Creating new database..."; \
-	      if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "CREATE DATABASE asm3;"; then \
-	        echo "ERROR: Failed to create database."; \
-	        docker-compose start asm3; \
-	        exit 1; \
-	      fi; \
-
-	      echo "Restoring from backup..."; \
-	      if echo "$(FILE)" | grep -q "\\.dump$$"; then \
-	        if [ "$$SOURCE_DB_NAME" != "asm3" ]; then \
-	          echo "Note: Restoring from database $$SOURCE_DB_NAME to asm3"; \
-	        fi; \
-	        cat "$(FILE)" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists; \
-	      else \
-	        cat "$(FILE)" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
-	      fi; \
-
-	      echo "Starting ASM3 application..."; \
-	      docker-compose start asm3; \
-	      echo "Restore complete!"; \
-	    else \
-	      echo "Restore cancelled."; \
-	    fi; \
-	  fi'
+	@/bin/sh -ex <<-SH
+	TABLE="$(word 2,$(MAKECMDGOALS))"
+	if [ -n "$$TABLE" ] && [ "$$TABLE" != "restore" ]; then
+	  SAFE_TABLE=$$(echo "$$TABLE" | tr -c '[:alnum:]_\n\r' '_')
+	  FILE_IN="$(FILE)"
+	  if [ -z "$$FILE_IN" ]; then
+	    # Try to find the latest matching table backup
+	    FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true)
+	    [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true)
+	  fi
+	  echo "DEBUG: Mode=table TABLE=$$TABLE FILE_IN=$$FILE_IN"
+	  if [ -z "$$FILE_IN" ]; then
+	    echo "Usage: make restore $$TABLE [FILE=path_to_table_backup.(dump|sql)]"
+	    echo "  No FILE provided and no matching backup_table_$${SAFE_TABLE}_*.dump found."
+	    exit 1
+	  fi
+	  if [ ! -f "$$FILE_IN" ]; then
+	    echo "Error: Backup file $$FILE_IN not found"
+	    exit 1
+	  fi
+	  echo "WARNING: This will drop and recreate table public.$$TABLE in database asm3."
+	  printf "Are you sure you want to restore table %s from %s? [y/N] " "$$TABLE" "$$FILE_IN"
+	  read -r confirm
+	  if [ "$$confirm" = "y" ]; then
+	    if echo "$$FILE_IN" | grep -q '\\.dump$$'; then
+	      cat "$$FILE_IN" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists -t "public.$$TABLE"
+	    else
+	      cat "$$FILE_IN" | docker-compose exec -T postgres psql -U asm3 -d asm3
+	    fi
+	    echo "Table restore complete!"
+	  else
+	    echo "Table restore cancelled."
+	  fi
+	else
+	  if [ -z "$(FILE)" ]; then
+	    echo "Usage: make restore FILE=backup_file.dump [SOURCE_DB=source_db_name]"
+	    echo "  FILE: Path to backup file"
+	    echo "  SOURCE_DB: Original database name (if different from asm3)"
+	    echo "Available backup files:"
+	    ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"
+	    exit 1
+	  fi
+	  if [ ! -f "$(FILE)" ]; then
+	    echo "Error: Backup file $(FILE) not found"
+	    exit 1
+	  fi
+	  SOURCE_DB_NAME=$${SOURCE_DB:-asm3}
+	  echo "DEBUG: Mode=full FILE=$(FILE) SOURCE_DB_NAME=$$SOURCE_DB_NAME"
+	  echo "WARNING: This will overwrite the current database!"
+	  echo "Source database: $$SOURCE_DB_NAME -> Target database: asm3"
+	  printf "Are you sure you want to restore from %s? [y/N] " "$(FILE)"
+	  read -r confirm
+	  if [ "$$confirm" = "y" ]; then
+	    echo "Stopping ASM3 application..."
+	    docker-compose stop asm3
+	    echo "Dropping existing database..."
+	    if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "DROP DATABASE IF EXISTS asm3;"; then
+	      echo "ERROR: Failed to drop database. Check for active connections (e.g., pgAdmin)."
+	      docker-compose start asm3
+	      exit 1
+	    fi
+	    echo "Creating new database..."
+	    if ! docker-compose exec -T postgres psql -U asm3 -d postgres -c "CREATE DATABASE asm3;"; then
+	      echo "ERROR: Failed to create database."
+	      docker-compose start asm3
+	      exit 1
+	    fi
+	    echo "Restoring from backup..."
+	    if echo "$(FILE)" | grep -q '\\.dump$$'; then
+	      if [ "$$SOURCE_DB_NAME" != "asm3" ]; then
+	        echo "Note: Restoring from database $$SOURCE_DB_NAME to asm3"
+	      fi
+	      cat "$(FILE)" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists
+	    else
+	      cat "$(FILE)" | docker-compose exec -T postgres psql -U asm3 -d asm3
+	    fi
+	    echo "Starting ASM3 application..."
+	    docker-compose start asm3
+	    echo "Restore complete!"
+	  else
+	    echo "Restore cancelled."
+	  fi
+	fi
+		SH
 
 # Explicit: restore a single table (same as `make restore TABLE [FILE=...]`)
 restore-table:
-	@sh -e -c '\
-	  if [ -z "$(TABLE)" ]; then \
-	    echo "Usage: make restore-table TABLE=name [FILE=path_to_table_backup.(dump|sql)]"; \
-	    exit 1; \
-	  fi; \
-	  SAFE_TABLE=$$(echo "$(TABLE)" | tr -c "[:alnum:]_\n\r" "_"); \
-	  FILE_IN="$(FILE)"; \
-	  if [ -z "$$FILE_IN" ]; then \
-	    FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
-	    [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
-	  fi; \
-	  if [ -z "$$FILE_IN" ]; then \
-	    echo "Error: No matching backup found for table $(TABLE) and no FILE provided."; \
-
-	    echo "  Expected pattern: backup_table_$${SAFE_TABLE}_*.dump (.sql supported too)"; \
-	    exit 1; \
-	  fi; \
-	  if [ ! -f "$$FILE_IN" ]; then \
-	    echo "Error: Backup file $$FILE_IN not found"; \
-	    exit 1; \
-	  fi; \
-	  echo "WARNING: This will drop and recreate table public.$(TABLE) in database asm3."; \
-	  printf "Are you sure you want to restore table %s from %s? [y/N] " "$(TABLE)" "$$FILE_IN"; \
-	  read confirm; \
-	  if [ "$$confirm" = "y" ]; then \
-	    if echo "$$FILE_IN" | grep -q "\\.dump$$"; then \
-	      cat "$$FILE_IN" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists -t "public.$(TABLE)"; \
-	    else \
-	      cat "$$FILE_IN" | docker-compose exec -T postgres psql -U asm3 -d asm3; \
-	    fi; \
-	    echo "Table restore complete!"; \
-	  else \
-	    echo "Table restore cancelled."; \
-	  fi'
+		@/bin/sh -ex <<-SH
+	if [ -z "$(TABLE)" ]; then
+	  echo "Usage: make restore-table TABLE=name [FILE=path_to_table_backup.(dump|sql)]"
+	  exit 1
+	fi
+	SAFE_TABLE=$$(echo "$(TABLE)" | tr -c '[:alnum:]_\n\r' '_')
+	FILE_IN="$(FILE)"
+	if [ -z "$$FILE_IN" ]; then
+	  FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true)
+	  [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true)
+	fi
+	echo "DEBUG: Mode=table-only TABLE=$(TABLE) FILE_IN=$$FILE_IN"
+	if [ -z "$$FILE_IN" ]; then
+	  echo "Error: No matching backup found for table $(TABLE) and no FILE provided."
+	  echo "  Expected pattern: backup_table_$${SAFE_TABLE}_*.dump (.sql supported too)"
+	  exit 1
+	fi
+	if [ ! -f "$$FILE_IN" ]; then
+	  echo "Error: Backup file $$FILE_IN not found"
+	  exit 1
+	fi
+	echo "WARNING: This will drop and recreate table public.$(TABLE) in database asm3."
+	printf "Are you sure you want to restore table %s from %s? [y/N] " "$(TABLE)" "$$FILE_IN"
+	read -r confirm
+	if [ "$$confirm" = "y" ]; then
+	  if echo "$$FILE_IN" | grep -q '\\.dump$$'; then
+	    cat "$$FILE_IN" | docker-compose exec -T postgres pg_restore -U asm3 -d asm3 --clean --if-exists -t "public.$(TABLE)"
+	  else
+	    cat "$$FILE_IN" | docker-compose exec -T postgres psql -U asm3 -d asm3
+	  fi
+	  echo "Table restore complete!"
+	else
+	  echo "Table restore cancelled."
+	fi
+		SH
 
 # Clear application cache and restart
 clear-cache:
