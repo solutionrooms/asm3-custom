@@ -71,7 +71,8 @@ RUN pip install --no-cache-dir \
     stripe \
     kombu \
     sphinx \
-    sphinx-rtd-theme
+    sphinx-rtd-theme \
+    matplotlib
 
 # Note: Customization script removed - using direct source approach
 

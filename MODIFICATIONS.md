@@ -494,3 +494,30 @@ Add a visible column to the animal observations history screen to display poo sa
 
 ### Rationale
 Observation logs sometimes record only poo sample outcomes with the same log type ID used for daily observations. Surfacing this value directly improves visibility without requiring users to open each log entry.
+
+---
+
+## 📈 Animal Analysis Tab + Server-Side Weight Graph
+**Date**: 2025-09-07  
+**Branch**: develop
+
+### Overview
+Added a new “Analysis” tab on animal pages. The first analysis is a server-side generated Weight Graph (matplotlib), rendered as a PNG image and embedded in the page.
+
+### Changes
+- `src/static/js/header_edit_header.js`: Insert “Analysis” tab after “Observations”.
+- `src/static/js/animal_analysis.js`: New module rendering the analysis page and loading the weight graph image.
+- `src/main.py`:
+  - `animal_analysis` JSON endpoint: supplies animal context and tab counts.
+  - `animal_weight_graph` endpoint: generates and returns a PNG line chart of weight over time using weight-change logs.
+- `Dockerfile`: Add `matplotlib` to installed Python packages.
+
+### Behaviour
+- Interactive canvas graph fetches observation data from `animal_weight_observations?id=<animal_id>&json=true` and renders client-side with hover tooltips.
+- Server-side PNG fallback remains available at `animal_weight_graph?id=<animal_id>`.
+- Weights are read from observation logs (config `BehaveLogType`), parsing the `Weight` field in comments.
+- X-axis shows weekly ticks (every Monday) with smaller labels; points are irregularly spaced according to actual timestamps.
+
+### Notes
+- Designed for future expansion: more analyses can be added alongside “Weight Graph”.
+- If matplotlib is unavailable, a small PNG with an error message is returned (fallback).

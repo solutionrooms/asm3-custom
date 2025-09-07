@@ -2313,6 +2313,235 @@ class animal_observations_history(JSONEndpoint):
             "logtypes": asm3.lookups.get_log_types(dbo)
         }
 
+class animal_analysis(JSONEndpoint):
+    url = "animal_analysis"
+    get_permissions = asm3.users.VIEW_LOG
+
+    def controller(self, o):
+        dbo = o.dbo
+        a = asm3.animal.get_animal(dbo, o.post.integer("id"))
+        if a is None: self.notfound()
+        self.check_animal(a)
+        return {
+            "name": "animal_analysis",
+            "animal": a,
+            "tabcounts": asm3.animal.get_satellite_counts(dbo, a["ID"])[0]
+        }
+
+class animal_weight_observations(JSONEndpoint):
+    url = "animal_weight_observations"
+    get_permissions = asm3.users.VIEW_LOG
+
+    def controller(self, o):
+        dbo = o.dbo
+        aid = o.post.integer("id")
+        a = asm3.animal.get_animal(dbo, aid)
+        if a is None: self.notfound()
+        self.check_animal(a)
+
+        behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
+        obs_logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, aid, behave_logtype, sort=asm3.log.ASCENDING)
+
+        # Discover configured observation labels
+        names = []
+        for i in range(0, 50):
+            n = asm3.configuration.cstring(dbo, f"Behave{i}Name", "")
+            if n: names.append(n)
+
+        # Identify which field is Weight (case-insensitive contains)
+        weight_keys = [n for n in names if n and "weight" in n.lower()]
+        if not weight_keys: weight_keys = ["weight", "wt"]
+
+        def parse_map(txt: str) -> dict:
+            m = {}
+            if not txt: return m
+            try:
+                for part in txt.split(','):
+                    if '=' in part:
+                        k, v = part.split('=', 1)
+                        m[k.strip()] = v.strip()
+            except Exception:
+                pass
+            return m
+
+        # Build points
+        import re
+        rx_num = re.compile(r"[-+]?\d*\.\d+|\d+")
+        points = []
+        for r in obs_logs:
+            m = parse_map(asm3.utils.nulltostr(r.get("COMMENTS", "")))
+            # locate weight value
+            wkey = None
+            for k in list(m.keys()):
+                if (k or "").lower() in [x.lower() for x in weight_keys] or "weight" in (k or "").lower():
+                    wkey = k
+                    break
+            if not wkey: continue
+            vtxt = m.get(wkey, "")
+            mm = rx_num.search(vtxt)
+            if not mm: continue
+            try:
+                wt = float(mm.group(0))
+            except Exception:
+                continue
+            # Remove weight key from the extra fields to avoid duplication in tooltips
+            extras = { k: v for (k, v) in m.items() if k != wkey and (asm3.utils.nulltostr(v) != "") }
+            points.append({
+                "date": r.get("DATE"),
+                "dateiso": asm3.utils.iif(r.get("DATE") is None, "", r.get("DATE").isoformat()),
+                "by": r.get("LASTCHANGEDBY"),
+                "weight": wt,
+                "extras": extras
+            })
+        # Optional target weight from additional fields (robust match on name/label and numeric parsing)
+        target_weight = None
+        try:
+            import re as _re
+            rxnum = _re.compile(r"[-+]?\d*\.?\d+")
+            addl = asm3.additional.get_additional_fields(dbo, aid, "animal")
+            for af in addl:
+                fn = asm3.utils.nulltostr(af.get("FIELDNAME", "")).lower()
+                fl = asm3.utils.nulltostr(af.get("FIELDLABEL", "")).lower()
+                val = asm3.utils.nulltostr(af.get("VALUE", "")).strip()
+                is_target = ("target" in fn and "weight" in fn) or ("target" in fl and "weight" in fl)
+                if not is_target:
+                    continue
+                mm = rxnum.search(val)
+                if not mm:
+                    continue
+                try:
+                    target_weight = float(mm.group(0))
+                except Exception:
+                    continue
+                # If units hint at kg, convert to grams to match observation scale if needed
+                vt = val.lower()
+                if ("kg" in vt) and (target_weight < 50):
+                    target_weight = target_weight * 1000.0
+                break
+        except Exception:
+            pass
+
+        return {
+            "animal": a,
+            "names": names,
+            "points": points,
+            "targetweight": target_weight
+        }
+
+class animal_weight_graph(ASMEndpoint):
+    url = "animal_weight_graph"
+    get_permissions = asm3.users.VIEW_LOG
+
+    def content(self, o):
+        import io
+        import re
+        try:
+            # Lazy import to avoid overhead except when used
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+        except Exception as e:
+            # If matplotlib is not available, return a small PNG with an error message
+            from PIL import Image, ImageDraw
+            img = Image.new('RGB', (600, 200), color=(255, 255, 255))
+            d = ImageDraw.Draw(img)
+            d.text((10, 90), f"Matplotlib not available: {e}", fill=(0, 0, 0))
+            b = io.BytesIO()
+            img.save(b, format='PNG')
+            self.content_type('image/png')
+            self.cache_control(0)
+            return b.getvalue()
+
+        dbo = o.dbo
+        aid = o.post.integer("id")
+        a = asm3.animal.get_animal(dbo, aid)
+        if a is None: self.notfound()
+        self.check_animal(a)
+
+        # We want every observation (daily log) shown as points and a trend line through them.
+        # Use the configured behaviour log type and parse the Weight field from COMMENTS (key=value pairs).
+        behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
+        obs_logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, aid, behave_logtype, sort=asm3.log.ASCENDING)
+
+        # Find which BehaveXName corresponds to Weight (case-insensitive contains)
+        weight_keys = []
+        for i in range(0, 50):
+            n = asm3.configuration.cstring(dbo, f"Behave{i}Name", "")
+            if n and "weight" in n.lower():
+                weight_keys.append(n)
+        if not weight_keys:
+            weight_keys = ["weight", "wt"]
+
+        def parse_map(txt: str) -> dict:
+            m = {}
+            if not txt:
+                return m
+            try:
+                parts = [p.strip() for p in txt.split(',')]
+                for p in parts:
+                    if '=' in p:
+                        k, v = p.split('=', 1)
+                        m[k.strip()] = v.strip()
+            except Exception:
+                pass
+            return m
+
+        dates = []
+        weights = []
+        rx_num = re.compile(r"[-+]?\d*\.\d+|\d+")
+        for r in obs_logs:
+            m = parse_map(asm3.utils.nulltostr(r.get("COMMENTS", "")))
+            # find a key that matches weight
+            key_found = None
+            for k in list(m.keys()):
+                if (k or "").lower() in [x.lower() for x in weight_keys]:
+                    key_found = k
+                    break
+            if not key_found:
+                # try contains weight
+                for k in list(m.keys()):
+                    if "weight" in (k or "").lower():
+                        key_found = k
+                        break
+            if not key_found:
+                continue
+            vtxt = m.get(key_found, "")
+            mm = rx_num.search(vtxt)
+            if not mm:
+                continue
+            try:
+                val = float(mm.group(0))
+            except Exception:
+                continue
+            dates.append(r.get("DATE"))
+            weights.append(val)
+
+        # Generate plot
+        fig, ax = plt.subplots(figsize=(8, 3))
+        if len(dates) == 0:
+            ax.text(0.5, 0.5, "No weight data", ha='center', va='center', transform=ax.transAxes)
+            ax.axis('off')
+        else:
+            # Scatter points for each observation
+            ax.scatter(dates, weights, s=18, color='#1f77b4', alpha=0.9, label='Observations')
+            # Trend line: connect points in chronological order
+            ax.plot(dates, weights, color='#ff7f0e', linewidth=1.5, alpha=0.8, label='Trend')
+            ax.set_title(f"Weight Over Time — {a['ANIMALNAME']}", fontsize=10)
+            ax.set_ylabel("Weight", fontsize=9)
+            ax.set_xlabel("Date", fontsize=9)
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
+            ax.legend(loc='best', fontsize=8, frameon=False)
+            fig.autofmt_xdate(rotation=30)
+            ax.margins(x=0.02, y=0.1)
+        fig.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150)
+        plt.close(fig)
+        self.content_type('image/png')
+        # Don’t cache as weights can change frequently on this screen
+        self.cache_control(0)
+        return buf.getvalue()
+
 class animal_media(JSONEndpoint):
     url = "animal_media"
     js_module = "media"
