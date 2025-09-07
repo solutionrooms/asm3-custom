@@ -158,7 +158,7 @@ update:
 
 # Backup database or a single table (compressed format)
 backup:
-	@TABLE=$$(word 2,$$(MAKECMDGOALS)); \
+	@TABLE="$(word 2,$(MAKECMDGOALS))"; \
 	if [ -n "$$TABLE" ] && [ "$$TABLE" != "backup" ]; then \
 		SAFE_TABLE=$$(echo "$$TABLE" | tr -c '[:alnum:]_\n\r' '_'); \
 		BACKUP_FILE="backup_table_$$(echo $$SAFE_TABLE)_$$(date +%Y%m%d_%H%M%S).dump"; \
@@ -186,7 +186,7 @@ backup-table:
 
 # Restore database or a single table from backup file
 restore:
-	@TABLE=$$(word 2,$$(MAKECMDGOALS)); \
+	@TABLE="$(word 2,$(MAKECMDGOALS))"; \
 	if [ -n "$$TABLE" ] && [ "$$TABLE" != "restore" ]; then \
 		SAFE_TABLE=$$(echo "$$TABLE" | tr -c '[:alnum:]_\n\r' '_'); \
 		FILE_IN="$(FILE)"; \
