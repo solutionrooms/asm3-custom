@@ -77,3 +77,45 @@ Create additional fields in ASM3 Admin with these specifications:
 - jQuery-based interactivity with modern CSS Grid layouts
 - Fully integrated with ASM3's validation and submission systems
 - Custom styling with CSS-in-JS approach for component isolation
+
+## Weights History Import
+
+Import historical hedgehog weights from a CSV and save them as Daily Observation logs (same destination as the `hedgehog_observation` screen).
+
+Script
+- `custom_scripts/import_weights_history.py`
+- Stores to `log` table (LinkType=ANIMAL) using the configured Daily Observations log type.
+- Comments are saved as `key=value` pairs; `Weight` is stored as a numeric grams value (no unit).
+
+CSV format
+- Required columns (headers must match): `Date,Hedgehog,Location,Weight,Action,Next Weighing,Non insulated,Comments`
+- Dates like `25/09/2022` (DD/MM/YYYY). Time set to local noon.
+- Weights accepted: `1021g`, `1.02kg`, `1021`, `1,021g`, `2.2lb(s)` → stored as grams (e.g., `1021`). Bad values are reported and skipped.
+
+Prerequisites (local)
+- Python 3.12
+- Packages: `pip install requests psycopg2-binary Pillow`
+
+Basic usage (local, direct DB flags)
+- Example:
+  - `python custom_scripts/import_weights_history.py --csv "raw_data/weights export.csv" --include-archived --db-type POSTGRESQL --db-host localhost --db-port 5432 --db-name asm3 --db-user asm3 --db-pass asm3`
+- Options:
+  - `--dry-run`: parse and show actions, no DB writes
+  - `--include-archived`: match animals by name across all animals (not only recent/on-shelter)
+  - `--user USERNAME`: attribute created logs to this user (default: `weights-import`)
+  - `--delete-existing`: delete previous logs created by `--user` for this log type before import (safe cleanup)
+  - `--logtype ID`: override Daily Observations log type; defaults to configured `BehaveLogType`
+
+Using repo config
+- The repo `asm3.conf` reads DB settings from env vars; set and run:
+  - `ASM3_CONF=$(pwd)/asm3.conf ASM3_DBHOST=localhost ASM3_DBPORT=5432 ASM3_DBNAME=asm3 ASM3_DBUSERNAME=asm3 ASM3_DBPASSWORD=asm3 \`
+    `python custom_scripts/import_weights_history.py --csv "raw_data/weights export.csv" --include-archived`
+
+Inside container (optional)
+- Mount `raw_data` into the container or `docker cp` the CSV, then:
+  - `docker-compose exec asm3 sh -lc 'python3 /app/custom_scripts/import_weights_history.py --csv "/app/raw_data/weights export.csv" --include-archived --delete-existing'`
+
+Behavior & safeguards
+- Duplicate guard: skips creating a log if an existing log for the same animal and date already has the same normalized weight.
+- Deletion scope (`--delete-existing`): only removes logs with `CreatedBy = --user`, `LinkType = animal`, and the selected log type. Deletes are audited.
+- Logging on macOS: if you see syslog errors, set a minimal config: create `/tmp/asm3_local.conf` with `log_location = stderr` and run with `ASM3_CONF=/tmp/asm3_local.conf`.
