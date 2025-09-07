@@ -196,6 +196,14 @@ Notes:
 7. **Induction Additional Mapping**: Mapped `entrylocationweather`, `entryfoundbyperson`, and `entrylocationdescription` to the additional-field saving pipeline so they persist when corresponding Additional Fields exist.
 8. **Fosterer on Edit**: If a fosterer is selected while editing, the system creates a foster movement (when animal is on-shelter) to persist the choice.
 
+### 3.1 Animal Analysis: Poo Sample Markers Not Showing
+**Date**: 2025-09-07  
+**Issue**: Poo sample markers did not render on the Analysis weight graph when the sample was logged in a separate observation (e.g., a dedicated "poo-import" entry) without a weight value.  
+**Root Cause**: Backend endpoint `animal_weight_observations` only searched for poo results within observations that also contained a weight; logs without weights were skipped entirely.  
+**Change**: Always parse and include poo sample results from every observation, regardless of whether a weight is present.  
+**Files**: `src/main.py`  
+**Effect**: Brown markers for poo samples now appear just above the zero axis at the correct dates.
+
 #### Root Cause:
 ASM3's `update_animal_from_form()` function expects specific field names. Mismatches caused:
 - Data not saving (fields ignored)
