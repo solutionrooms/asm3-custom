@@ -2,7 +2,9 @@
 # Performance analysis script for ASM3
 # Analyzes collected metrics to identify patterns and issues
 
-LOG_DIR="/var/log/asm3"
+LOG_ROOT="${ASM3_LOG_ROOT:-$(dirname "${BASH_SOURCE[0]}")/../logs/asm3}"
+LOG_ROOT="$(cd "$LOG_ROOT" 2>/dev/null && pwd || echo "$LOG_ROOT")"
+LOG_DIR="$LOG_ROOT"
 ANALYSIS_DIR="$LOG_DIR/analysis"
 DATE_RANGE=${1:-7}  # Analyze last N days (default 7)
 

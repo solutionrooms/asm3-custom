@@ -2,7 +2,9 @@
 # Log cleanup and rotation for ASM3 monitoring
 # Runs daily to prevent disk space issues
 
-LOG_DIR="/var/log/asm3"
+LOG_ROOT="${ASM3_LOG_ROOT:-$(dirname "${BASH_SOURCE[0]}")/../logs/asm3}"
+LOG_ROOT="$(cd "$LOG_ROOT" 2>/dev/null && pwd || echo "$LOG_ROOT")"
+LOG_DIR="$LOG_ROOT"
 DAYS_TO_KEEP=14
 
 # Create log directory if it doesn't exist

@@ -4,11 +4,13 @@ set -e
 # ASM3 Daily Tasks - External VM Script
 # Runs ASM3 daily maintenance tasks from the host by exec-ing into the asm3 container.
 
-LOG_FILE="/var/log/asm3/daily-tasks.log"
+LOG_ROOT="${ASM3_LOG_ROOT:-$(dirname "${BASH_SOURCE[0]}")/../logs/asm3}"
+LOG_ROOT="$(cd "$LOG_ROOT" 2>/dev/null && pwd || echo "$LOG_ROOT")"
+LOG_FILE="${LOG_ROOT}/daily-tasks.log"
 LOCK_FILE="/tmp/asm3-daily-tasks.lock"
 
 # Create log directory if it doesn't exist
-mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$LOG_ROOT"
 
 # Function to log with timestamp
 log() {
