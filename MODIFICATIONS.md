@@ -47,6 +47,7 @@
 **When**: 2025-08-24 → 2025-08-25
 
 - `ACCESS_Hedgehog` permission introduced and wired through the roles UI, keeping the new workflow behind explicit privilege checks.
+- Login screen now detects unexpected HTML responses during authentication (typically when the session is bounced back to the login form) and surfaces an explicit error message instead of silently reloading.
 
 ---
 
