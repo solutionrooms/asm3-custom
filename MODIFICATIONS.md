@@ -69,6 +69,7 @@
 - Dev hot-reload mounts (`docker-compose.yml`) mirror `weight_monitor.py` and `scripts/` into the container; apply via `make restart`.
 - `weight_monitor.py` links weight entries to recently uploaded photos and logs pairings; it also shifts log output to `/var/log/asm3/weight-monitor.log`.
 - Host log storage relocated to `./logs/asm3` (rebased onto `/var/log/asm3` in containers). Make targets and external cron scripts now honour the directory via `LOCAL_LOG_DIR`/`ASM3_LOG_ROOT` so Docker no longer requires `/private/var/log` write access on macOS.
+- `scripts/setup_swap.sh` provisions swap on the host (fallocate fallback, `/etc/fstab`, and swappiness tuning) to prevent the `asm3` container from being OOM-killed on low-RAM droplets.
 
 ### External Storage & Backups
 **When**: 2025-08-30 (branch `develop`)

@@ -18,6 +18,14 @@ Customised fork of ASM3 for hedgehog rescue operations. Core setup, usage, and u
 - External cron helpers honour `ASM3_LOG_ROOT`; by default they also write to `./logs/asm3`.
 - `make logs-*` targets and cron status commands read from the same directory.
 
+## Host Operations
+
+### Swap Provisioning
+- The `asm3` container keeps Python and Matplotlib in memory; on 1–2 GB hosts it will be killed by the OOM killer unless swap is present.
+- Run `sudo ./scripts/setup_swap.sh --size 4G` on the host to create or refresh a swap file (defaults to `/swapfile`, `vm.swappiness=10`).
+- The script is idempotent, updates `/etc/fstab`, and applies the swappiness setting via `/etc/sysctl.d/99-asm3-swap.conf`.
+- Verify with `swapon --show` and `cat /proc/swaps`; the `make restart` target is not required after swap activation.
+
 ## Key Customisations (See MODIFICATIONS.md for detail)
 - Hedgehog patient induction workflow with dedicated permissions, responsive UI, and auto-mapped additional fields.
 - Docker-first runtime with nginx, PostgreSQL, Redis, and SSL helpers managed via Make targets.
