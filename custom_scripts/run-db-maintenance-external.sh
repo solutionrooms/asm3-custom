@@ -4,11 +4,13 @@ set -e
 # PostgreSQL Database Maintenance - External VM Script
 # Runs VACUUM/ANALYZE and an optional backup by exec-ing into the postgres container.
 
-LOG_FILE="/var/log/asm3/db-maintenance.log"
+LOG_ROOT="${ASM3_LOG_ROOT:-$(dirname "${BASH_SOURCE[0]}")/../logs/asm3}"
+LOG_ROOT="$(cd "$LOG_ROOT" 2>/dev/null && pwd || echo "$LOG_ROOT")"
+LOG_FILE="${LOG_ROOT}/db-maintenance.log"
 LOCK_FILE="/tmp/asm3-db-maintenance.lock"
 
 # Create log directory if it doesn't exist
-mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$LOG_ROOT"
 
 # Function to log with timestamp
 log() {

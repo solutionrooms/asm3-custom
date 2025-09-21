@@ -26,10 +26,9 @@ Each item receives a generated tracking key when added. Reference the key in com
 - Migrate existing UI text, templates, and reports that currently display "kg" to render grams when the toggle is active; provide fallback formatting when disabled.
 - Add regression tests or fixtures confirming gram formatting, update relevant docs (`README.md`, `MODIFICATIONS.md`), and outline migration guidance for historical data if conversions are required.
 
-## 4. [R9C5JP] Intermittent Login Requires Second Attempt
-**Priority**: High
-**Requirements**
-- Capture reproduction steps for the double-login issue (browser, user role, timestamp) and collect console/network logs on the first failed attempt.
-- Instrument authentication endpoints to trace session creation, CSRF tokens, and error handling paths to identify where the request drops without user feedback.
-- Implement a fix that ensures the first login attempt succeeds or surfaces a clear error message to the user, and verify across supported browsers.
-- Add monitoring/log alerts for repeated silent login failures and document the resolution in `MODIFICATIONS.md` plus operator runbooks.
+## 4. [R9C5JP] Intermittent Login Requires Second Attempt ✅
+**Status**: Completed 2025-09-21
+**Outcome**
+- Root cause traced to host OOM events killing the `asm3` container mid-request; login flow failed silently on the first attempt.
+- Added `scripts/setup_swap.sh` and updated docs to provision host swap, eliminating repeated container restarts.
+- Logs now stable and first-attempt logins succeed; resolution recorded in `README.md` and `MODIFICATIONS.md`.

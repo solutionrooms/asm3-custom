@@ -1,6 +1,9 @@
 
 # ASM3 Docker Management Makefile
 # Combined original ASM3 commands (prefixed with o_) and Docker management commands
+
+LOCAL_LOG_DIR ?= ./logs/asm3
+LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
 .PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run
 
 # Default target - show help
@@ -98,6 +101,7 @@ js-rebundle:
 
 # Start the application
 start:
+	@mkdir -p $(LOCAL_LOG_DIR)
 	@./scripts/process-nginx-config.sh
 	docker-compose up -d
 
@@ -125,7 +129,7 @@ logs-cron:
 
 # Show database maintenance logs
 logs-db:
-	tail -f /var/log/asm3/db-maintenance.log
+	tail -f $(LOCAL_LOG_DIR)/db-maintenance.log
 
 # Clean up everything (WARNING: This removes all data!)
 clean:
@@ -142,7 +146,7 @@ cleanup:
 	docker builder prune -f --keep-storage=256MB
 	@echo ""
 	@echo "🧹 Cleaning log files..."
-	@sudo truncate -s 0 /var/log/asm3/*.log 2>/dev/null || echo "  No VM log files to clean"
+	@find $(LOCAL_LOG_DIR) -name "*.log" -type f -exec truncate -s 0 {} \; 2>/dev/null || echo "  No host log files to clean"
 	@docker-compose exec asm3 find /var/log -name "*.log" -type f -exec truncate -s 0 {} \; 2>/dev/null || echo "  Container not running - log cleanup skipped"
 	@echo ""
 	@echo "✅ Docker cleanup complete!"
@@ -446,7 +450,7 @@ install-cron:
 	@sudo cp custom_scripts/cleanup-logs.sh /usr/local/bin/asm3-cleanup-logs
 	@sudo chmod +x /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
 	@echo "Creating log directory..."
-	@sudo mkdir -p /var/log/asm3
+	@mkdir -p $(LOCAL_LOG_DIR_ABS)
 	@echo "Installing cron jobs..."
 	@(crontab -l 2>/dev/null; echo "# ASM3 Daily Tasks - Runs at 2:00 AM every day"; echo "0 2 * * * /usr/local/bin/asm3-daily-tasks"; echo "# ASM3 Weight Monitor - Runs every minute"; echo "* * * * * /usr/local/bin/asm3-weight-monitor"; echo "# ASM3 Database Maintenance - Runs at 3:00 AM every day"; echo "0 3 * * * /usr/local/bin/asm3-db-maintenance"; echo "# ASM3 System Monitoring - Runs every 5 minutes"; echo "*/5 * * * * /usr/local/bin/asm3-monitor-system"; echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs") | crontab -
 	@echo "Cron jobs installed successfully!"
@@ -474,17 +478,17 @@ status-cron:
 	@echo "========================================"
 	@echo "Recent Daily Tasks Log (last 20 lines):"
 	@echo "========================================"
-	@tail -20 /var/log/asm3/daily-tasks.log 2>/dev/null || echo "No daily tasks log found"
+	@tail -20 $(LOCAL_LOG_DIR)/daily-tasks.log 2>/dev/null || echo "No daily tasks log found"
 	@echo ""
 	@echo "========================================"
 	@echo "Recent Weight Monitor Log (last 20 lines):"
 	@echo "========================================"
-	@tail -20 /var/log/asm3/weight-monitor.log 2>/dev/null || echo "No weight monitor log found"
+	@tail -20 $(LOCAL_LOG_DIR)/weight-monitor.log 2>/dev/null || echo "No weight monitor log found"
 	@echo ""
 	@echo "========================================"
 	@echo "Recent Database Maintenance Log (last 20 lines):"
 	@echo "========================================"
-	@tail -20 /var/log/asm3/db-maintenance.log 2>/dev/null || echo "No database maintenance log found"
+	@tail -20 $(LOCAL_LOG_DIR)/db-maintenance.log 2>/dev/null || echo "No database maintenance log found"
 
 # Monitor system performance
 monitor:
@@ -500,11 +504,11 @@ analyze:
 monitor-status:
 	@echo "Recent System Metrics:"
 	@echo "======================"
-	@tail -10 /var/log/asm3/system-metrics-$(date +%Y-%m-%d).log 2>/dev/null || echo "No metrics for today"
+	@tail -10 $(LOCAL_LOG_DIR)/system-metrics-$(date +%Y-%m-%d).log 2>/dev/null || echo "No metrics for today"
 	@echo ""
 	@echo "Recent System Events:"
 	@echo "====================="
-	@tail -10 /var/log/asm3/system-events-$(date +%Y-%m-%d).log 2>/dev/null || echo "No events for today"
+	@tail -10 $(LOCAL_LOG_DIR)/system-events-$(date +%Y-%m-%d).log 2>/dev/null || echo "No events for today"
 
 # Run helper dispatcher
 run:

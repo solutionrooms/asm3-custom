@@ -2,7 +2,9 @@
 # Lightweight system monitoring for ASM3
 # Runs every 5 minutes, minimal overhead
 
-LOG_DIR="/var/log/asm3"
+LOG_ROOT="${ASM3_LOG_ROOT:-$(dirname "${BASH_SOURCE[0]}")/../logs/asm3}"
+LOG_ROOT="$(cd "$LOG_ROOT" 2>/dev/null && pwd || echo "$LOG_ROOT")"
+LOG_DIR="$LOG_ROOT"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 DATE_ONLY=$(date '+%Y-%m-%d')
 

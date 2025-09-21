@@ -241,6 +241,12 @@ const login = {
                     $("input#onetimepass").focus();
                     $("#loginbutton").button("enable");
                 }
+                else if (typeof data === "string" && data.indexOf("login.render()") !== -1) {
+                    console.error("Unexpected login response (received login markup instead of status)");
+                    $(".asm-login-error span.ui-icon").next().text(_("Unexpected response from server. Please try again."));
+                    $(".asm-login-error").fadeIn("slow").delay(3000).fadeOut("slow");
+                    $("#loginbutton").button("enable");
+                }
                 else {
                     $("#asm-login-window").fadeOut("slow", function() {
                         if (!controller.target) { 
