@@ -2,13 +2,11 @@
 
 Each item receives a generated tracking key when added. Reference the key in commits, discussions, and `MODIFICATIONS.md` updates. Track priority levels (`High`, `Medium`, `Low`) to guide scheduling.
 
-## 1. [Q3V7KX] Restore Animal Selector on Hedgehog Observation Screen
-**Priority**: Medium
-**Requirements**
-- Reproduce the issue at `/hedgehog_observation` when no `animal_id` parameter is supplied; capture console/network traces to confirm missing selector markup.
-- Inspect the Hedgehog observation templates and JS initialisation to ensure an animal search/dropdown renders when the page loads without context.
-- Implement a fix that surfaces a searchable animal picker (or redirect) consistent with upstream behaviour, and verify it works for users with `ACCESS_Hedgehog` permission.
-- Add regression coverage (UI automation or unit test hook) and document the change in `MODIFICATIONS.md` once deployed.
+## 1. [Q3V7KX] Restore Animal Selector on Hedgehog Observation Screen ✅
+**Status**: Completed 2025-09-21
+**Outcome**
+- Animal chooser now always renders on `/hedgehog_observation`, pre-selects the current animal when present, and lets staff switch context without leaving the page.
+- Added a controller regression hook (`unittest/test_hedgehog.py`) for the no-context response and documented the behaviour change in `MODIFICATIONS.md`.
 
 ## 2. [N5L2RM] Import Hedgehog Movements from CSV
 **Priority**: High

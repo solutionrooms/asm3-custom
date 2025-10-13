@@ -10,7 +10,12 @@ import asm3.cachemem
 import asm3.utils
 from asm3.typehints import ChipCheckResults, Database
 
-from lxml import etree
+try:
+    from lxml import etree
+    HAVE_LXML = True
+except ImportError:  # pragma: no cover - only triggered in lightweight test envs
+    etree = None
+    HAVE_LXML = False
 
 class ChipCheckService(object):
     
@@ -27,6 +32,14 @@ class ChipCheckService(object):
         """ Override in subclass. Perform the search and return the results. """
         pass
 
+
+def _require_lxml():
+    """Raise a helpful error if lxml is unavailable."""
+    if not HAVE_LXML:
+        raise asm3.utils.ASMError(
+            "lxml is required for microchip lookup; install with `pip install lxml`"
+        )
+
 class AAHAOrg(ChipCheckService):
     """ aaha.org (USA) """
 
@@ -34,6 +47,7 @@ class AAHAOrg(ChipCheckService):
         ChipCheckService.__init__(self, dbo, "aaha.org")
 
     def search(self, chipnumber: str) -> ChipCheckResults:
+        _require_lxml()
         headers = { "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0" }
         page = asm3.utils.get_url(f"https://www.aaha.org/your-pet/pet-microchip-lookup/microchip-search/?microchip_id={chipnumber}", headers=headers, timeout = 20)
         asm3.al.debug("got response from aaha.org (%s bytes)" % len(page["response"]), "AAHAOrg.search", self.dbo)
@@ -53,6 +67,7 @@ class CheckAChipCom(ChipCheckService):
         ChipCheckService.__init__(self, dbo, "checkachip.com")
 
     def search(self, chipnumber: str) -> ChipCheckResults:
+        _require_lxml()
         postdata = { "microchip_number": chipnumber, "are_you": "no", "phone_number": "" }
         asm3.al.debug("POST %s" % postdata, "CheckAChip.search", self.dbo)
         posted = asm3.utils.post_form("https://www.checkachip.com/microchipsearch/", postdata)
@@ -72,6 +87,7 @@ class PetAddressComAu(ChipCheckService):
         ChipCheckService.__init__(self, dbo, "petaddress.com.au")
 
     def search(self, chipnumber: str) -> ChipCheckResults:
+        _require_lxml()
         postdata = { "txtNumber": chipnumber }
         searchpage = asm3.utils.get_url("http://www.petaddress.com.au", timeout = 5)
         asm3.al.debug("retrieved page at www.petaddress.com.au (%s bytes)" % len(searchpage["response"]), "PetAddressComAu.search", self.dbo)
@@ -119,6 +135,7 @@ def check(dbo: Database, locale: str, chipnumber: str) -> ChipCheckResults:
     if results is not None:
         return results
     if locale in LOCALE_MAP:
+        _require_lxml()
         results = { "name": LOCALE_MAP[locale][0], "results": LOCALE_MAP[locale][1](dbo).search(chipnumber) }
         asm3.cachemem.put(cachekey, results, TTL)
         return results
