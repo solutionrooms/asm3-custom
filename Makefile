@@ -331,6 +331,19 @@ shell:
 db-shell:
 	docker-compose exec postgres psql -U asm3 -d asm3
 
+# Normalize historical animal weights to grams
+normalize-weights:
+	@echo "Normalizing animal weights (kg ↔ g)..."
+	docker-compose exec postgres psql -v ON_ERROR_STOP=1 -U asm3 -d asm3 \
+		-c "BEGIN;" \
+		-c "UPDATE animal SET weight = weight / 1000000.0 WHERE weight >= 3000000000;" \
+		-c "UPDATE animal SET weight = weight / 1000.0 WHERE weight >= 3000 AND weight < 3000000000;" \
+		-c "UPDATE animal SET weight = weight * 1000000.0 WHERE weight > 0 AND weight < 0.0001;" \
+		-c "UPDATE animal SET weight = weight * 1000.0 WHERE weight > 0 AND weight < 1;" \
+		-c "COMMIT;"
+	docker-compose exec postgres psql -U asm3 -d asm3 -c "SELECT id, animalname, weight FROM animal WHERE weight > 0 AND (weight < 100 OR weight > 3000) ORDER BY weight;"
+	@echo "Weight normalization complete. See above for any remaining out-of-range weights."
+
 # Quick development workflow
 dev: build start logs
 

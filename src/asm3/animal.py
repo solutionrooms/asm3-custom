@@ -531,6 +531,7 @@ def get_animal_brief_query(dbo: Database) -> str:
             "(SELECT LocationName FROM internallocation WHERE ID=a.ShelterLocation) " \
         "END AS DisplayLocationName, " \
         "er.ReasonName AS EntryReasonName, " \
+        "a.EntryReasonID AS EntryReasonID, " \
         "et.EntryTypeName AS EntryTypeName, " \
         "a.FLVResult, " \
         "CASE WHEN ab.ID Is Not Null THEN 1 ELSE 0 END AS HasActiveBoarding, " \
@@ -1070,6 +1071,7 @@ def get_animals_brief(animals: Results) -> Results:
             "DISPLAYLOCATION": a["DISPLAYLOCATION"],
             "DISPLAYLOCATIONNAME": a["DISPLAYLOCATIONNAME"],
             "ENTRYREASONNAME": a["ENTRYREASONNAME"],
+            "ENTRYREASONID": a["ENTRYREASONID"],
             "ENTRYTYPENAME": a["ENTRYTYPENAME"],
             "FLVRESULT": a["FLVRESULT"],
             "HASACTIVEBOARDING": a["HASACTIVEBOARDING"],
@@ -3937,11 +3939,17 @@ def insert_weight_log(dbo: Database, username: str, animalid: int, newweight: fl
         if oldweight < 0: 
             oldweight = dbo.query_float("SELECT Weight FROM animal WHERE ID = ?", [animalid])
         if newweight != oldweight:
+            display_weight = newweight
             units = ""
-            if asm3.configuration.show_weight_units_in_log(dbo):
-                units = (asm3.configuration.show_weight_in_lbs(dbo) or asm3.configuration.show_weight_in_lbs_fraction(dbo)) and " lb" or " kg"
+            if asm3.configuration.show_weight_in_grams(dbo):
+                display_weight = asm3.utils.cint(round(asm3.utils.cfloat(newweight) * 1000))
+                if asm3.configuration.show_weight_units_in_log(dbo):
+                    units = " g"
+            else:
+                if asm3.configuration.show_weight_units_in_log(dbo):
+                    units = (asm3.configuration.show_weight_in_lbs(dbo) or asm3.configuration.show_weight_in_lbs_fraction(dbo)) and " lb" or " kg"
             asm3.log.add_log(dbo, username, asm3.log.ANIMAL, animalid, asm3.configuration.weight_change_log_type(dbo),
-                "%s%s" % (newweight, units))
+                "%s%s" % (display_weight, units))
 
 def update_location_unit(dbo: Database, username: str, animalid: int, newlocationid: int, newunit: str = "", returnactivemovement: bool = True) -> None:
     """

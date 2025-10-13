@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     default-libmysqlclient-dev \
+    libcairo2 \
+    libcairo2-dev \
     pkg-config \
     rsync \
     make \

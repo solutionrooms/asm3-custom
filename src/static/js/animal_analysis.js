@@ -58,26 +58,38 @@ $(function() {
 
             // Fetch data
             $.getJSON("animal_weight_observations", { id: controller.animal.ID, json: true }, (data) => {
-                const points = (data.points || []).map(p => ({
-                    t: new Date(p.dateiso),
-                    wt: parseFloat(p.weight),
-                    by: p.by || "",
-                    extras: p.extras || {},
-                    raw: p
-                }));
-                const targetWeight = (data.targetweight !== null && data.targetweight !== undefined && data.targetweight !== "") ? parseFloat(data.targetweight) : null;
+                const gramsMode = config.bool("ShowWeightInGrams");
+                const convertWeight = (wt) => {
+                    const parsed = parseFloat(wt);
+                    if (!Number.isFinite(parsed)) { return null; }
+                    return gramsMode ? Math.round(parsed * 1000) : parsed;
+                };
+                const points = (data.points || []).map(p => {
+                    const converted = convertWeight(p.weight);
+                    if (converted === null) { return null; }
+                    return {
+                        t: new Date(p.dateiso),
+                        wt: converted,
+                        by: p.by || "",
+                        extras: p.extras || {},
+                        raw: p
+                    };
+                }).filter(p => p !== null);
+                const targetWeightValue = convertWeight(data.targetweight);
+                const targetWeight = targetWeightValue === null ? null : targetWeightValue;
                 const pooPoints = (data.poo || []).map(p => ({
                     t: new Date(p.dateiso),
                     result: p.result || "",
                     by: p.by || "",
                     raw: p
                 }));
-                this.draw_weight_graph(canvas, ctx, points, targetWeight, pooPoints);
+                this.draw_weight_graph(canvas, ctx, points, targetWeight, pooPoints, gramsMode);
             });
         },
 
-        draw_weight_graph: function(canvas, ctx, points, targetWeight, pooPoints) {
+        draw_weight_graph: function(canvas, ctx, points, targetWeight, pooPoints, useGrams) {
             const tooltip = $("#weight-tooltip");
+            const unitLabel = useGrams ? "g" : "kg";
             $("#weight-graph").hide(); // ensure PNG fallback hidden
             $(canvas).show();
 
@@ -176,14 +188,15 @@ $(function() {
                 for (let i=0;i<=steps;i++){
                     const yv = yMin + i*stepSize;
                     const y = yVal(yv);
-                    ctx.fillText(Math.round(yv), pad.left - 6, y);
+                    const label = Math.round(yv);
+                    ctx.fillText(label + " " + unitLabel, pad.left - 6, y);
                 }
 
                 // Title
                 ctx.textAlign = "center";
                 ctx.textBaseline = "alphabetic";
                 ctx.font = "12px sans-serif";
-                ctx.fillText("Weight Over Time — " + (controller.animal.ANIMALNAME || ''), pad.left + plotW/2, 14);
+                ctx.fillText("Weight Over Time (" + unitLabel + ") — " + (controller.animal.ANIMALNAME || ''), pad.left + plotW/2, 14);
 
                 // Target Weight line (if provided)
                 if (Number.isFinite(targetWeight)) {
@@ -203,7 +216,7 @@ $(function() {
                     ctx.font = "10px sans-serif";
                     ctx.textAlign = "right";
                     ctx.textBaseline = "bottom";
-                    ctx.fillText("Target: " + targetWeight, pad.left + plotW - 4, labelY - 3);
+                    ctx.fillText("Target: " + targetWeight + " " + unitLabel, pad.left + plotW - 4, labelY - 3);
                     ctx.restore();
                 }
 
@@ -277,7 +290,8 @@ $(function() {
                         html += '<div><b>' + this._escape(_('Date')) + ':</b> ' + this._escape(dtStr) + '</div>';
                         if (hit.p.by) html += '<div><b>' + this._escape(_('By')) + ':</b> ' + this._escape(hit.p.by) + '</div>';
                     } else {
-                        html += '<div><b>' + this._escape(_('Weight')) + ':</b> ' + this._escape(hit.p.wt) + '</div>';
+                        const weightText = hit.p.wt + " " + unitLabel;
+                        html += '<div><b>' + this._escape(_('Weight')) + ':</b> ' + this._escape(weightText) + '</div>';
                         html += '<div><b>' + this._escape(_('Date')) + ':</b> ' + this._escape(dtStr) + '</div>';
                         if (hit.p.by) html += '<div><b>' + this._escape(_('By')) + ':</b> ' + this._escape(hit.p.by) + '</div>';
                         const keys = Object.keys(hit.p.extras || {});

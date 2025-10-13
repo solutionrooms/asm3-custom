@@ -666,7 +666,7 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             (asm3.users.TRIGGER_BATCH, "", "", "batch", "asm-icon-batch", _("Trigger Batch Processes", l) )
         )),
         (asm3.users.ACCESS_HEDGHOG, "hedghog", _("Hedgehog", l), (
-            ( asm3.users.ACCESS_HEDGHOG, "", "", "animal_induction", "asm-icon-animal-add", _("Patient Induction", l) ),
+            ( asm3.users.ACCESS_HEDGHOG, "", "", "animal_induction", "asm-icon-animal-add", _("Patient Admission", l) ),
             ( asm3.users.ADD_LOG, "", "", "hedgehog_observation", "asm-icon-blank", _("Daily Observation (single)", l) ),
         ))
     )

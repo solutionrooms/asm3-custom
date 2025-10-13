@@ -106,6 +106,9 @@ def weight_display(dbo: Database, wv: float) -> str:
     lb = asm3.utils.cint(wv)
     oz = asm3.utils.cint((kg - lb) * 16.0)
     l = dbo.locale
+    if asm3.configuration.show_weight_in_grams(dbo):
+        grams = asm3.utils.cint(round(kg * 1000))
+        return "%s g" % grams
     if asm3.configuration.show_weight_in_lbs(dbo):
         return "%s %s %s %s" % ( lb, _("lb", l), oz, _("oz", l) )
     elif asm3.configuration.show_weight_in_lbs_fraction(dbo):
@@ -2363,4 +2366,3 @@ def generate_waitinglist_doc(dbo: Database, templateid: int, wlid: int, username
     tags = append_tags(tags, waitinglist_tags(dbo, a))
     tags = append_tags(tags, org_tags(dbo, username))
     return substitute_template(dbo, templateid, tags)
-

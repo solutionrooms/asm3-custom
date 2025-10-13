@@ -272,6 +272,16 @@ const html = {
                 s.push(html.icon("movement", a.DISPLAYLOCATIONNAME + " / " + a.CURRENTOWNERNAME));
             }
         }
+        if (config.bool("EmblemBornInShelter")) {
+            const targetId = config.integer("BornInShelterEntryReasonID");
+            const entryReasonId = (a.ENTRYREASONID !== undefined && a.ENTRYREASONID !== null && a.ENTRYREASONID !== "") ? parseInt(a.ENTRYREASONID, 10) : null;
+            const matchesId = targetId && entryReasonId && entryReasonId === targetId;
+            const matchesName = (!entryReasonId || entryReasonId === 0) && a.ENTRYREASONNAME &&
+                a.ENTRYREASONNAME.toString().toLowerCase() === _("Born in Shelter").toLowerCase();
+            if (matchesId || (!targetId && matchesName) || (!matchesId && targetId && !entryReasonId && matchesName)) {
+                s.push(html.icon("litter", _("Born in Shelter")));
+            }
+        }
         if (config.bool("EmblemAdoptable") && a.DATEOFBIRTH && a.ADOPTABLE) {
             s.push(html.icon("adoptable", _("Adoptable")));
         }
@@ -432,18 +442,26 @@ const html = {
 
     /** Returns the animal weight in a readable form with its measurement */
     animal_weight: function(row) {
+        const weightValue = row.WEIGHT;
+        if (weightValue === null || weightValue === undefined || String(weightValue).trim() === "") {
+            return "";
+        }
         let rv = "";
-        if (config.bool("ShowWeightInLbs")) {
-            let kg = format.to_float(row.WEIGHT),
-                lb = format.to_int(row.WEIGHT),
+        if (config.bool("ShowWeightInGrams")) {
+            const grams = Math.round(format.to_float(weightValue) * 1000);
+            rv = grams + " g";
+        }
+        else if (config.bool("ShowWeightInLbs")) {
+            let kg = format.to_float(weightValue),
+                lb = format.to_int(weightValue),
                 oz = (kg - lb) * 16.0;
             rv = lb + " lb, " + oz + " oz";
         }
         else if (config.bool("ShowWeightInLbsFraction")) {
-            rv = row.WEIGHT + " lb";
+            rv = weightValue + " lb";
         }
         else {
-            rv = row.WEIGHT + " kg";
+            rv = weightValue + " kg";
         }
         return rv;
     },
@@ -1513,5 +1531,3 @@ const html = {
     }
 
 };
-
-

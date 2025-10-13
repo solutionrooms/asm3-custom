@@ -9,6 +9,28 @@ $(function() {
         /** Only attempt to set the non-shelter animal type once per reset */
         set_nonsheltertype_once: false,
 
+        weight_in_grams: function() {
+            return config.bool("ShowWeightInGrams");
+        },
+
+        kg_to_grams_string: function(value) {
+            if (value === null || value === undefined) { return ""; }
+            const trimmed = String(value).trim();
+            if (trimmed === "") { return ""; }
+            const kg = format.to_float(trimmed);
+            if (isNaN(kg)) { return trimmed; }
+            return Math.round(kg * 1000).toString();
+        },
+
+        grams_to_kg_string: function(value) {
+            if (value === null || value === undefined) { return ""; }
+            const trimmed = String(value).trim();
+            if (trimmed === "") { return ""; }
+            const grams = format.to_float(trimmed);
+            if (isNaN(grams)) { return trimmed; }
+            return parseFloat((grams / 1000).toFixed(3)).toString();
+        },
+
         render: function() {
             return [
                 '<div id="dialog-similar" style="display: none" title="' + _("Similar Animal") + '">',
@@ -119,6 +141,17 @@ $(function() {
 
             $(".asm-content button").button("disable");
             header.show_loading(_("Creating..."));
+            let weightRestore = null;
+            if (animal_new.weight_in_grams()) {
+                const rawWeight = $("#weight").val();
+                if (rawWeight !== null && rawWeight !== undefined && String(rawWeight).trim() !== "") {
+                    const converted = animal_new.grams_to_kg_string(rawWeight);
+                    if (converted !== "") {
+                        weightRestore = rawWeight;
+                        $("#weight").val(converted);
+                    }
+                }
+            }
             let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
             try {
                 const response = await common.ajax_post("animal_new", formdata);
@@ -131,6 +164,9 @@ $(function() {
                 }
             }
             finally {
+                if (weightRestore !== null) {
+                    $("#weight").val(weightRestore);
+                }
                 $(".asm-content button").button("enable");
                 header.hide_loading();
             }
@@ -439,7 +475,14 @@ $(function() {
                 $("#weight").val(String(lb));
             };
 
-            if (config.bool("ShowWeightInLbs")) {
+            if (animal_new.weight_in_grams()) {
+                $("#kglabel").html(_("g"));
+                $("#kilosrow").show();
+                $("#poundsrow").hide();
+                const converted = animal_new.kg_to_grams_string($("#weight").val());
+                if (converted !== "") { $("#weight").val(converted); }
+            }
+            else if (config.bool("ShowWeightInLbs")) {
                 $("#kilosrow").hide();
                 $("#poundsrow").show();
                 $("#weightlb, #weightoz").change(lboz_to_fraction);

@@ -6,6 +6,28 @@ $(function() {
 
     const animal = {
 
+        weight_in_grams: function() {
+            return config.bool("ShowWeightInGrams");
+        },
+
+        kg_to_grams_string: function(value) {
+            if (value === null || value === undefined) { return ""; }
+            const trimmed = String(value).trim();
+            if (trimmed === "") { return ""; }
+            const kg = format.to_float(trimmed);
+            if (isNaN(kg)) { return trimmed; }
+            return Math.round(kg * 1000).toString();
+        },
+
+        grams_to_kg_string: function(value) {
+            if (value === null || value === undefined) { return ""; }
+            const trimmed = String(value).trim();
+            if (trimmed === "") { return ""; }
+            const grams = format.to_float(trimmed);
+            if (isNaN(grams)) { return trimmed; }
+            return parseFloat((grams / 1000).toFixed(3)).toString();
+        },
+
         render_death: function() {
             return [
                 '<h3><a href="#">' + _("Death") + ' <span id="tabdeath" style="display: none" class="asm-icon asm-icon-death"></span></a></h3>',
@@ -890,7 +912,14 @@ $(function() {
                 $("#weightoz").val(oz);
             };
 
-            if (config.bool("ShowWeightInLbs")) {
+            if (animal.weight_in_grams()) {
+                $("#kglabel").html(_("g"));
+                $("#kilosrow").show();
+                $("#poundsrow").hide();
+                const converted = animal.kg_to_grams_string($("#weight").val());
+                if (converted !== "") { $("#weight").val(converted); }
+            }
+            else if (config.bool("ShowWeightInLbs")) {
                 $("#kilosrow").hide();
                 $("#poundsrow").show();
                 $("#weightlb, #weightoz").change(lboz_to_fraction);
@@ -1270,10 +1299,24 @@ $(function() {
             validate.save = async function(callback) {
                 if (!animal.validation()) { header.hide_loading(); return; }
                 validate.dirty(false);
+                let weightRestore = null;
+                if (animal.weight_in_grams()) {
+                    const rawWeight = $("#weight").val();
+                    if (rawWeight !== null && rawWeight !== undefined && String(rawWeight).trim() !== "") {
+                        const converted = animal.grams_to_kg_string(rawWeight);
+                        if (converted !== "") {
+                            weightRestore = rawWeight;
+                            $("#weight").val(converted);
+                        }
+                    }
+                }
                 let formdata = "mode=save" +
                     "&id=" + controller.animal.ID + 
                     "&recordversion=" + controller.animal.RECORDVERSION + 
                     "&" + $("input, select, textarea").not(".chooser").toPOST();
+                if (weightRestore !== null) {
+                    $("#weight").val(weightRestore);
+                }
                 try {
                     let response = await common.ajax_post("animal", formdata);
                     callback(response);

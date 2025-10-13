@@ -246,6 +246,8 @@ DEFAULTS = {
     "EmblemSpecialNeeds": "Yes",
     "EmblemTrialAdoption": "Yes",
     "EmblemUnneutered": "Yes",
+    "EmblemBornInShelter": "No",
+    "BornInShelterEntryReasonID": "13",
     "EventSearchColumns": "StartDateTime,EndDateTime,EventName,EventOwnerName,EventAddress,EventTown",
     "FancyTooltips": "No",
     "FirstDayOfWeek": "1",
@@ -397,6 +399,7 @@ DEFAULTS = {
     "ShowILOffShelter": "Yes",
     "ShowPersonMiniMap": "Yes",
     "ShowSearchGo": "No", 
+    "ShowWeightInGrams": "No",
     "ShowWeightInLbs": "Yes",
     "ShowWeightInLbsFraction": "No",
     "ShowWeightUnitsInLog": "Yes",
@@ -1659,6 +1662,9 @@ def show_weight_in_lbs(dbo: Database) -> bool:
 def show_weight_in_lbs_fraction(dbo: Database) -> bool:
     return cboolean(dbo, "ShowWeightInLbsFraction", DEFAULTS["ShowWeightInLbsFraction"] == "Yes")
 
+def show_weight_in_grams(dbo: Database) -> bool:
+    return cboolean(dbo, "ShowWeightInGrams", DEFAULTS["ShowWeightInGrams"] == "Yes")
+
 def show_weight_units_in_log(dbo: Database) -> bool:
     return cboolean(dbo, "ShowWeightUnitsInLog", DEFAULTS["ShowWeightUnitsInLog"] == "Yes")
 
@@ -1863,4 +1869,3 @@ def weight_change_log(dbo: Database) -> bool:
 
 def weight_change_log_type(dbo: Database) -> int:
     return cint(dbo, "WeightChangeLogType", DEFAULTS["WeightChangeLogType"])
-
