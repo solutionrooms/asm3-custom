@@ -17,6 +17,7 @@ import test_diary
 import test_event
 import test_financial
 import test_geo
+import test_hedgehog
 import test_html
 import test_log
 import test_lookups
@@ -55,6 +56,7 @@ fullsuite = [
     lt(test_event),
     lt(test_financial),
     lt(test_geo),
+    lt(test_hedgehog),
     lt(test_html),
     lt(test_log),
     lt(test_lookups),
@@ -83,4 +85,3 @@ if __name__ == "__main__":
     s = unittest.TestSuite(fullsuite)
     runner = unittest.TextTestRunner()
     runner.run(s)
-

@@ -4,6 +4,8 @@ import base
 
 import asm3.checkmicrochip
 
+
+@unittest.skipIf(not asm3.checkmicrochip.HAVE_LXML, "lxml not available, skipping microchip checks")
 class TestAutomail(unittest.TestCase):
 
     def test_en(self):

@@ -44,7 +44,7 @@ $(function() {
                 html.content_header(_("Daily Observation")),
             ];
 
-            // Animal header or chooser
+            // Animal header, thumbnail and quick access chooser
             if (a) {
                 h.push('<div class="asm-main-section">');
                 h.push('<div class="asm-row">');
@@ -61,12 +61,18 @@ $(function() {
                 h.push(html.animal_link(a, { emblemsright: true, newtab: true }));
                 h.push('</div></div>');
                 h.push('</div></div>');
-            } else {
-                h.push('<div class="asm-main-section">');
-                h.push(html.info(_("Select an animal to start")));
-                h.push('<input id="animal" type="hidden" class="asm-animalchooser" />');
-                h.push('</div>');
             }
+
+            const chooserValueAttr = a ? ' value="' + a.ID + '"' : '';
+            h.push('<div class="asm-main-section">');
+            if (!a) {
+                h.push(html.info(_("Select an animal to start")));
+            }
+            h.push('<div class="asm-field">');
+            h.push('<label class="asm-label" for="animal">' + _("Animal") + '</label>');
+            h.push('<input id="animal" type="hidden" class="asm-animalchooser"' + chooserValueAttr + ' />');
+            h.push('</div>');
+            h.push('</div>');
 
             // Recent observation note (last 12 hours)
             if (controller.recent && a) {
@@ -155,17 +161,20 @@ $(function() {
         },
 
         bind: function() {
-            // Disable widgets until we have an animal
+            const chooser = $("#animal");
+            chooser.animalchooser();
+            chooser.off("animalchooserchange").on("animalchooserchange", function(event, rec) {
+                if (rec && rec.ID) {
+                    if (controller.animal && String(controller.animal.ID) === String(rec.ID)) { return; }
+                    common.route("hedgehog_observation?animalid=" + rec.ID);
+                }
+            });
+
             if (!controller.animal) {
                 $(".widget").prop("disabled", true);
-                // Animal chooser to select and route back in
-                $("#animal").animalchooser().bind("animalchooserchange", function(event, rec) {
-                    if (rec && rec.ID) {
-                        common.route("hedgehog_observation?animalid=" + rec.ID);
-                    }
-                });
             }
             else {
+                chooser.val(controller.animal.ID || "");
                 // Attempt to restore saved values after a photo upload
                 this.restore_state();
             }
