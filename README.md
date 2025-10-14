@@ -20,6 +20,14 @@ Customised fork of ASM3 for hedgehog rescue operations. Core setup, usage, and u
 
 ## Host Operations
 
+### Redeployment Checklist (Droplet / Production)
+- `cd /root/asm3-custom && git pull` to pick up the latest custom changes.
+- `npm ci` (host side) to sync Node dependencies with `package-lock.json`.
+- `npm --silent run babel` to rebuild the compatibility bundle and fail fast if Babel is unhappy.
+- `make js-rebundle` to regenerate the rollup bundle and restart the `asm3` service (requires Docker permission).
+- Optional: `docker compose exec asm3 grep rollup_js /app/asm3.conf` should echo `rollup_js = true`.
+- In a fresh/incognito browser session with cache disabled, hit the site and confirm you see a single `rollup*.js?b=<build>` request rather than many `?b=dev` files.
+
 ### Swap Provisioning
 - The `asm3` container keeps Python and Matplotlib in memory; on 1–2 GB hosts it will be killed by the OOM killer unless swap is present.
 - Run `sudo ./scripts/setup_swap.sh --size 4G` on the host to create or refresh a swap file (defaults to `/swapfile`, `vm.swappiness=10`).
