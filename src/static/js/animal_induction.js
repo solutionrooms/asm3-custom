@@ -745,6 +745,7 @@ $(function() {
                 tableform.buttons_render([
                    { id: "save", icon: "save", text: _("Save") },
                    { id: "reset", icon: "delete", text: _("Reset") },
+                   { id: "barcode", icon: "print", text: _("Print QR Label") },
                    { id: "delete", icon: "delete", text: _("Delete") }
                 ], { centered: true }),
                 html.content_footer()
@@ -2510,9 +2511,16 @@ $(function() {
                 animal_induction.save_progress();
             });
 
-            // Delete button (only for existing records)
+            $("#button-barcode").button().click(function() {
+                if (!controller.animal || !controller.animal.ID) { return; }
+                const url = "animal_barcode?id=" + controller.animal.ID;
+                window.open(url, "_blank", "noopener");
+            });
+
+            // Delete / barcode buttons (only for existing records)
             if (!controller.animal || !controller.animal.ID) {
                 $("#button-delete").hide();
+                $("#button-barcode").hide();
             } else {
                 $("#button-delete").button().click(async function() {
                     await tableform.delete_dialog(null, _("This will permanently remove this animal, are you sure?"));

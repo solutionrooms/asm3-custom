@@ -667,7 +667,9 @@ $(function() {
 
         /** Adds the ADOPTIONSTATUS column */
         add_adoption_status: function() {
+            const adoptionDisabled = config.bool("DisableAdoptionChecks");
             $.each(controller.animals, function(i, a) {
+                if (adoptionDisabled) { a.ADOPTIONSTATUS = _("Care Only"); return; }
                 if (a.ARCHIVED == 0 && a.CRUELTYCASE == 1) { a.ADOPTIONSTATUS = _("Cruelty Case"); return; }
                 if (a.ARCHIVED == 0 && a.ISQUARANTINE == 1) { a.ADOPTIONSTATUS = _("Quarantine"); return;  }
                 if (a.ARCHIVED == 0 && a.ISHOLD == 1) { a.ADOPTIONSTATUS = _("Hold"); return; }

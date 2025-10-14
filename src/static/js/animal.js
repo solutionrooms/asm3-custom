@@ -596,6 +596,7 @@ $(function() {
                     { id: "delete", text: _("Delete"), icon: "delete", tooltip: _("Delete this animal") },
                     { id: "email", text: _("Email"), icon: "email", tooltip: _("Send an email relating to this animal") },
                     { id: "document", text: _("Document"), type: "buttonmenu", icon: "document", tooltip: _("Generate a document from this animal") },
+                    { id: "barcode", text: _("Print QR Label"), icon: "print", tooltip: _("Print hedgehog observation QR label") },
                     { id: "newentry", text: _("New Entry"), icon: "new", tooltip: _("Generate a new code and archive the current entry data"),
                         hideif: function() { 
                             return config.bool("DisableEntryHistory") || 
@@ -1357,6 +1358,12 @@ $(function() {
                 let formdata = "mode=delete&animalid=" + $("#animalid").val();
                 await common.ajax_post("animal", formdata);
                 common.route("main");
+            });
+
+            $("#button-barcode").button().click(function() {
+                if (!controller.animal || !controller.animal.ID) { return; }
+                const url = "animal_barcode?id=" + controller.animal.ID;
+                window.open(url, "_blank", "noopener");
             });
 
             $("#button-email").button().click(function() {

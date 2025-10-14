@@ -48,6 +48,7 @@ edit_header = {
         if (a.OWNERID) {
             owner = " " + html.person_link(a.OWNERID, a.OWNERNAME);
         }
+        const adoptionDisabled = config.bool("DisableAdoptionChecks");
         let available = "";
         if (a.ARCHIVED == 0 && a.HASACTIVEBOARDING == 1) {
             // currently boarding at the shelter
@@ -71,14 +72,17 @@ edit_header = {
             // left the shelter, don't show anything
             available = "";
         }
-        else if (html.is_animal_adoptable(a)[0]) {
+        else if (!adoptionDisabled && html.is_animal_adoptable(a)[0]) {
             // available
             available = html.info(_("Available for adoption"));
         }
-        else {
+        else if (!adoptionDisabled) {
             // not available, include reason
             available = html.error(_("Not available for adoption") + 
                 "<br/>(" + html.is_animal_adoptable(a)[1] + ")");
+        }
+        else {
+            available = "";
         }
         let banner = [];
         if (common.nulltostr(a.HIDDENANIMALDETAILS) != "") {

@@ -85,6 +85,49 @@ CACHE_ONE_WEEK = 604800
 CACHE_ONE_MONTH = 2592000
 CACHE_ONE_YEAR = 31536000 
 
+BARCODE_TEMPLATE_NAME = "hedgehog_observation_qr.html"
+BARCODE_TEMPLATE_SHOW = "animal"
+BARCODE_TEMPLATE_CONTENT = """
+<style>
+  .hedgehog-qr-card {
+    width: 7cm;
+    max-width: 280px;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .hedgehog-qr-frame {
+    display: inline-block;
+    padding: 18px;
+    border-radius: 28px;
+    border: 8px solid #0f172a;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  }
+  .hedgehog-qr-frame img {
+    width: 224px;
+    height: 224px;
+    object-fit: contain;
+    display: block;
+  }
+  .hedgehog-qr-footer {
+    margin-top: 14px;
+    background: #0f172a;
+    color: #ffffff;
+    padding: 12px 18px;
+    border-radius: 999px;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+</style>
+  <div class=\"hedgehog-qr-card\">
+  <div class=\"hedgehog-qr-frame\">&lt;&lt;DOCUMENTQROBSERVATION200&gt;&gt;</div>
+  <div class=\"hedgehog-qr-footer\">&lt;&lt;ANIMALNAME&gt;&gt;</div>
+</div>
+"""
+
 def session_manager():
     """
     Sort out our session manager. We use a global in the utils module
@@ -197,6 +240,30 @@ def asm_500_email() -> Any:
     web.header("Content-Type", "text/html")
     web.header("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0") # Never cache 500 errors
     return web.internalerror(s)
+
+def ensure_barcode_template(dbo, username: str) -> int:
+    """Ensures the hedgehog observation QR document template exists and returns its ID."""
+    username = username or "system"
+    try:
+        for tpl in asm3.template.get_document_templates(dbo, BARCODE_TEMPLATE_SHOW):
+            if tpl.NAME == BARCODE_TEMPLATE_NAME:
+                content = asm3.template.get_document_template_content(dbo, tpl.ID)
+                expected = BARCODE_TEMPLATE_CONTENT.strip().encode("utf-8")
+                if content != expected:
+                    asm3.template.update_document_template_content(dbo, username, tpl.ID, expected)
+                return tpl.ID
+        content_bytes = BARCODE_TEMPLATE_CONTENT.strip().encode("utf-8")
+        return asm3.template.create_document_template(dbo, username, BARCODE_TEMPLATE_NAME, content=content_bytes, show=BARCODE_TEMPLATE_SHOW)
+    except asm3.utils.ASMValidationError:
+        # Template may have been created concurrently; lookup and return existing id
+        for tpl in asm3.template.get_document_templates(dbo, BARCODE_TEMPLATE_SHOW):
+            if tpl.NAME == BARCODE_TEMPLATE_NAME:
+                content = asm3.template.get_document_template_content(dbo, tpl.ID)
+                expected = BARCODE_TEMPLATE_CONTENT.strip().encode("utf-8")
+                if content != expected:
+                    asm3.template.update_document_template_content(dbo, username, tpl.ID, expected)
+                return tpl.ID
+        raise
 
 def asm_500() -> Any:
     """
@@ -1841,6 +1908,7 @@ class animal(JSONEndpoint):
         recname = "%s %s" % (a.CODE, a.ANIMALNAME)
         if asm3.configuration.audit_on_view_record(dbo): asm3.audit.view_record(dbo, o.user, "animal", a["ID"], recname)
         asm3.al.debug("opened animal %s" % recname, "main.animal", dbo)
+        ensure_barcode_template(dbo, o.user)
         return {
             "animal": a,
             "activelitters": asm3.animal.get_active_litters_brief(dbo),
@@ -2105,6 +2173,104 @@ class animal_diet(JSONEndpoint):
         self.check( asm3.users.DELETE_DIET)
         for did in o.post.integer_list("ids"):
             asm3.animal.delete_diet(o.dbo, o.user, did)
+
+class animal_barcode(ASMEndpoint):
+    url = "animal_barcode"
+    get_permissions = asm3.users.VIEW_ANIMAL
+
+    def content(self, o):
+        dbo = o.dbo
+        post = o.post
+        animalid = 0
+        if "animalid" in post and post["animalid"] != "":
+            animalid = post.integer("animalid")
+        elif "id" in post and post["id"] != "":
+            animalid = post.integer("id")
+        if animalid == 0:
+            raise asm3.utils.ASMValidationError("animal id is required")
+
+        animal = asm3.animal.get_animal(dbo, animalid)
+        if animal is None:
+            self.notfound()
+        self.check_animal(animal)
+
+        template_id = ensure_barcode_template(dbo, o.user)
+        content = asm3.wordprocessor.generate_animal_doc(dbo, template_id, animalid, o.user)
+        title = _( "Observation QR for {0}" ).format(animal["ANIMALNAME"])
+        observation_url = f"{BASE_URL}/hedgehog_observation?animalid={animalid}"
+        safe_title = asm3.html.escape(title)
+        safe_url = asm3.html.escape(observation_url)
+
+        page = f"""<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8'>
+  <title>{safe_title}</title>
+  <style>
+    body {{
+      margin: 0;
+      padding: 24px;
+      background: #f1f5f9;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }}
+    .barcode-actions {{
+      display: flex;
+      gap: 12px;
+    }}
+    .barcode-actions button {{
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #0f172a;
+      background: #e2e8f0;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    }}
+    .barcode-actions button.print {{
+      background: #2563eb;
+      color: #ffffff;
+    }}
+    .barcode-actions button:focus {{ outline: none; }}
+    .barcode-wrapper {{
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 24px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+    }}
+    .barcode-url {{
+      font-size: 13px;
+      color: #475569;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    @media print {{
+      body {{ background: #ffffff; gap: 0; }}
+      .barcode-actions, .barcode-url {{ display: none; }}
+      .barcode-wrapper {{ box-shadow: none; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class='barcode-actions'>
+    <button class='print' onclick='window.print()'>{_("Print")}</button>
+    <button onclick='window.close()'>{_("Close")}</button>
+  </div>
+  <div class='barcode-wrapper'>
+    {content}
+  </div>
+  <div class='barcode-url'>{safe_url}</div>
+</body>
+</html>"""
+
+        self.content_type("text/html")
+        self.cache_control(0)
+        return page
 
 class animal_donations(JSONEndpoint):
     url = "animal_donations"
@@ -2866,8 +3032,17 @@ class hedgehog_observation(JSONEndpoint):
         # Try to resolve an animal from supplied params
         animal = None
         recent = None
+        today = None
         latest_media_id = 0
         history7 = []
+        now = dbo.now()
+        day_start = asm3.i18n.remove_time(now)
+        is_mobile = False
+        try:
+            mobile_raw = o.post.data.get("mobile", "") if hasattr(o.post, "data") else ""
+            is_mobile = str(mobile_raw).lower() in ("1", "true", "yes", "on")
+        except Exception:
+            is_mobile = False
         try:
             aid = 0
             # Prefer explicit id if present
@@ -2895,14 +3070,20 @@ class hedgehog_observation(JSONEndpoint):
                     try:
                         behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
                         logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, aid, behave_logtype)
-                        cutoff = asm3.i18n.subtract_hours(dbo.now(), 12)
+                        cutoff = asm3.i18n.subtract_hours(now, 12)
                         # logs are returned newest first in many places, but ensure by sort desc on DATE
                         for l in sorted(logs, key=lambda r: r["DATE"] or dbo.now(), reverse=True):
                             if l["DATE"] is not None and l["DATE"] >= cutoff:
                                 recent = { "DATE": l["DATE"], "COMMENTS": l["COMMENTS"], "LOGID": l["ID"], "BY": l["LASTCHANGEDBY"] }
                                 break
+                        for l in sorted(logs, key=lambda r: r["DATE"] or dbo.now(), reverse=True):
+                            if l["DATE"] is None:
+                                continue
+                            if asm3.i18n.remove_time(l["DATE"]) >= day_start:
+                                today = { "DATE": l["DATE"], "COMMENTS": l["COMMENTS"], "LOGID": l["ID"], "BY": l["LASTCHANGEDBY"] }
+                                break
                         # Collect last 7 days of observation logs (for weight delta checks)
-                        cutoff7 = asm3.i18n.subtract_days(dbo.now(), 7)
+                        cutoff7 = asm3.i18n.subtract_days(now, 7)
                         for l in sorted(logs, key=lambda r: r["DATE"] or dbo.now(), reverse=True):
                             if l["DATE"] is not None and l["DATE"] >= cutoff7:
                                 history7.append({ "DATE": l["DATE"], "COMMENTS": l["COMMENTS"], "ID": l["ID"] })
@@ -2912,24 +3093,51 @@ class hedgehog_observation(JSONEndpoint):
             asm3.al.warn(f"hedgehog_observation controller lookup failed: {e}", "main.hedgehog_observation", dbo)
 
         asm3.al.debug(f"hedgehog_observation resolved animal: {animal and animal['ID']}", "main.hedgehog_observation", dbo)
+        if animal:
+            ensure_barcode_template(dbo, o.user)
         return {
             "animal": animal,
             "logtypes": asm3.lookups.get_log_types(dbo),
             "recent": recent,
+            "today": today,
             "latestmediaid": latest_media_id,
-            "history7": history7
+            "history7": history7,
+            "is_mobile": is_mobile
         }
 
     def post_save(self, o):
         # Accept same packed format as animal_observations
         self.check(asm3.users.ADD_LOG)
+        entries = [r for r in o.post["logs"].split("^^") if r]
+        if not entries:
+            return "0"
+
+        logtype = o.post.integer("logtype")
         nocreated = 0
-        for row in o.post["logs"].split("^^"):
-            if not row:
+        updatelogid = o.post.integer("updatelogid") if o.post.has_key("updatelogid") else 0
+
+        if updatelogid and entries:
+            first = entries[0]
+            if "==" in first:
+                animalid_str, msg = first.split("==", 1)
+                animalid = asm3.utils.atoi(animalid_str)
+                existing = o.dbo.first_row(o.dbo.query("SELECT LinkType, LinkID, Date FROM log WHERE ID=?", [updatelogid]))
+                if existing and existing.LINKTYPE == asm3.log.ANIMAL and existing.LINKID == animalid:
+                    o.dbo.update("log", updatelogid, {
+                        "LogTypeID": logtype,
+                        "Comments": msg,
+                        "Date": existing.DATE or o.dbo.now()
+                    }, o.user)
+                    nocreated += 1
+                    entries = entries[1:]
+
+        for row in entries:
+            if not row or "==" not in row:
                 continue
-            animalid, msg = row.split("==")
-            asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, asm3.utils.atoi(animalid), o.post.integer("logtype"), msg)
+            animalid, msg = row.split("==", 1)
+            asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, asm3.utils.atoi(animalid), logtype, msg)
             nocreated += 1
+
         return str(nocreated)
 
 class animal_test(JSONEndpoint):

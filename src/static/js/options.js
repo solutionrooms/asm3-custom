@@ -617,6 +617,7 @@ $(function() {
                         { id: "defaultshift", post_field: "DefaultShiftStart", label: _("Default Rota Shift"), type: "text", classes: "asm-textbox asm-halftextbox asm-timebox", xmarkup: '<input id="defaultshiftend" data="DefaultShiftEnd" type="text" class="asm-textbox asm-halftextbox asm-timebox" />' }, 
                         { id: "defaultrotaflags", post_field: "DefaultRotaFlags", label: _("Default Rota Flags"), type: "selectmulti"}, 
                         { id: "autonotadopt", post_field: "AutoNotForAdoption", label: _("Mark new animals as not for adoption"), type: "check", fullrow: true }, 
+                        { id: "disableadoptionchecks", post_field: "DisableAdoptionChecks", label: _("Hide adoption readiness warnings"), type: "check", fullrow: true }, 
                         { id: "autononshelter", post_field: "AutoNonShelter", label: _("Mark new animals as non-shelter"), type: "check", fullrow: true }, 
                         { id: "autoimagesnotforpublish", post_field: "AutoNewImagesNotForPublish", label: _("Exclude new animal photos from publishing"), type: "check", fullrow: true }, 
                         { id: "automedianotes", post_field: "AutoMediaNotes", label: _("Prefill new media notes for animal images with animal comments if left blank"), type: "check", fullrow: true },

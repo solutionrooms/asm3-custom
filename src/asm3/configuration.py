@@ -74,6 +74,7 @@ DEFAULTS = {
     "AutoInsuranceNext": "0",
     "AutoNewImagesNotForPublish": "No",
     "AutoNotForAdoption": "No",
+    "DisableAdoptionChecks": "Yes",
     "AutoNonShelter": "No",
     "AutoRemoveAnimalMediaExit": "No",
     "AutoRemoveAMExitYears": "0",

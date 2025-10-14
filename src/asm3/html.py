@@ -995,6 +995,14 @@ def qr_animal_img_share_src(dbo: Database, animalid: int, size: str = "150x150")
     url = f"{SERVICE_URL}?account={dbo.name()}&method=animal_view&animalid={animalid}"
     return asm3.utils.qr_datauri(url, size)
 
+def qr_animal_observation_src(animalid: int, size: str = "150x150") -> str:
+    """
+    Returns an img src attribute for a QR code to the hedgehog observation screen for the animal.
+    size is a sizespec eg: 150x150
+    """
+    url = f"{BASE_URL}/hedgehog_observation?animalid={animalid}"
+    return asm3.utils.qr_datauri(url, size)
+
 def thumbnail_img_src(dbo: Database, row: ResultRow, mode: str) -> str:
     """
     Gets the img src attribute for a thumbnail picture. If the row

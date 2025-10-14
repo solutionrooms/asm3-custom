@@ -10,8 +10,11 @@ const html = {
     /**
      * Returns a two-item list containing true if animal a is adoptable and the reason.
      * Looks at current publishing options and uses the same logic as the backend publisher
-     */
+    */
     is_animal_adoptable: function(a) {
+        if (config.bool("DisableAdoptionChecks")) {
+            return [ true, _("Care Only") ];
+        }
         var p = config.str("PublisherPresets"),
             exwks = format.to_int(common.url_param(p.replace(/ /g, "&"), "excludeunder")),
             exrsv = format.to_int(common.url_param(p.replace(/ /g, "&"), "excludereserves")),
@@ -282,7 +285,7 @@ const html = {
                 s.push(html.icon("litter", _("Born in Shelter")));
             }
         }
-        if (config.bool("EmblemAdoptable") && a.DATEOFBIRTH && a.ADOPTABLE) {
+        if (!config.bool("DisableAdoptionChecks") && config.bool("EmblemAdoptable") && a.DATEOFBIRTH && a.ADOPTABLE) {
             s.push(html.icon("adoptable", _("Adoptable")));
         }
         if (config.bool("EmblemBonded") && (a.BONDEDANIMALID || a.BONDEDANIMAL2ID)) {
