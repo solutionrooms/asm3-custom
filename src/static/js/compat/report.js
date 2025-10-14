@@ -1,0 +1,1 @@
+"use strict";/*global $, jQuery, _, asm, common, config, controller, dlgfx, format, header, html, validate */$(function(){"use strict";var report={bind:function bind(){},destroy:function destroy(){},name:"report",animation:"report",title:function title(){return controller.title}};common.module_register(report)});

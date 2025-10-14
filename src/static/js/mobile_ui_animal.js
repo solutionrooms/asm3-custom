@@ -51,7 +51,13 @@ const mobile_ui_animal = {
         let o = await common.ajax_post(mobile.post_handler, "mode=loadanimal&id=" + a.ID);
         o = jQuery.parseJSON(o);
         a = o.animal;
-        let [adoptable, adoptreason] = html.is_animal_adoptable(a);
+        const adoptionDisabled = config.bool("DisableAdoptionChecks");
+        let adoptableInfo = [true, _("Care Only")];
+        if (!adoptionDisabled) {
+            adoptableInfo = html.is_animal_adoptable(a);
+        }
+        const adoptable = adoptableInfo[0];
+        const adoptreason = adoptableInfo[1];
         let x = [];
         let h = [
             '<div class="list-group mt-3">',
@@ -74,8 +80,9 @@ const mobile_ui_animal = {
             '<div class="accordion" id="accordion-animal">',
 
             aci("details", _("Animal"), [
-                i(_("Status"), adoptable ? '<span class="text-success">' + _("Available for adoption") + '</span>' : 
-                    '<span class="text-danger">' + _("Not available for adoption") + " (" + adoptreason + ")</span>"),
+                i(_("Status"), adoptionDisabled ? '<span class="text-primary">' + _("Care Only") + '</span>' : 
+                    (adoptable ? '<span class="text-success">' + _("Available for adoption") + '</span>' : 
+                    '<span class="text-danger">' + _("Not available for adoption") + " (" + adoptreason + ")</span>")),
                 i(_("Type"), a.ANIMALTYPENAME),
                 i(_("Location"), mobile_ui_animal.display_location(a)),
                 i(_("Color"), a.BASECOLOURNAME),
@@ -264,19 +271,19 @@ const mobile_ui_animal = {
     bind: function() {
 
         // Handle a change of internal location on daily observations
-        $("#dailyobslocation").change(function() {
-            $("#content-dailyobs .list-group").empty();
-            controller.animals.sort(common.sort_single("SHELTERLOCATIONUNIT"));
-            $.each(controller.animals, function(i, v) {
-                if (v.SHELTERLOCATION == $("#dailyobslocation").val()) {
-                    let h = '<a href="#" data-id="' + v.ID + '" class="list-group-item list-group-item-action">' +
-                        '<img style="float: right" height="75px" src="' + html.thumbnail_src(v, "animalthumb") + '">' + 
-                        '<h5 class="mb-1"><input type=checkbox class="dailyobsselector">&nbsp;' + v.ANIMALNAME + ' - ' + v.CODE + ' - ' + v.SHELTERLOCATIONUNIT + '</h5>';
-                        let colnames = [], colwidgets = [];
-                        for (let i = 0; i < 50; i++) {
-                            let name = config.str("Behave" + i + "Name"), value = config.str("Behave" + i + "Values");
-                            if (name) { 
-                                colnames.push(name);
+            $("#dailyobslocation").change(function() {
+                $("#content-dailyobs .list-group").empty();
+                controller.animals.sort(common.sort_single("SHELTERLOCATIONUNIT"));
+                $.each(controller.animals, function(i, v) {
+                    if (v.SHELTERLOCATION == $("#dailyobslocation").val()) {
+                        let h = '<div data-id="' + v.ID + '" class="list-group-item list-group-item-action">' +
+                            '<img style="float: right" height="75px" src="' + html.thumbnail_src(v, "animalthumb") + '">' + 
+                            '<h5 class="mb-1"><input type=checkbox class="dailyobsselector">&nbsp;' + v.ANIMALNAME + ' - ' + v.CODE + ' - ' + v.SHELTERLOCATIONUNIT + '</h5>';
+                            let colnames = [], colwidgets = [];
+                            for (let i = 0; i < 50; i++) {
+                                let name = config.str("Behave" + i + "Name"), value = config.str("Behave" + i + "Values");
+                                if (name) { 
+                                    colnames.push(name);
                                 if (value) {
                                     colwidgets.push('<select class="asm-selectbox asm-halfselectbox widget" data-name="' + html.title(name) + '" disabled>' +
                                         '<option value="">' + name + '</option>' + html.list_to_options(value.split("|")) + '</select>');
@@ -285,15 +292,18 @@ const mobile_ui_animal = {
                                     colwidgets.push('<input type="text" class="asm-textbox widget" data-name="' + html.title(name) + '" placeholder="' + name + '"  disabled />');
                                 }
                             }
-                        }
-                        $.each(colnames, function(i, c) {
-                            h += colwidgets[i];
-                        });
-                        h += '</a>';
-                    $("#content-dailyobs .list-group").append(h);
-                }
+                            }
+                            $.each(colnames, function(i, c) {
+                                h += colwidgets[i];
+                            });
+                            h += '<div class="d-grid gap-2 mt-3">';
+                            h += '<button type="button" class="btn btn-outline-primary btn-sm dailyobs-single" data-id="' + v.ID + '">' + _("Single entry view") + '</button>';
+                            h += '</div>';
+                            h += '</div>';
+                        $("#content-dailyobs .list-group").append(h);
+                    }
+                });
             });
-        });
 
         // Handle clicking on the clear daily obs button
         $("#btn-clear-dailyobs").click(function() {
@@ -308,6 +318,14 @@ const mobile_ui_animal = {
             } else {
                 $(this).closest('.list-group-item').find('.widget').prop('disabled', true);
             }
+        });
+
+        $("#content-dailyobs").on('click', '.dailyobs-single', function(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            const aid = $(this).attr("data-id");
+            if (!aid) { return; }
+            window.location.href = "hedgehog_observation?mobile=1&animalid=" + aid;
         });
 
         $("#btn-commit-dailyobs").click(async function() {
@@ -502,5 +520,3 @@ const mobile_ui_animal = {
     }
 
 };
-
-

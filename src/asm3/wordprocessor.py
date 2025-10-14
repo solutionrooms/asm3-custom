@@ -106,6 +106,9 @@ def weight_display(dbo: Database, wv: float) -> str:
     lb = asm3.utils.cint(wv)
     oz = asm3.utils.cint((kg - lb) * 16.0)
     l = dbo.locale
+    if asm3.configuration.show_weight_in_grams(dbo):
+        grams = asm3.utils.cint(round(kg * 1000))
+        return "%s g" % grams
     if asm3.configuration.show_weight_in_lbs(dbo):
         return "%s %s %s %s" % ( lb, _("lb", l), oz, _("oz", l) )
     elif asm3.configuration.show_weight_in_lbs_fraction(dbo):
@@ -613,6 +616,11 @@ def animal_tags(dbo: Database, a: ResultRow, includeAdditional=True, includeCost
         "DOCUMENTQRLINK150"     : "<img src=\"%s\" />" % asm3.html.qr_animal_img_record_src(a.ID, "150x150"),
         "DOCUMENTQRLINK100"     : "<img src=\"%s\" />" % asm3.html.qr_animal_img_record_src(a.ID, "100x100"),
         "DOCUMENTQRLINK50"      : "<img src=\"%s\" />" % asm3.html.qr_animal_img_record_src(a.ID, "50x50"),
+        "DOCUMENTQROBSERVATION"     : "<img src=\"%s\" />" % asm3.html.qr_animal_observation_src(a.ID),
+        "DOCUMENTQROBSERVATION200"  : "<img src=\"%s\" />" % asm3.html.qr_animal_observation_src(a.ID, "200x200"),
+        "DOCUMENTQROBSERVATION150"  : "<img src=\"%s\" />" % asm3.html.qr_animal_observation_src(a.ID, "150x150"),
+        "DOCUMENTQROBSERVATION100"  : "<img src=\"%s\" />" % asm3.html.qr_animal_observation_src(a.ID, "100x100"),
+        "DOCUMENTQROBSERVATION50"   : "<img src=\"%s\" />" % asm3.html.qr_animal_observation_src(a.ID, "50x50"),
         "DOCUMENTQRSHARE"       : "<img src=\"%s\" />" % asm3.html.qr_animal_img_share_src(dbo, a.ID),
         "DOCUMENTQRSHARE200"    : "<img src=\"%s\" />" % asm3.html.qr_animal_img_share_src(dbo, a.ID, "200x200"),
         "DOCUMENTQRSHARE150"    : "<img src=\"%s\" />" % asm3.html.qr_animal_img_share_src(dbo, a.ID, "150x150"),
@@ -2363,4 +2371,3 @@ def generate_waitinglist_doc(dbo: Database, templateid: int, wlid: int, username
     tags = append_tags(tags, waitinglist_tags(dbo, a))
     tags = append_tags(tags, org_tags(dbo, username))
     return substitute_template(dbo, templateid, tags)
-
