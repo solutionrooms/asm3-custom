@@ -128,11 +128,26 @@ log "========================================"
 log "Creating Database Backup"
 log "========================================"
 
-# Load S3 backup env from repo .env if discoverable
+# Load backup-related env from repo .env if discoverable (handles values with spaces)
 if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.env" ]; then
-    set -a
-    . "$PROJECT_ROOT/.env"
-    set +a
+    while IFS= read -r line; do
+        line=${line%$'\r'}
+        line=${line%%#*}
+        line=$(printf '%s' "$line" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//')
+        [ -n "$line" ] || continue
+        case "$line" in
+            BACKUP_*|ASM3_BACKUP_DIR=*)
+                key=${line%%=*}
+                value=${line#*=}
+                value=$(printf '%s' "$value" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//')
+                if [ "${value#\"}" != "$value" ] && [ "${value%\"}" != "$value" ]; then
+                    value=${value#\"}
+                    value=${value%\"}
+                fi
+                export "$key=$value"
+                ;;
+        esac
+    done < "$PROJECT_ROOT/.env"
 fi
 
 # Backup directory: prefer env var, fall back to repo backups dir (if found), else system path
