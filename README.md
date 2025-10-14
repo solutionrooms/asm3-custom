@@ -34,6 +34,13 @@ Customised fork of ASM3 for hedgehog rescue operations. Core setup, usage, and u
 - The script is idempotent, updates `/etc/fstab`, and applies the swappiness setting via `/etc/sysctl.d/99-asm3-swap.conf`.
 - Verify with `swapon --show` and `cat /proc/swaps`; the `make restart` target is not required after swap activation.
 
+### Database Backups & S3 Mirroring
+- All database dumps land in `./backups` (or `ASM3_BACKUP_DIR`) and are ignored by git; the manual `make backup`/`make backup-table` targets now use the same location and prune old files automatically.
+- Local retention defaults to 3 days. Override by setting `BACKUP_LOCAL_RETENTION_DAYS` in `.env`; a value of `0` deletes anything older than the current day.
+- Enable daily automated backups by running `make install-cron` on the host. The 03:00 job executes `custom_scripts/run-db-maintenance-external.sh`, producing a fresh dump, trimming local files, and performing VACUUM/ANALYZE.
+- To mirror backups to S3 (or Spaces) set `BACKUP_S3_ENABLED=true`, populate `BACKUP_S3_BUCKET`, optional `BACKUP_S3_PREFIX`, credentials/endpoint, and (optionally) tweak `BACKUP_S3_RETENTION_DAYS` (default 30 days; set to `0` to disable pruning). Older objects are removed after the retention window using the AWS CLI (prefers the host binary, falls back to a transient `amazon/aws-cli` container).
+- Confirm the workflow manually with `sudo /usr/local/bin/asm3-db-maintenance` or inspect `/var/log/asm3/db-maintenance.log`. Successful runs will log both local pruning and any S3 deletions performed.
+
 ## Key Customisations (See MODIFICATIONS.md for detail)
 - Hedgehog patient induction workflow with dedicated permissions, responsive UI, and auto-mapped additional fields.
 - Docker-first runtime with nginx, PostgreSQL, Redis, and SSL helpers managed via Make targets.

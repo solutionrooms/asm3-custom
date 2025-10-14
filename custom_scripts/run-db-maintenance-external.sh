@@ -137,6 +137,17 @@ else
 fi
 mkdir -p "$BACKUP_DIR"
 
+LOCAL_RETENTION_DAYS=${BACKUP_LOCAL_RETENTION_DAYS:-3}
+S3_RETENTION_DAYS=${BACKUP_S3_RETENTION_DAYS:-30}
+if ! [[ "$LOCAL_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+    log "WARNING: BACKUP_LOCAL_RETENTION_DAYS is invalid ('$LOCAL_RETENTION_DAYS'); defaulting to 3"
+    LOCAL_RETENTION_DAYS=3
+fi
+if ! [[ "$S3_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+    log "WARNING: BACKUP_S3_RETENTION_DAYS is invalid ('$S3_RETENTION_DAYS'); defaulting to 30"
+    S3_RETENTION_DAYS=30
+fi
+
 # Create backup with timestamp
 BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/backup_${BACKUP_TIMESTAMP}.dump"
@@ -145,27 +156,52 @@ log "Creating compressed database backup: $BACKUP_FILE"
 if docker exec -i "$POSTGRES_CONTAINER_ID" pg_dump -U asm3 -Fc asm3 > "$BACKUP_FILE"; then
     BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
     log "Backup created successfully: $BACKUP_FILE (Size: $BACKUP_SIZE)"
+    if [ "$LOCAL_RETENTION_DAYS" -ge 0 ]; then
+        log "Pruning local backups older than ${LOCAL_RETENTION_DAYS} days in $BACKUP_DIR"
+        LOCAL_REMOVED=0
+        while IFS= read -r -d '' old_backup; do
+            log "Removing local backup: $old_backup"
+            rm -f "$old_backup"
+            LOCAL_REMOVED=$((LOCAL_REMOVED + 1))
+        done < <(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'backup_*.dump' -o -name 'backup_*.sql' \) -mtime +"$LOCAL_RETENTION_DAYS" -print0 2>/dev/null)
+        if [ "$LOCAL_REMOVED" -eq 0 ]; then
+            log "No local backups older than ${LOCAL_RETENTION_DAYS} days found."
+        else
+            log "Local retention cleanup removed $LOCAL_REMOVED file(s)."
+        fi
+    fi
     # Optionally mirror backup to S3 if enabled via environment
     if [ "${BACKUP_S3_ENABLED}" = "true" ] || [ "${BACKUP_S3_ENABLED}" = "1" ]; then
         S3_BUCKET="${BACKUP_S3_BUCKET}"
-        S3_PREFIX="${BACKUP_S3_PREFIX:-db-backups}"
+        S3_PREFIX_RAW="${BACKUP_S3_PREFIX:-db-backups}"
+        S3_PREFIX_TRIMMED="${S3_PREFIX_RAW#/}"
+        S3_PREFIX_TRIMMED="${S3_PREFIX_TRIMMED%/}"
+        if [ -n "$S3_PREFIX_TRIMMED" ]; then
+            S3_KEY_PREFIX="${S3_PREFIX_TRIMMED}/"
+        else
+            S3_KEY_PREFIX=""
+        fi
         if [ -z "$S3_BUCKET" ]; then
             log "ERROR: BACKUP_S3_ENABLED is true but BACKUP_S3_BUCKET is not set"
         else
-            S3_URI="s3://${S3_BUCKET}/${S3_PREFIX}/$(basename "$BACKUP_FILE")"
-            log "Uploading backup to ${S3_URI}"
+            S3_OBJECT_URI="s3://${S3_BUCKET}/${S3_KEY_PREFIX}$(basename "$BACKUP_FILE")"
+            log "Uploading backup to ${S3_OBJECT_URI}"
             # Prepare AWS environment vars if provided
             export AWS_ACCESS_KEY_ID="${BACKUP_S3_ACCESS_KEY_ID}"
             export AWS_SECRET_ACCESS_KEY="${BACKUP_S3_SECRET_ACCESS_KEY}"
             export AWS_DEFAULT_REGION="${BACKUP_S3_REGION}"
-            # For non-AWS S3 endpoints
             if [ -n "${BACKUP_S3_ENDPOINT_URL}" ]; then
                 export AWS_ENDPOINT_URL_S3="${BACKUP_S3_ENDPOINT_URL}"
+            else
+                unset AWS_ENDPOINT_URL_S3
             fi
-            # Try local aws cli first, fallback to dockerized aws cli
+            AWS_CLI_MODE="docker"
             if command -v aws >/dev/null 2>&1; then
-                if aws s3 cp "$BACKUP_FILE" "$S3_URI" --only-show-errors; then
-                    log "S3 upload successful: $S3_URI"
+                AWS_CLI_MODE="local"
+            fi
+            if [ "$AWS_CLI_MODE" = "local" ]; then
+                if aws s3 cp "$BACKUP_FILE" "$S3_OBJECT_URI" --only-show-errors; then
+                    log "S3 upload successful: $S3_OBJECT_URI"
                 else
                     log "ERROR: S3 upload failed via local aws cli"
                 fi
@@ -174,11 +210,54 @@ if docker exec -i "$POSTGRES_CONTAINER_ID" pg_dump -U asm3 -Fc asm3 > "$BACKUP_F
                 if docker run --rm \
                     -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL_S3 \
                     -v "$BACKUP_DIR":/backups \
-                    amazon/aws-cli s3 cp "/backups/$(basename "$BACKUP_FILE")" "$S3_URI" --only-show-errors; then
-                    log "S3 upload successful (dockerized aws-cli): $S3_URI"
+                    amazon/aws-cli s3 cp "/backups/$(basename "$BACKUP_FILE")" "$S3_OBJECT_URI" --only-show-errors; then
+                    log "S3 upload successful (dockerized aws-cli): $S3_OBJECT_URI"
                 else
                     log "ERROR: S3 upload failed via dockerized aws-cli"
                 fi
+            fi
+            if [ "$S3_RETENTION_DAYS" -gt 0 ]; then
+                log "Enforcing S3 retention: deleting objects older than ${S3_RETENTION_DAYS} days (bucket: ${S3_BUCKET}, prefix: ${S3_KEY_PREFIX:-<root>})"
+                RETENTION_CUTOFF=$(date -d "${S3_RETENTION_DAYS} days ago" +%s)
+                S3API_ARGS=(s3api list-objects-v2 --bucket "$S3_BUCKET" --output text --query 'Contents[].[LastModified, Key]')
+                if [ -n "$S3_KEY_PREFIX" ]; then
+                    S3API_ARGS+=(--prefix "$S3_KEY_PREFIX")
+                fi
+                if [ "$AWS_CLI_MODE" = "local" ]; then
+                    S3_LIST_OUTPUT=$(aws "${S3API_ARGS[@]}" 2>/dev/null || true)
+                else
+                    S3_LIST_OUTPUT=$(docker run --rm \
+                        -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL_S3 \
+                        amazon/aws-cli "${S3API_ARGS[@]}" 2>/dev/null || true)
+                fi
+                if [ -z "$S3_LIST_OUTPUT" ] || [[ "$S3_LIST_OUTPUT" == "None" ]]; then
+                    log "No S3 backups found for retention pruning."
+                else
+                    S3_REMOVED=0
+                    while IFS=$'\t' read -r last_modified key; do
+                        [ -n "$key" ] || continue
+                        [ "$key" = "None" ] && continue
+                        OBJECT_EPOCH=$(date -d "$last_modified" +%s 2>/dev/null || echo 0)
+                        if [ "$OBJECT_EPOCH" -gt 0 ] && [ "$OBJECT_EPOCH" -lt "$RETENTION_CUTOFF" ]; then
+                            log "Removing S3 backup older than retention: $key (LastModified: $last_modified)"
+                            if [ "$AWS_CLI_MODE" = "local" ]; then
+                                aws s3 rm "s3://${S3_BUCKET}/${key}" --only-show-errors || log "WARNING: Failed to delete $key from S3"
+                            else
+                                docker run --rm \
+                                    -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL_S3 \
+                                    amazon/aws-cli s3 rm "s3://${S3_BUCKET}/${key}" --only-show-errors || log "WARNING: Failed to delete $key from S3 (docker)"
+                            fi
+                            S3_REMOVED=$((S3_REMOVED + 1))
+                        fi
+                    done <<< "$S3_LIST_OUTPUT"
+                    if [ "$S3_REMOVED" -eq 0 ]; then
+                        log "S3 retention cleanup found no backups older than ${S3_RETENTION_DAYS} days."
+                    else
+                        log "S3 retention cleanup removed $S3_REMOVED object(s)."
+                    fi
+                fi
+            else
+                log "S3 retention cleanup disabled (BACKUP_S3_RETENTION_DAYS=${S3_RETENTION_DAYS})."
             fi
         fi
     else
@@ -190,24 +269,9 @@ else
     # Don't exit here - backup failure shouldn't stop the maintenance process
 fi
 
-# Clean up old backups - keep only the last 3
-log "Cleaning up old backups (keeping last 3)..."
+# Summarise backups remaining after retention pass
 BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/backup_*.dump 2>/dev/null | wc -l)
-log "Found $BACKUP_COUNT backup files"
-
-if [ "$BACKUP_COUNT" -gt 3 ]; then
-    # Remove oldest backups, keeping only the 3 most recent
-    ls -1t "$BACKUP_DIR"/backup_*.dump | tail -n +4 | while read -r old_backup; do
-        if [ -f "$old_backup" ]; then
-            log "Removing old backup: $old_backup"
-            rm -f "$old_backup"
-        fi
-    done
-    REMAINING_COUNT=$(ls -1 "$BACKUP_DIR"/backup_*.dump 2>/dev/null | wc -l)
-    log "Cleanup complete. $REMAINING_COUNT backup files remaining."
-else
-    log "No cleanup needed. Backup count ($BACKUP_COUNT) is within limit (3)."
-fi
+log "Local backup files after retention: $BACKUP_COUNT"
 
 # List current backups
 log "Current backup files:"

@@ -162,43 +162,85 @@ update:
 
 # Backup database or a single table (compressed format)
 backup:
-	@TABLE="$(word 2,$(MAKECMDGOALS))"; \
+	@set -e; \
+	TABLE="$(word 2,$(MAKECMDGOALS))"; \
+	BACKUP_DIR="$${ASM3_BACKUP_DIR:-backups}"; \
+	mkdir -p "$$BACKUP_DIR"; \
+	RETENTION_DAYS="$${BACKUP_LOCAL_RETENTION_DAYS:-3}"; \
 	if [ -n "$$TABLE" ] && [ "$$TABLE" != "backup" ]; then \
 		SAFE_TABLE=$$(echo "$$TABLE" | tr -c '[:alnum:]_\n\r' '_'); \
-		BACKUP_FILE="backup_table_$$(echo $$SAFE_TABLE)_$$(date +%Y%m%d_%H%M%S).dump"; \
+		BACKUP_FILE="$$BACKUP_DIR/backup_table_$$(echo $$SAFE_TABLE)_$$(date +%Y%m%d_%H%M%S).dump"; \
 		echo "Creating compressed backup for table: $$TABLE -> $$BACKUP_FILE"; \
 		docker-compose exec -T postgres pg_dump -U asm3 -Fc -t "public.$$TABLE" asm3 > "$$BACKUP_FILE"; \
 		echo "Table backup created: $$BACKUP_FILE"; \
 	else \
+		BACKUP_FILE="$$BACKUP_DIR/backup_$$(date +%Y%m%d_%H%M%S).dump"; \
 		echo "Creating compressed database backup..."; \
-		backup_file="backup_$$(date +%Y%m%d_%H%M%S).dump"; \
-		docker-compose exec -T postgres pg_dump -U asm3 -Fc asm3 > "$$backup_file"; \
-		echo "Backup created: $$backup_file"; \
+		docker-compose exec -T postgres pg_dump -U asm3 -Fc asm3 > "$$BACKUP_FILE"; \
+		echo "Backup created: $$BACKUP_FILE"; \
+	fi; \
+	if echo "$$RETENTION_DAYS" | grep -Eq '^[0-9]+$$'; then \
+		echo "Pruning local backups older than $$RETENTION_DAYS day(s) in $$BACKUP_DIR..."; \
+		OLD_LIST=$$(find "$$BACKUP_DIR" -maxdepth 1 -type f \( -name 'backup_*.dump' -o -name 'backup_*.sql' \) -mtime +$$RETENTION_DAYS -print 2>/dev/null); \
+		if [ -n "$$OLD_LIST" ]; then \
+			printf '%s\n' "$$OLD_LIST" | while IFS= read -r old; do \
+				[ -n "$$old" ] || continue; \
+				echo "  Removing $$old"; \
+				rm -f "$$old"; \
+			done; \
+		else \
+			echo "No local backups older than $$RETENTION_DAYS day(s) found."; \
+		fi; \
+	else \
+		echo "Skipping local retention cleanup: BACKUP_LOCAL_RETENTION_DAYS ('$$RETENTION_DAYS') is not numeric."; \
 	fi
 
 # Explicit: backup a single table (same as `make backup TABLE`)
 backup-table:
-	@if [ -z "$(TABLE)" ]; then \
+	@set -e; \
+	if [ -z "$(TABLE)" ]; then \
 		echo "Usage: make backup-table TABLE=name"; \
 		exit 1; \
 	fi; \
+	BACKUP_DIR="$${ASM3_BACKUP_DIR:-backups}"; \
+	mkdir -p "$$BACKUP_DIR"; \
+	RETENTION_DAYS="$${BACKUP_LOCAL_RETENTION_DAYS:-3}"; \
 	SAFE_TABLE=$$(echo "$(TABLE)" | tr -c '[:alnum:]_\n\r' '_'); \
-	BACKUP_FILE="backup_table_$${SAFE_TABLE}_$$(date +%Y%m%d_%H%M%S).dump"; \
+	BACKUP_FILE="$$BACKUP_DIR/backup_table_$${SAFE_TABLE}_$$(date +%Y%m%d_%H%M%S).dump"; \
 	echo "Creating compressed backup for table: $(TABLE) -> $$BACKUP_FILE"; \
 	docker-compose exec -T postgres pg_dump -U asm3 -Fc -t "public.$(TABLE)" asm3 > "$$BACKUP_FILE"; \
-	echo "Table backup created: $$BACKUP_FILE"
+	echo "Table backup created: $$BACKUP_FILE"; \
+	if echo "$$RETENTION_DAYS" | grep -Eq '^[0-9]+$$'; then \
+		OLD_LIST=$$(find "$$BACKUP_DIR" -maxdepth 1 -type f \( -name 'backup_*.dump' -o -name 'backup_*.sql' \) -mtime +$$RETENTION_DAYS -print 2>/dev/null); \
+		if [ -n "$$OLD_LIST" ]; then \
+			printf '%s\n' "$$OLD_LIST" | while IFS= read -r old; do \
+				[ -n "$$old" ] || continue; \
+				echo "  Removing $$old"; \
+				rm -f "$$old"; \
+			done; \
+		fi; \
+	fi
 
 # Restore database or a single table from backup file (POSIX sh, single shell)
 restore:
 	@sh -e -c '\
 	  set -x; \
+	  BACKUP_DIR="$${ASM3_BACKUP_DIR:-backups}"; \
 	  TABLE="$(word 2,$(MAKECMDGOALS))"; \
 	  if [ -n "$$TABLE" ] && [ "$$TABLE" != "restore" ]; then \
 	    SAFE_TABLE=$$(echo "$$TABLE" | tr -c "[:alnum:]_" "_"); \
 	    FILE_IN="$(FILE)"; \
 	    if [ -z "$$FILE_IN" ]; then \
-	      FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
-	      [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
+	      FILE_IN=$$(ls -1t "$$BACKUP_DIR"/backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
+	      if [ -z "$$FILE_IN" ]; then \
+	        FILE_IN=$$(ls -1t "$$BACKUP_DIR"/backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
+	      fi; \
+	      if [ -z "$$FILE_IN" ]; then \
+	        FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
+	      fi; \
+	      if [ -z "$$FILE_IN" ]; then \
+	        FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
+	      fi; \
 	    fi; \
 	    echo "DEBUG: Mode=table TABLE=$$TABLE FILE_IN=$$FILE_IN"; \
 	    if [ -z "$$FILE_IN" ]; then \
@@ -229,7 +271,7 @@ restore:
 	      echo "  FILE: Path to backup file"; \
 	      echo "  SOURCE_DB: Original database name (if different from asm3)"; \
 	      echo "Available backup files:"; \
-	      ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"; \
+	      ls -la "$$BACKUP_DIR"/backup_*.dump "$$BACKUP_DIR"/backup_*.sql 2>/dev/null || ls -la backup_*.dump backup_*.sql 2>/dev/null || echo "No backup files found"; \
 	      exit 1; \
 	    fi; \
 	    if [ ! -f "$(FILE)" ]; then \
@@ -282,11 +324,20 @@ restore-table:
 	    echo "Usage: make restore-table TABLE=name [FILE=path_to_table_backup.(dump|sql)]"; \
 	    exit 1; \
 	  fi; \
+	  BACKUP_DIR="$${ASM3_BACKUP_DIR:-backups}"; \
 	  SAFE_TABLE=$$(echo "$(TABLE)" | tr -c "[:alnum:]_" "_"); \
 	  FILE_IN="$(FILE)"; \
 	  if [ -z "$$FILE_IN" ]; then \
-	    FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
-	    [ -n "$$FILE_IN" ] || FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
+	    FILE_IN=$$(ls -1t "$$BACKUP_DIR"/backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
+	    if [ -z "$$FILE_IN" ]; then \
+	      FILE_IN=$$(ls -1t "$$BACKUP_DIR"/backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
+	    fi; \
+	    if [ -z "$$FILE_IN" ]; then \
+	      FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.dump 2>/dev/null | head -1 || true); \
+	    fi; \
+	    if [ -z "$$FILE_IN" ]; then \
+	      FILE_IN=$$(ls -1t backup_table_$${SAFE_TABLE}_*.sql 2>/dev/null | head -1 || true); \
+	    fi; \
 	  fi; \
 	  echo "DEBUG: Mode=table-only TABLE=$(TABLE) FILE_IN=$$FILE_IN"; \
 	  if [ -z "$$FILE_IN" ]; then \
