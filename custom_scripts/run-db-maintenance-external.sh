@@ -84,15 +84,15 @@ log "Database size after maintenance: $DB_SIZE_AFTER"
 
 # Get table statistics
 log "Getting table statistics..."
-docker exec -i "$POSTGRES_CONTAINER_ID" psql -U asm3 -d asm3 -c "
+if docker exec -i "$POSTGRES_CONTAINER_ID" psql -U asm3 -d asm3 -c "
 SELECT 
     schemaname,
-    tablename,
-    n_tup_ins as inserts,
-    n_tup_upd as updates,
-    n_tup_del as deletes,
-    n_live_tup as live_tuples,
-    n_dead_tup as dead_tuples,
+    relname AS table_name,
+    n_tup_ins AS inserts,
+    n_tup_upd AS updates,
+    n_tup_del AS deletes,
+    n_live_tup AS live_tuples,
+    n_dead_tup AS dead_tuples,
     last_vacuum,
     last_autovacuum,
     last_analyze,
@@ -101,19 +101,27 @@ FROM pg_stat_user_tables
 WHERE n_dead_tup > 0 OR n_live_tup > 1000
 ORDER BY n_dead_tup DESC, n_live_tup DESC 
 LIMIT 10;
-" >> "$LOG_FILE" 2>&1
+" >> "$LOG_FILE" 2>&1; then
+    log "Table statistics captured."
+else
+    log "WARNING: Failed to fetch table statistics; continuing."
+fi
 
 # Check for bloated tables (optional - informational)
 log "Checking for table bloat..."
-docker exec -i "$POSTGRES_CONTAINER_ID" psql -U asm3 -d asm3 -c "
+if docker exec -i "$POSTGRES_CONTAINER_ID" psql -U asm3 -d asm3 -c "
 SELECT 
-    tablename,
-    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-FROM pg_tables 
-WHERE schemaname = 'public'
-ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC 
+    schemaname,
+    relname AS table_name,
+    pg_size_pretty(pg_total_relation_size(relid)) AS total_size
+FROM pg_catalog.pg_statio_user_tables
+ORDER BY pg_total_relation_size(relid) DESC 
 LIMIT 5;
-" >> "$LOG_FILE" 2>&1
+" >> "$LOG_FILE" 2>&1; then
+    log "Table size summary captured."
+else
+    log "WARNING: Failed to fetch table size summary; continuing."
+fi
 
 # Create database backup after maintenance
 log "========================================"
