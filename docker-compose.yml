@@ -41,6 +41,7 @@ services:
       - ASM3_BASE_URL=${ASM3_BASE_URL}
       - ASM3_SERVICE_URL=${ASM3_SERVICE_URL}
       - ASM3_DEBUG=${ASM3_DEBUG}
+      - ASM3_ROLLUP_JS=${ASM3_ROLLUP_JS}
       # DBFS/S3 storage configuration
       - ASM3_DBFS_STORE=${ASM3_DBFS_STORE}
       - ASM3_DBFS_S3_BUCKET=${ASM3_DBFS_S3_BUCKET}

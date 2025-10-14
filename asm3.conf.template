@@ -17,6 +17,10 @@ log_debug = ${ASM3_DEBUG}
 autoreload = true
 debug_mode = ${ASM3_DEBUG}
 
+# JavaScript optimization (rollup bundles reduce first-load latency)
+minify_js = false
+rollup_js = ${ASM3_ROLLUP_JS}
+
 # Database configuration
 db_type = ${ASM3_DBTYPE}
 db_host = ${ASM3_DBHOST}
