@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, traceback
+import os, sys, traceback, json
 
 # The path to the folder containing the ASM3 modules
 PATH = os.path.dirname(os.path.abspath(__file__)) + os.sep
@@ -3008,20 +3008,124 @@ class animal_observations(JSONEndpoint):
         dbo = o.dbo
         animals = asm3.animal.get_shelterview_animals(dbo, o.lf)
         asm3.al.debug("got %d shelter animals" % len(animals), "main.animal_observations", dbo)
+        behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 0)
+        today_logs = {}
+        history_logs = {}
+        now = dbo.now()
+        day_start = asm3.i18n.remove_time(now)
+        cutoff7 = asm3.i18n.subtract_days(day_start, 7)
+        today_log_list = []
+        today_ids = []
+        if behave_logtype > 0 and len(animals) > 0:
+            try:
+                for a in animals:
+                    aid_raw = a.get("ID", 0)
+                    if aid_raw is None:
+                        continue
+                    aid = asm3.utils.atoi(str(aid_raw))
+                    if aid <= 0:
+                        continue
+                    logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, aid, behave_logtype)
+                    if not logs:
+                        continue
+                    history_list = history_logs.setdefault(aid, [])
+                    for l in logs:
+                        entry = {
+                            "ID": l["ID"],
+                            "LOGID": l["ID"],
+                            "LOGTYPEID": behave_logtype,
+                            "DATE": l["DATE"],
+                            "COMMENTS": l["COMMENTS"],
+                            "ANIMALID": aid
+                        }
+                        log_date = entry["DATE"]
+                        if log_date is not None and log_date < cutoff7:
+                            break
+                        if len(history_list) < 10:
+                            history_list.append(entry)
+                        if (
+                            log_date is not None
+                            and asm3.i18n.remove_time(log_date) == day_start
+                            and aid not in today_logs
+                        ):
+                            today_logs[aid] = entry
+                            today_log_list.append(entry)
+                            today_ids.append(aid)
+            except Exception as e:
+                asm3.al.warn(f"daily observations history lookup failed: {e}", "main.animal_observations", dbo)
+
+        # Attach today's observation and history to each animal for easier client access
+        try:
+            for a in animals:
+                aid = asm3.utils.atoi(a.get("ID", 0))
+                if aid in today_logs:
+                    a["TODAYOBS"] = today_logs[aid]
+                if aid in history_logs:
+                    a["OBSERVATIONHISTORY"] = history_logs[aid]
+        except Exception:
+            pass
+
         return { 
             "animals": animals,
             "logtypes": asm3.lookups.get_log_types(dbo), 
-            "internallocations": asm3.lookups.get_internal_locations_counts(dbo, o.lf)
+            "internallocations": asm3.lookups.get_internal_locations_counts(dbo, o.lf),
+            "todaylogs": today_log_list,
+            "todayids": today_ids,
+            "historylogs": history_logs,
+            "todaydate": now
         }
 
     def post_save(self, o):
         self.check(asm3.users.ADD_LOG)
-        nocreated = 0
-        for row in o.post["logs"].split("^^"):
-            animalid, msg = row.split("==")
-            asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, asm3.utils.atoi(animalid), o.post.integer("logtype"), msg)
-            nocreated += 1
-        return str(nocreated)
+        entries = [r for r in o.post["logs"].split("^^") if r]
+        if len(entries) == 0:
+            return json.dumps({ "count": 0, "created": [], "updated": [] })
+
+        logtype = o.post.integer("logtype")
+        updates_raw = {}
+        if o.post.has_key("updatemap"):
+            try:
+                parsed = json.loads(o.post["updatemap"])
+                if isinstance(parsed, dict):
+                    for k, v in parsed.items():
+                        aid = asm3.utils.atoi(k)
+                        lid = asm3.utils.atoi(v)
+                        if aid > 0 and lid > 0:
+                            updates_raw[aid] = lid
+            except Exception as e:
+                asm3.al.warn(f"daily observations update map parse failed: {e}", "main.animal_observations", o.dbo)
+
+        created = []
+        updated = []
+        for row in entries:
+            if "==" not in row:
+                continue
+            animalid_str, msg = row.split("==", 1)
+            animalid = asm3.utils.atoi(animalid_str)
+            if animalid <= 0 or asm3.utils.nulltostr(msg) == "":
+                continue
+
+            updatelogid = updates_raw.get(animalid, 0)
+            if updatelogid:
+                existing = o.dbo.first_row(o.dbo.query("SELECT LinkType, LinkID, Date FROM log WHERE ID=?", [updatelogid]))
+                if existing and existing.LINKTYPE == asm3.log.ANIMAL and existing.LINKID == animalid:
+                    o.dbo.update("log", updatelogid, {
+                        "LogTypeID": logtype,
+                        "Comments": msg,
+                        "Date": existing.DATE or o.dbo.now()
+                    }, o.user)
+                    updated.append({ "animalid": animalid, "logid": updatelogid })
+                    continue
+
+            newlogid = asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, animalid, logtype, msg)
+            created.append({ "animalid": animalid, "logid": newlogid })
+
+        count = len(created) + len(updated)
+        return json.dumps({
+            "count": count,
+            "created": created,
+            "updated": updated
+        })
 
 class hedgehog_observation(JSONEndpoint):
     url = "hedgehog_observation"
