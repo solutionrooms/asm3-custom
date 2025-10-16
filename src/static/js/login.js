@@ -202,6 +202,19 @@ const login = {
             url: "login",
             data: formdata,
             success: function(data) {
+                try {
+                    if (window.localStorage) {
+                        if (controller.multipledatabases && database) {
+                            window.localStorage.setItem("asm_last_account", database);
+                        }
+                        if (username) {
+                            window.localStorage.setItem("asm_last_username", username);
+                        }
+                    }
+                }
+                catch (err) {
+                    console.log("[Login] unable to persist remembered credentials:", err);
+                }
                 $("#loginspinner").fadeOut();
                 if (data == "FAIL") {
                     $(".asm-login-fail").fadeIn("slow").delay(3000).fadeOut("slow");
@@ -317,8 +330,20 @@ const login = {
         if (controller.multipledatabases) {
             $(".asm-account-row").show();
             $("input#database").focus();
-            if (controller.smaccount) {
-                $("#database").val(controller.smaccount);
+            let accounted = "";
+            try {
+                if (controller.smaccount) {
+                    accounted = controller.smaccount;
+                }
+                else if (window.localStorage) {
+                    accounted = window.localStorage.getItem("asm_last_account") || "";
+                }
+            }
+            catch (err) {
+                console.log("[Login] unable to read stored account:", err);
+            }
+            if (accounted) {
+                $("#database").val(accounted);
                 $("input#username").focus();
             }
         }
@@ -339,6 +364,21 @@ const login = {
         // If we were passed a username, stick it in
         if (controller.husername) {
             $("input#username").val(controller.husername);
+            $("input#password").focus();
+        }
+        else {
+            try {
+                if (window.localStorage) {
+                    let storedUser = window.localStorage.getItem("asm_last_username");
+                    if (storedUser) {
+                        $("input#username").val(storedUser);
+                        $("input#password").focus();
+                    }
+                }
+            }
+            catch (err) {
+                console.log("[Login] unable to read stored username:", err);
+            }
         }
 
         // If we were passed a password, copy it in and

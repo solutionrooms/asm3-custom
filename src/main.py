@@ -476,7 +476,8 @@ class ASMEndpoint(object):
 
     def set_cookie(self, name: str, value: str, ttl: int) -> None:
         """ Sets a cookie value """
-        web.setcookie(name, value, expires=ttl, secure=SESSION_SECURE_COOKIE, httponly=True, samesite="none")
+        cookie_samesite = "none" if SESSION_SECURE_COOKIE else "lax"
+        web.setcookie(name, value, expires=ttl, secure=SESSION_SECURE_COOKIE, httponly=True, samesite=cookie_samesite)
 
     def header(self, key: str, value: str) -> None:
         """ Set the response header key to value """

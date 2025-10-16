@@ -27,7 +27,7 @@ db_name = ${ASM3_DBNAME}
 
 # Deployment settings
 deployment_type = wsgi
-session_secure_cookie = false
+session_secure_cookie = ${ASM3_SESSION_SECURE_COOKIE}
 
 # File storage
 # Use env var to control DBFS storage mode (database|file|s3)
@@ -65,3 +65,8 @@ smtp_username = ${ASM3_SMTP_USERNAME}
 smtp_password = ${ASM3_SMTP_PASSWORD}
 smtp_tls = ${ASM3_SMTP_TLS}
 use_sendmail = ${ASM3_USE_SENDMAIL}
+
+# Multiple database support (optional)
+multiple_databases = ${ASM3_MULTIPLE_DATABASES}
+multiple_databases_type = ${ASM3_MULTIPLE_DATABASES_TYPE}
+multiple_databases_map = ${ASM3_MULTIPLE_DATABASES_MAP}
