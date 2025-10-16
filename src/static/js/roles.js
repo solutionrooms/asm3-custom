@@ -272,6 +272,7 @@ $(function() {
                 cr("vcov", _("Change Vouchers")),
                 cr("vdov", _("Delete Vouchers")),
                 cl(_("System")),
+                cr("vhme", _("Access Home Dashboard")),
                 cr("asm", _("Access Settings Menu")),
                 cr("cso", _("Change System Options")),
                 cr("cpo", _("Change Publishing Options")),

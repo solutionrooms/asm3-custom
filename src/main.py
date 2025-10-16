@@ -1506,6 +1506,8 @@ class main(JSONEndpoint):
 
     def controller(self, o):
         dbo = o.dbo
+        if not asm3.users.check_permission_map_bool(o.session.superuser, o.session.securitymap, asm3.users.VIEW_HOME):
+            self.redirect("animal_observations")
         # If a b (build) parameter was passed to indicate the client wants to
         # get the latest js files, invalidate the config so that the
         # frontend doesn't keep receiving the same build number via configjs 

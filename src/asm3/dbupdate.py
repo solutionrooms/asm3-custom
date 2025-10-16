@@ -1900,25 +1900,29 @@ def sql_default_data(dbo: Database, skip_config: bool = False) -> str:
     if not skip_config:
         sql += user(1, "user", "Default system user", "letmein", True)
         sql += user(2, "guest", "Default guest user", "guest", False)
-        sql += role(1, _("Other Organisation", l), "vac *va *vavet *vav *mvam *dvad *cvad *vamv *vo *volk *vle *vvov *vdn *vla *vfa *vwl *vcr *vll *vof *")
-        sql += role(2, _("Staff", l), "aa *ca *va *ma *rsu *vavet *cloa *gaf *aam *cam *dam *vam *mand *aav *vav *cav *dav *bcav *maam *mcam *mdam *mvam *bcam *daad *dcad *ddad *dvad *caad *cdad *cvad *aamv *camv *vamv *ao *co *vo *emo *mo *volk *ale *cle *dle *vle *vaov *vcov *vvov *oaod *ocod *odod *ovod *vdn *edt *adn *eadn *emdn *ecdn *bcn *ddn *pdn *pvd *ala *cla *vla *afa *cfa *vfa *mlaf *vwl *awl *cwl *bcwl *all *cll *vll *dll *excr *vcr *vvo *vof *vti *")
-        sql += role(3, _("Accountant", l), "aac *vac *cac *ctrx *dac *vaov *vcov *vdov *vvov *oaod *ocod *odod *ovod *")
-        sql += role(4, _("Vet", l), "va *vavet *aav *vav *cav *dav *bcav *maam *mcam *mdam *mvam *bcam *daad *dcad *ddad *dvad *")
-        sql += role(5, _("Publisher", l), "uipb *aof *vof *eof *")
-        sql += role(6, _("System Admin", l), "asm *cso *cpo *maf *mdt *ml *usi *rdbu *rdbd *asu *esu *ccr *vcr *hcr *dcr *tbp *excr *eav *icv *")
-        sql += role(7, _("Marketer", l), "uipb *mmeo *emo *mmea *eof *vof *")
-        sql += role(8, _("Investigator", l), "aoi *coi *doi *voi *")
-        sql += role(9, _("Animal Control Officer", l), "aaci *caci *vaci *aacc *cacc *dacc *vacc *emo *cacd *cacr *")
         sql += "INSERT INTO userrole VALUES (2, 1)|=\n"
-        sql += config("DBV", str(_dbupdates_latest_ver(dbo)))
-        sql += config("DatabaseVersion", str(_dbupdates_latest_ver(dbo)))
-        sql += config("Organisation", _("Organisation", l))
-        sql += config("OrganisationAddress", _("Address", l))
-        sql += config("OrganisationTelephone", _("Telephone", l))
-        sql += config("AgeGroup1Name", _("Baby", l))
-        sql += config("AgeGroup2Name", _("Young Adult", l))
-        sql += config("AgeGroup3Name", _("Adult", l))
-        sql += config("AgeGroup4Name", _("Senior", l))
+        config_defaults = [
+            ("DBV", str(_dbupdates_latest_ver(dbo))),
+            ("DatabaseVersion", str(_dbupdates_latest_ver(dbo))),
+            ("Organisation", _("Organisation", l)),
+            ("OrganisationAddress", _("Address", l)),
+            ("OrganisationTelephone", _("Telephone", l)),
+            ("AgeGroup1Name", _("Baby", l)),
+            ("AgeGroup2Name", _("Young Adult", l)),
+            ("AgeGroup3Name", _("Adult", l)),
+            ("AgeGroup4Name", _("Senior", l))
+        ]
+        for key, value in config_defaults:
+            sql += config(key, value)
+    sql += role(1, _("Other Organisation", l), "vac *va *vavet *vav *mvam *dvad *cvad *vamv *vo *volk *vle *vvov *vdn *vla *vfa *vwl *vcr *vll *vof *vhme *")
+    sql += role(2, _("Staff", l), "aa *ca *va *ma *rsu *vavet *cloa *gaf *aam *cam *dam *vam *mand *aav *vav *cav *dav *bcav *maam *mcam *mdam *mvam *bcam *daad *dcad *ddad *dvad *caad *cdad *cvad *aamv *camv *vamv *ao *co *vo *emo *mo *volk *ale *cle *dle *vle *vaov *vcov *vvov *oaod *ocod *odod *ovod *vdn *edt *adn *eadn *emdn *ecdn *bcn *ddn *pdn *pvd *ala *cla *vla *afa *cfa *vfa *mlaf *vwl *awl *cwl *bcwl *all *cll *vll *dll *excr *vcr *vvo *vof *vti *vhme *")
+    sql += role(3, _("Accountant", l), "aac *vac *cac *ctrx *dac *vaov *vcov *vdov *vvov *oaod *ocod *odod *ovod *vhme *")
+    sql += role(4, _("Vet", l), "va *vavet *aav *vav *cav *dav *bcav *maam *mcam *mdam *mvam *bcam *daad *dcad *ddad *dvad *vhme *")
+    sql += role(5, _("Publisher", l), "uipb *aof *vof *eof *vhme *")
+    sql += role(6, _("System Admin", l), "asm *cso *cpo *maf *mdt *ml *usi *rdbu *rdbd *asu *esu *ccr *vcr *hcr *dcr *tbp *excr *eav *icv *vhme *")
+    sql += role(7, _("Marketer", l), "uipb *mmeo *emo *mmea *eof *vof *vhme *")
+    sql += role(8, _("Investigator", l), "aoi *coi *doi *voi *vhme *")
+    sql += role(9, _("Animal Control Officer", l), "aaci *caci *vaci *aacc *cacc *dacc *vacc *emo *cacd *cacr *vhme *")
     sql += account(1, _("Income::Donation", l), _("Incoming donations (misc)", l), 5, 1, 0)
     sql += account(2, _("Income::Adoption", l), _("Adoption fee donations", l), 5, 2, 0)
     sql += account(3, _("Income::WaitingList", l), _("Waiting list donations", l), 5, 3, 0)
@@ -3618,5 +3622,3 @@ def asm2_dbfs_put_file(dbo: Database, name: str, path: str, filename: str):
         "Path": path,
         "Content": asm3.utils.base64encode(asm3.utils.read_binary_file(filename))
     }, generateID=False)
-
-

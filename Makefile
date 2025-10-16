@@ -4,7 +4,46 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run db-init db-copy db-reset-password
+
+ifeq ($(firstword $(MAKECMDGOALS)),db-init)
+  DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
+  ifneq ($(DB_INIT_ARG),)
+$(DB_INIT_ARG):
+	@:
+  endif
+endif
+
+ifeq ($(firstword $(MAKECMDGOALS)),db-copy)
+  DB_COPY_SRC := $(word 2,$(MAKECMDGOALS))
+  DB_COPY_DST := $(word 3,$(MAKECMDGOALS))
+  ifneq ($(DB_COPY_SRC),)
+$(DB_COPY_SRC):
+	@:
+  endif
+  ifneq ($(DB_COPY_DST),)
+$(DB_COPY_DST):
+	@:
+  endif
+endif
+
+ifeq ($(firstword $(MAKECMDGOALS)),db-reset-password)
+  DB_RESET_ALIAS := $(word 2,$(MAKECMDGOALS))
+  DB_RESET_USER := $(word 3,$(MAKECMDGOALS))
+  DB_RESET_PASS := $(word 4,$(MAKECMDGOALS))
+  ifneq ($(DB_RESET_ALIAS),)
+$(DB_RESET_ALIAS):
+	@:
+  endif
+  ifneq ($(DB_RESET_USER),)
+$(DB_RESET_USER):
+	@:
+  endif
+  ifneq ($(DB_RESET_PASS),)
+$(DB_RESET_PASS):
+	@:
+  endif
+endif
 
 # Default target - show help
 help:
@@ -29,6 +68,9 @@ help:
 	@echo "  backup-table  - Backup a single table (usage: make backup-table TABLE=name)"
 	@echo "  restore       - Restore DB from FILE; or 'make restore TABLE [FILE=...]' to restore one table"
 	@echo "  restore-table - Restore a single table (usage: make restore-table TABLE=name [FILE=...])"
+	@echo "  db-init <db>  - Ensure a database exists and install the ASM3 schema"
+	@echo "  db-copy <src> <dst> - Back up <dst>, recreate it, and copy all data from <src>"
+	@echo "  db-reset-password <alias> <user> <newpass> - Change a user's password in the given database"
 	@echo "  clear-cache   - Clear application cache and restart"
 	@echo "  rebuild-all   - Rebundle JS, rebuild image (no cache), restart"
 	@echo "  js-rebundle   - Rebundle JS only and restart (fast)"
@@ -187,6 +229,68 @@ backup-table:
 	echo "Creating compressed backup for table: $(TABLE) -> $$BACKUP_FILE"; \
 	docker-compose exec -T postgres pg_dump -U asm3 -Fc -t "public.$(TABLE)" asm3 > "$$BACKUP_FILE"; \
 	echo "Table backup created: $$BACKUP_FILE"
+
+db-init:
+	@set -- $(MAKECMDGOALS); shift; \
+	DBNAME="$(if $(DB),$(DB),$${1:-})"; \
+	if [ -z "$$DBNAME" ]; then \
+		echo "Usage: make db-init <database>"; \
+		exit 1; \
+	fi; \
+	echo "Initialising ASM3 database '$$DBNAME'..."; \
+	if ! docker-compose exec postgres psql -U asm3 -tc "SELECT 1 FROM pg_database WHERE datname='$$DBNAME'" | tr -d '[:space:]' | grep -q 1; then \
+		echo "Creating database '$$DBNAME'..."; \
+		docker-compose exec postgres psql -U asm3 -c "CREATE DATABASE \"$$DBNAME\" ENCODING 'UTF8' TEMPLATE template0"; \
+	fi; \
+	echo "Installing schema and default data (this may take a moment)..."; \
+	docker-compose exec -e TARGET_DB_NAME="$$DBNAME" asm3 python -c "import os, sys, asm3.db, asm3.dbupdate; db_name=os.environ['TARGET_DB_NAME']; db_type=os.environ.get('ASM3_DBTYPE','POSTGRESQL').upper(); dbo=asm3.db.get_dbo(db_type); dbo.host=os.environ.get('ASM3_DBHOST','postgres'); dbo.port=int(os.environ.get('ASM3_DBPORT','5432')); dbo.username=os.environ.get('ASM3_DBUSERNAME','asm3'); dbo.password=os.environ.get('ASM3_DBPASSWORD',''); dbo.database=db_name; dbo.installpath='/app/src/'; dbo.has_structure() and (print(f\"Database '{db_name}' already contains ASM3 objects; skipping install.\"), sys.exit(0)); asm3.dbupdate.install(dbo)"
+	echo "Database '$$DBNAME' is ready."
+
+db-copy:
+	@set -- $(MAKECMDGOALS); shift; \
+	SRC="$(if $(FROM),$(FROM),$${1:-})"; \
+	DEST="$(if $(TO),$(TO),$${2:-})"; \
+	if [ -z "$$SRC" ] || [ -z "$$DEST" ]; then \
+		echo "Usage: make db-copy <source_db> <target_db>"; \
+		exit 1; \
+	fi; \
+	if [ "$$SRC" = "$$DEST" ]; then \
+		echo "Source and target databases must be different."; \
+		exit 1; \
+	fi; \
+	echo "Preparing to copy database from '$$SRC' to '$$DEST'..."; \
+	if docker-compose exec postgres psql -U asm3 -tc "SELECT 1 FROM pg_database WHERE datname='$$DEST'" | tr -d '[:space:]' | grep -q 1; then \
+		BACKUP_FILE="backup_$${DEST}_$$(date +%Y%m%d_%H%M%S).dump"; \
+		echo "Backing up existing '$$DEST' to $$BACKUP_FILE"; \
+		docker-compose exec -T postgres pg_dump -U asm3 -Fc "$$DEST" > "$$BACKUP_FILE"; \
+	else \
+		echo "Target database '$$DEST' does not exist yet; skipping backup."; \
+	fi; \
+	echo "Recreating database '$$DEST'..."; \
+	docker-compose exec postgres psql -U asm3 -c "DROP DATABASE IF EXISTS \"$$DEST\""; \
+	docker-compose exec postgres psql -U asm3 -c "CREATE DATABASE \"$$DEST\" ENCODING 'UTF8' TEMPLATE template0"; \
+	echo "Copying data from '$$SRC' to '$$DEST'..."; \
+	docker-compose exec postgres bash -lc "set -euo pipefail; pg_dump -U asm3 -Fc \"$$SRC\" | pg_restore -U asm3 -d \"$$DEST\" --no-owner --no-privileges"; \
+	echo "Database '$$DEST' now matches '$$SRC'."
+
+db-reset-password:
+	@set -- $(MAKECMDGOALS); shift; \
+	ALIAS="$(if $(DB),$(DB),$${1:-})"; \
+		CLI_USER="$(if $(filter command\ line override,$(origin USER)),$(USER),)"; \
+		ENV_USER="$(if $(filter environment environment\ override,$(origin USER)),$(USER),)"; \
+		TARGET_USER="$${2:-$$CLI_USER}"; \
+		if [ -z "$$TARGET_USER" ] && [ -n "$$ENV_USER" ]; then \
+			TARGET_USER="$$ENV_USER"; \
+		fi; \
+		PASS="$(if $(PASS),$(PASS),$${3:-})"; \
+		if [ -z "$$ALIAS" ] || [ -z "$$TARGET_USER" ] || [ -z "$$PASS" ]; then \
+			echo "Usage: make db-reset-password <database_alias> <username> <new_password>"; \
+			echo "   or: make db-reset-password DB=alias USER=name PASS=newpass"; \
+			exit 1; \
+		fi; \
+		echo "Resetting password for user '$$TARGET_USER' in database '$$ALIAS'..."; \
+		docker-compose exec -T asm3 python3 /app/scripts/reset_password.py "$$ALIAS" "$$TARGET_USER" "$$PASS"
+	echo "Password reset complete."
 
 # Restore database or a single table from backup file (POSIX sh, single shell)
 restore:

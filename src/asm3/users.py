@@ -127,6 +127,7 @@ VIEW_INCOMING_FORMS             = "vif"
 DELETE_INCOMING_FORMS           = "dif"
 
 SYSTEM_MENU                     = "asm"
+VIEW_HOME                       = "vhme"
 SYSTEM_OPTIONS                  = "cso"
 PUBLISH_OPTIONS                 = "cpo"
 MODIFY_ADDITIONAL_FIELDS        = "maf"
@@ -938,4 +939,3 @@ def web_login(post: PostedData, session: Session, remoteip: str, useragent: str,
         asm3.al.error("failed getting remember me: %s" % str(sys.exc_info()[0]), "users.web_login", dbo, sys.exc_info())
 
     return user.USERNAME
-
