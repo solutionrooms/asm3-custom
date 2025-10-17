@@ -476,7 +476,8 @@ class ASMEndpoint(object):
 
     def set_cookie(self, name: str, value: str, ttl: int) -> None:
         """ Sets a cookie value """
-        web.setcookie(name, value, expires=ttl, secure=SESSION_SECURE_COOKIE, httponly=True, samesite="none")
+        cookie_samesite = "none" if SESSION_SECURE_COOKIE else "lax"
+        web.setcookie(name, value, expires=ttl, secure=SESSION_SECURE_COOKIE, httponly=True, samesite=cookie_samesite)
 
     def header(self, key: str, value: str) -> None:
         """ Set the response header key to value """
@@ -1505,6 +1506,8 @@ class main(JSONEndpoint):
 
     def controller(self, o):
         dbo = o.dbo
+        if not asm3.users.check_permission_map_bool(o.session.superuser, o.session.securitymap, asm3.users.VIEW_HOME):
+            self.redirect("animal_observations")
         # If a b (build) parameter was passed to indicate the client wants to
         # get the latest js files, invalidate the config so that the
         # frontend doesn't keep receiving the same build number via configjs 

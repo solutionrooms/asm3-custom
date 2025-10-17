@@ -399,6 +399,8 @@ header = {
         if (asm.hascustomlogo) {
             homeicon = "custom_logo?smaccount=" + asm.useraccount;
         }
+        var userDisplayLabel = this.user_display_label();
+        var menuHeaderLabel = asm.userreal ? asm.userreal + " (" + userDisplayLabel + ")" : userDisplayLabel;
         var h = [
             '<div id="asm-topline" class="no-print" style="display: none">',
                 '<div class="topline-element">',
@@ -422,7 +424,7 @@ header = {
                 '</div>',
                 ' ',
                 '<div class="topline-element">',
-                    '<div id="asm-topline-user" class="asm-menu-icon"><img id="asm-topline-flag" /> <span id="asm-topline-username"></span></div>',
+                    '<div id="asm-topline-user" class="asm-menu-icon"><span id="asm-topline-username"></span></div>',
                 '</div>',
                 '<div class="topline-element">',
                     '<div id="asm-topline-help" class="asm-menu-icon">' + html.icon("callout") + '</div>',
@@ -431,7 +433,7 @@ header = {
             menubodies,
             '<div id="asm-topline-user-body" class="asm-menu-body">',
                 '<ul class="asm-menu-list">',
-                    '<li class="asm-menu-category">' + (asm.userreal ? asm.userreal : asm.user) + '</li>',
+                    '<li class="asm-menu-category">' + menuHeaderLabel + '</li>',
                     '<li id="asm-mobile" class="asm-menu-item"><a href="mobile"><nobr><span class="asm-icon asm-icon-mobile"></span> ' + _("Switch to Mobile Interface") + '</nobr></a></li>',
                     '<li id="asm-mysmcom" class="asm-menu-item"><a href="smcom_my" target="_blank"><nobr><span class="asm-icon asm-icon-logo"></span> ' + _("My sheltermanager.com account") + '</nobr></a></li>',
                     '<li id="asm-chpassword" class="asm-menu-item"><a href="change_password"><nobr><span class="asm-icon asm-icon-auth"></span> ' + _("Change Password") + '</nobr></a></li>',
@@ -528,6 +530,14 @@ header = {
         return h.join("");
     },
 
+    user_display_label: function() {
+        var alias = asm.useraccountalias || asm.useraccount;
+        if (alias) {
+            return asm.user + "@" + alias;
+        }
+        return asm.user;
+    },
+
     /** Shows quicklinks for the main/home page */
     quicklinks_main: function() {
         if (config.bool("QuicklinksHomeScreen")) {
@@ -581,26 +591,8 @@ header = {
 
     bind: function() {  
 
-        var timezone = config.str("Timezone");
-        if (timezone.indexOf("-") == -1) {
-            timezone = "+" + timezone;
-        }
-        if (timezone.indexOf(".") == -1) {
-            timezone += ":00";
-        }
-        else {
-            timezone = timezone.replace(".25", ":15");
-            timezone = timezone.replace(".5", ":30");
-            timezone = timezone.replace(".75", ":45");
-        }
-
-        // Set flag icon
-        $("#asm-topline-flag")
-            .attr("src", "static/images/flags/" + asm.locale + ".png")
-            .attr("title", asm.locale + " " + timezone);
-
-        // Set user name
-        $("#asm-topline-username").html(asm.user);
+        // Display current user + account alias
+        $("#asm-topline-username").text(this.user_display_label());
 
         Path.change(function(path) {
             header.hide_error();

@@ -38,7 +38,7 @@ def get_database(alias: str = "") -> Database:
 def _get_multiple_database_info(alias: str) -> Database:
     """ Gets the Database object for the alias in our map MULTIPLE_DATABASES_MAP. """
     if alias not in MULTIPLE_DATABASES_MAP:
-        dbo = get_database()
+        dbo = get_dbo()
         dbo.database = "FAIL"
         return dbo
     mapinfo = MULTIPLE_DATABASES_MAP[alias]
@@ -51,5 +51,4 @@ def _get_multiple_database_info(alias: str) -> Database:
     dbo.password = mapinfo["password"]
     dbo.database = mapinfo["database"]
     return dbo
-
 
