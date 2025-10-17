@@ -1,14 +1,13 @@
 #!/bin/bash
 set -e
 
-# PostgreSQL Database Maintenance - External VM Script
-# Runs VACUUM/ANALYZE and compressed backups for every configured database.
+# Standalone backup utility that dumps every configured ASM3 database.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_ROOT="${ASM3_LOG_ROOT:-$SCRIPT_DIR/../logs/asm3}"
 LOG_ROOT="$(cd "$LOG_ROOT" 2>/dev/null && pwd || echo "$LOG_ROOT")"
-LOG_FILE="${LOG_ROOT}/db-maintenance.log"
-LOCK_FILE="/tmp/asm3-db-maintenance.lock"
+LOG_FILE="${LOG_ROOT}/db-backup.log"
+LOCK_FILE="/tmp/asm3-db-backup.lock"
 
 # shellcheck source=custom_scripts/_multi_db.sh
 . "$SCRIPT_DIR/_multi_db.sh"
@@ -28,17 +27,17 @@ trap cleanup EXIT
 
 if [ -f "$LOCK_FILE" ]; then
     if kill -0 "$(cat "$LOCK_FILE")" 2>/dev/null; then
-        log "ERROR: Database maintenance already running (PID: $(cat "$LOCK_FILE"))"
+        log "ERROR: Database backup already running (PID: $(cat "$LOCK_FILE"))"
         exit 1
     else
-        log "WARNING: Stale lock file found, removing it"
+        log "WARNING: Stale backup lock detected, removing it"
         rm -f "$LOCK_FILE"
     fi
 fi
 echo $$ > "$LOCK_FILE"
 
 log "========================================"
-log "Starting PostgreSQL Database Maintenance"
+log "Starting ASM3 Database Backup"
 log "========================================"
 
 ASM3_CONTAINER_ID=$(docker ps -q -f "label=com.docker.compose.service=asm3")
@@ -63,7 +62,7 @@ fi
 
 load_database_entries
 
-log "Target databases:"
+log "Databases to backup:"
 describe_database_entries | while read -r line; do
     log "  $line"
 done
@@ -93,7 +92,7 @@ for entry in "${DATABASE_ENTRIES[@]}"; do
     connect_port="${port:-5432}"
 
     log "----------------------------------------"
-    log "Processing alias '${alias_label}' (database: ${database}, type: ${dbtype_upper})"
+    log "Backing up alias '${alias_label}' (database: ${database}, type: ${dbtype_upper})"
 
     if [ "$dbtype_upper" != "POSTGRESQL" ]; then
         log "WARNING: Unsupported database type '${dbtype}' for alias '${alias_label}' - skipping"
@@ -102,87 +101,23 @@ for entry in "${DATABASE_ENTRIES[@]}"; do
     fi
 
     if ! docker exec -i "$POSTGRES_CONTAINER_ID" env \
-            PGPASSWORD="$password" \
-            PGUSER="$username" \
-            PGDATABASE="$database" \
-            PGHOST="$connect_host" \
-            PGPORT="$connect_port" \
+            PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
+            PGHOST="$connect_host" PGPORT="$connect_port" \
             psql -t -c "SELECT 1;" >/dev/null 2>&1; then
-        log "ERROR: Cannot connect to database '${database}' for alias '${alias_label}'"
+        log "ERROR: Unable to connect to database '${database}' for alias '${alias_label}'"
         OVERALL_STATUS=1
         continue
     fi
-
-    DB_SIZE_BEFORE=$(docker exec -i "$POSTGRES_CONTAINER_ID" env \
-        PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
-        PGHOST="$connect_host" PGPORT="$connect_port" \
-        psql -t -c "SELECT pg_size_pretty(pg_database_size(current_database()));" | xargs)
-    log "Size before maintenance (${alias_label}): ${DB_SIZE_BEFORE:-unknown}"
-
-    log "Running VACUUM (VERBOSE, ANALYZE) on '${alias_label}'..."
-    if docker exec -i "$POSTGRES_CONTAINER_ID" env \
-        PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
-        PGHOST="$connect_host" PGPORT="$connect_port" \
-        psql -c "VACUUM (VERBOSE, ANALYZE);" >> "$LOG_FILE" 2>&1; then
-        log "VACUUM completed for '${alias_label}'"
-    else
-        CODE=$?
-        log "ERROR: VACUUM failed for '${alias_label}' (exit $CODE)"
-        OVERALL_STATUS=1
-        continue
-    fi
-
-    DB_SIZE_AFTER=$(docker exec -i "$POSTGRES_CONTAINER_ID" env \
-        PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
-        PGHOST="$connect_host" PGPORT="$connect_port" \
-        psql -t -c "SELECT pg_size_pretty(pg_database_size(current_database()));" | xargs)
-    log "Size after maintenance (${alias_label}): ${DB_SIZE_AFTER:-unknown}"
-
-    log "Collecting table statistics for '${alias_label}'"
-    docker exec -i "$POSTGRES_CONTAINER_ID" env \
-        PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
-        PGHOST="$connect_host" PGPORT="$connect_port" \
-        psql -c "
-SELECT 
-    schemaname,
-    tablename,
-    n_tup_ins as inserts,
-    n_tup_upd as updates,
-    n_tup_del as deletes,
-    n_live_tup as live_tuples,
-    n_dead_tup as dead_tuples,
-    last_vacuum,
-    last_autovacuum,
-    last_analyze,
-    last_autoanalyze
-FROM pg_stat_user_tables 
-WHERE n_dead_tup > 0 OR n_live_tup > 1000
-ORDER BY n_dead_tup DESC, n_live_tup DESC 
-LIMIT 10;
-" >> "$LOG_FILE" 2>&1
-
-    log "Checking table bloat for '${alias_label}'"
-    docker exec -i "$POSTGRES_CONTAINER_ID" env \
-        PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
-        PGHOST="$connect_host" PGPORT="$connect_port" \
-        psql -c "
-SELECT 
-    tablename,
-    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-FROM pg_tables 
-WHERE schemaname = 'public'
-ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC 
-LIMIT 5;
-" >> "$LOG_FILE" 2>&1
 
     BACKUP_FILE="$BACKUP_DIR/backup_${safe_alias}_${RUN_TIMESTAMP}.dump"
-    log "Creating compressed backup for '${alias_label}': $BACKUP_FILE"
+    log "Creating compressed backup: $BACKUP_FILE"
     if docker exec -i "$POSTGRES_CONTAINER_ID" env \
             PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
             PGHOST="$connect_host" PGPORT="$connect_port" \
             pg_dump -Fc > "$BACKUP_FILE"; then
         BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-        log "Backup created for '${alias_label}': $BACKUP_FILE (Size: $BACKUP_SIZE)"
+        log "Backup complete for '${alias_label}': $BACKUP_FILE (Size: $BACKUP_SIZE)"
+
         if is_truthy "${BACKUP_S3_ENABLED:-}"; then
             S3_BUCKET="${BACKUP_S3_BUCKET:-}"
             S3_PREFIX="${BACKUP_S3_PREFIX:-db-backups}"
@@ -230,28 +165,25 @@ LIMIT 5;
         CODE=$?
         log "ERROR: Backup failed for '${alias_label}' (exit $CODE)"
         OVERALL_STATUS=1
+        continue
     fi
 
-    log "Cleaning up old backups for '${alias_label}' (keeping last 3)"
+    log "Pruning old backups for '${alias_label}' (keeping last 5)"
     set +e
     mapfile -t ALIAS_BACKUPS < <(ls -1t "$BACKUP_DIR"/backup_"${safe_alias}"_*.dump 2>/dev/null)
     set -e
-    if [ ${#ALIAS_BACKUPS[@]} -gt 3 ]; then
-        for old_backup in "${ALIAS_BACKUPS[@]:3}"; do
+    if [ ${#ALIAS_BACKUPS[@]} -gt 5 ]; then
+        for old_backup in "${ALIAS_BACKUPS[@]:5}"; do
             if [ -f "$old_backup" ]; then
                 log "Removing old backup: $old_backup"
                 rm -f "$old_backup"
             fi
         done
     fi
-    set +e
-    REMAINING_ALIAS_BACKUPS=$(ls -1 "$BACKUP_DIR"/backup_"${safe_alias}"_*.dump 2>/dev/null | wc -l | xargs)
-    set -e
-    log "Remaining backups for '${alias_label}': ${REMAINING_ALIAS_BACKUPS:-0}"
 done
 
 log "========================================"
-log "Current backup files:"
+log "Available backups:"
 if compgen -G "$BACKUP_DIR/backup_*.dump" >/dev/null; then
     ls -lh "$BACKUP_DIR"/backup_*.dump | while read -r line; do
         log "  $line"
@@ -261,7 +193,7 @@ else
 fi
 
 log "========================================"
-log "PostgreSQL Database Maintenance & Backup Completed"
+log "ASM3 Database Backup Completed"
 log "========================================"
 
 exit $OVERALL_STATUS

@@ -212,10 +212,8 @@ backup:
 		docker-compose exec -T postgres pg_dump -U asm3 -Fc -t "public.$$TABLE" asm3 > "$$BACKUP_FILE"; \
 		echo "Table backup created: $$BACKUP_FILE"; \
 	else \
-		echo "Creating compressed database backup..."; \
-		backup_file="backup_$$(date +%Y%m%d_%H%M%S).dump"; \
-		docker-compose exec -T postgres pg_dump -U asm3 -Fc asm3 > "$$backup_file"; \
-		echo "Backup created: $$backup_file"; \
+		echo "Creating compressed database backups for all configured databases..."; \
+		bash custom_scripts/backup-databases-external.sh; \
 	fi
 
 # Explicit: backup a single table (same as `make backup TABLE`)
@@ -647,7 +645,7 @@ run:
 		docker-compose exec asm3 python3 /app/src/cron.py all; \
 	elif [ "$$TASK" = "db-maintenance" ]; then \
 		echo "Running database VACUUM (VERBOSE, ANALYZE)..."; \
-		docker-compose exec postgres psql -U asm3 -d asm3 -c "VACUUM (VERBOSE, ANALYZE);"; \
+		bash custom_scripts/run-db-maintenance-external.sh; \
 	elif [ "$$TASK" = "backup" ]; then \
 		$(MAKE) backup; \
 	else \
