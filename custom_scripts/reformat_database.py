@@ -29,6 +29,7 @@ Usage examples:
           the source cell is non-blank (else blank). Example:
           Release Date,MOVEMENTTYPE,release_to_wild_movement_type
         - Duplicate target names are not allowed and will raise an error.
+        - Target names are automatically converted to uppercase.
       python3 custom_scripts/reformat_database.py \
           --source raw_data/raw_database.csv \
           --mapping raw_data/column_map.csv \
@@ -40,9 +41,15 @@ Notes:
     dialect sniffing for delimiter/quoting.
   - Post-rename adjustments implemented:
     * Suffix duplicate ANIMALNAME values with "(Duplicate # x)" for repeats.
+    * Prefix duplicate ANIMALMICROCHIP values with `dup_<n>_` to keep them unique.
+    * If ANIMALENTRYDATE is in the future, reset it to today's date.
     * If MOVEMENTDATE is earlier than ANIMALENTRYDATE, set ANIMALENTRYDATE
       to MOVEMENTDATE and append a note to ANIMALDESCRIPTION.
+    * If MOVEMENTDATE is later than ANIMALDECEASEDDATE, align movement to the deceased date.
+    * Convert textual month dates (eg: "Jan 2024") and unambiguous numeric dates (eg: "09/17/2025") to ISO strings to satisfy the importer.
+    * Convert ANIMALWEIGHT values (assumed grams) into kilograms for ASM3 storage.
     * Accept month-year movement dates (eg: "Jan 2024") and default day to 1.
+    * Append ANIMALADDITIONALRECORDFIXED with a semicolon-separated list of automatic corrections applied (blank when untouched).
   - Future phases (data cleanup, fuzzy logic, error handling) have
     placeholders where we can plug in rules once columns are mapped.
 """
@@ -153,6 +160,8 @@ def _load_mapping(mapping_path: str) -> List[Dict[str, str]]:
             values = list(row.values())
             src = (values[source_idx] or "").strip()
             tgt = (values[target_idx] or "").strip()
+            if tgt:
+                tgt = tgt.upper()
             trans = ""
             if transform_idx is not None and transform_idx < len(values):
                 trans = (values[transform_idx] or "").strip()
@@ -336,8 +345,6 @@ def _rename_columns(
                 "Duplicate column names in output: " + ", ".join(dups)
             )
 
-        writer.writerow(final_header)
-
         # Post-rename processing configuration
         # - Track duplicates for ANIMALNAME
         name_idx = final_header.index("ANIMALNAME") if "ANIMALNAME" in final_header else None
@@ -346,6 +353,8 @@ def _rename_columns(
         entry_idx = final_header.index("ANIMALENTRYDATE") if "ANIMALENTRYDATE" in final_header else None
         desc_idx = final_header.index("ANIMALDESCRIPTION") if "ANIMALDESCRIPTION" in final_header else None
         decease_idx = final_header.index("ANIMALDECEASEDDATE") if "ANIMALDECEASEDDATE" in final_header else None
+        chip_idx = final_header.index("ANIMALMICROCHIP") if "ANIMALMICROCHIP" in final_header else None
+        weight_idx = final_header.index("ANIMALWEIGHT") if "ANIMALWEIGHT" in final_header else None
 
         # Helper to parse many common date formats; returns datetime or None
         def _parse_date(v: str) -> Optional[_dt.datetime]:
@@ -409,9 +418,113 @@ def _rename_columns(
             dt = _parse_date(v)
             return dt.strftime("%Y-%m-%d") if dt else v
 
-        seen_names: Dict[str, int] = {}
+        def _normalise_numeric_date(original: str, dt: Optional[_dt.datetime], label: str, notes: List[str]) -> tuple[str, Optional[_dt.datetime]]:
+            """
+            Convert numeric dates into ISO format when we can unambiguously parse them.
+            Tries the detected ordering first, then alternative month/day order if needed.
+            """
+            value = original or ""
+            if not value:
+                return value, dt
 
-        written = 0
+            # If we already parsed a datetime, prefer that and reformat to ISO
+            candidate_dt = dt or _parse_date(value)
+            if candidate_dt:
+                return candidate_dt.strftime("%Y-%m-%d"), candidate_dt
+
+            # Attempt alternative month/day ordering
+            parts = re.split(r"[/-]", value)
+            if len(parts) != 3 or not all(p.isdigit() for p in parts):
+                return value, None
+
+            year_str = parts[2]
+            adjusted_year_str = year_str
+            year_notes: List[str] = []
+            if len(year_str) > 4 and year_str[:4].isdigit():
+                adjusted_year_str = year_str[:4]
+                year_notes.append(f"{label} year '{year_str}' trimmed to {adjusted_year_str}")
+            elif len(year_str) == 2:
+                # Treat 2-digit years as 20xx
+                adjusted_year_str = f"20{year_str}"
+                year_notes.append(f"{label} year '{year_str}' expanded to {adjusted_year_str}")
+
+            try:
+                year = int(adjusted_year_str)
+            except ValueError:
+                return value, None
+
+            def try_order(day_str: str, month_str: str) -> tuple[Optional[_dt.datetime], List[str]]:
+                local_notes: List[str] = []
+                try:
+                    month = int(month_str)
+                    day = int(day_str)
+                except ValueError:
+                    return None, []
+
+                if month <= 0:
+                    month = 1
+                    local_notes.append(f"{label} month '{month_str}' corrected to 1")
+                if month > 12:
+                    return None, []
+                if day <= 0:
+                    day = 1
+                    local_notes.append(f"{label} day '{day_str}' corrected to 1")
+                if day > 31:
+                    return None, []
+
+                try:
+                    candidate = _dt.datetime(year, month, day)
+                except ValueError:
+                    return None, []
+                return candidate, local_notes
+
+            orderings = [
+                ("day_first", parts[0], parts[1]),   # treat first token as day
+                ("month_first", parts[1], parts[0])  # treat first token as month
+            ]
+            successful = []
+            for order_label, day_token, month_token in orderings:
+                candidate_dt, local_notes = try_order(day_token, month_token)
+                if candidate_dt:
+                    successful.append((candidate_dt, local_notes, order_label))
+
+            if successful:
+                # Prefer candidate with fewer corrections; tie-breaker prefers day-first assumption
+                def sort_key(item: tuple[_dt.datetime, List[str], str]) -> tuple[int, int]:
+                    _, local_notes, order_label = item
+                    return (len(local_notes), 0 if order_label == "day_first" else 1)
+
+                best_dt, local_notes, _ = sorted(successful, key=sort_key)[0]
+                notes.extend(year_notes + local_notes)
+                return best_dt.strftime("%Y-%m-%d"), best_dt
+
+            return value, None
+
+        def _normalise_month_name(original: str, dt: Optional[_dt.datetime], label: str, notes: List[str]) -> tuple[str, Optional[_dt.datetime]]:
+            """
+            Convert month-name values (eg: 'Jan 2024') to ISO format so the importer can parse them.
+            Returns the possibly updated value and datetime.
+            """
+            value = original or ""
+            if value and any(c.isalpha() for c in value):
+                if not dt:
+                    dt = _parse_date(value)
+                if dt:
+                    iso = dt.strftime("%Y-%m-%d")
+                    if iso != value:
+                        return iso, dt
+            return value, dt
+
+        def _format_weight_kg(value: float) -> str:
+            return f"{value:.3f}".rstrip("0").rstrip(".")
+
+        seen_names: Dict[str, int] = {}
+        output_rows: List[List[str]] = []
+        modification_notes: List[List[str]] = []
+        microchip_rows: Dict[str, List[int]] = {}
+        today_date = _dt.date.today()
+        today_iso = today_date.strftime("%Y-%m-%d")
+
         for row in reader:
             out_row: List[str] = []
             for kind, arg in col_ops:
@@ -428,6 +541,19 @@ def _rename_columns(
                         out_row.append("")
                 else:
                     out_row.append("")
+
+            notes: List[str] = []
+
+            # Convert simple yes/no values (case-insensitive) to Y/N flags
+            for idx, cell in enumerate(out_row):
+                if isinstance(cell, str):
+                    trimmed = cell.strip()
+                    lowered = trimmed.lower()
+                    if lowered == "yes":
+                        out_row[idx] = "Y"
+                    elif lowered == "no":
+                        out_row[idx] = "N"
+
             # Post-rename row processing
             # 1) Suffix duplicate ANIMALNAMEs with "(Duplicate # x)"
             if name_idx is not None and name_idx < len(out_row):
@@ -437,46 +563,113 @@ def _rename_columns(
                     count = seen_names.get(key, 0)
                     if count >= 1:
                         out_row[name_idx] = f"{current_name} (Duplicate # {count})"
+                        notes.append(f"ANIMALNAME duplicate; appended '(Duplicate # {count})'")
                     seen_names[key] = count + 1
 
-            # 2) If MOVEMENTDATE < ANIMALENTRYDATE, set entry to movement and
-            #    append an explanatory comment to ANIMALDESCRIPTION
+            # Future entry dates – set to today
+            en_dt = None
+            if entry_idx is not None and entry_idx < len(out_row):
+                en_raw = out_row[entry_idx]
+                en_dt = _parse_date(en_raw)
+                if en_dt and en_dt.date() > today_date:
+                    original_entry = _format_iso_date(en_raw)
+                    out_row[entry_idx] = today_iso
+                    en_dt = _dt.datetime.combine(today_date, _dt.time())
+                    notes.append(f"ANIMALENTRYDATE future ({original_entry}); set to {today_iso}")
+
+            mv_dt = None
+            if move_idx is not None and move_idx < len(out_row):
+                mv_dt = _parse_date(out_row[move_idx])
+
+            dec_dt = None
+            if decease_idx is not None and decease_idx < len(out_row) and out_row[decease_idx]:
+                dec_dt = _parse_date(out_row[decease_idx])
+
+            # Ensure movement date is not before entry date – make them equal
             if (
                 move_idx is not None and entry_idx is not None and
-                move_idx < len(out_row) and entry_idx < len(out_row)
+                move_idx < len(out_row) and entry_idx < len(out_row) and
+                mv_dt and en_dt and mv_dt < en_dt
             ):
-                mv_raw = out_row[move_idx]
-                en_raw = out_row[entry_idx]
-                mv_dt = _parse_date(mv_raw)
-                en_dt = _parse_date(en_raw)
-                if mv_dt and en_dt and mv_dt < en_dt:
-                    # Update entry date to the original movement date string
-                    out_row[entry_idx] = mv_raw
-                    # Append comment to ANIMALDESCRIPTION if present
-                    if desc_idx is not None and desc_idx < len(out_row):
-                        comment = (
-                            f"Entry date adjusted to movement date (was '{en_raw}', movement '{mv_raw}')."
-                        )
-                        existing = (out_row[desc_idx] or "").strip()
-                        if not existing or existing.lower() == "none":
-                            out_row[desc_idx] = comment
-                        else:
-                            out_row[desc_idx] = f"{existing} | {comment}"
+                original_en = out_row[entry_idx]
+                original_mv = out_row[move_idx]
+                out_row[entry_idx] = out_row[move_idx]
+                en_dt = mv_dt
+                notes.append(f"ANIMALENTRYDATE earlier than MOVEMENTDATE (entry { _format_iso_date(original_en)}, movement {_format_iso_date(original_mv) }); aligned entry to movement date")
+                if desc_idx is not None and desc_idx < len(out_row):
+                    comment = (
+                        f"Entry date adjusted to movement date (was '{_format_iso_date(original_en)}', movement '{_format_iso_date(original_mv)}')."
+                    )
+                    existing = (out_row[desc_idx] or "").strip()
+                    if not existing or existing.lower() == "none":
+                        out_row[desc_idx] = comment
+                    else:
+                        out_row[desc_idx] = f"{existing} | {comment}"
 
-                # 3) Normalize dates to ISO (YYYY-MM-DD) for importer locale safety
-                #    Always convert movement/entry if parseable
-                if mv_raw:
-                    out_row[move_idx] = _format_iso_date(out_row[move_idx])
-                if en_raw:
-                    out_row[entry_idx] = _format_iso_date(out_row[entry_idx])
-                if decease_idx is not None and decease_idx < len(out_row):
-                    if out_row[decease_idx]:
-                        out_row[decease_idx] = _format_iso_date(out_row[decease_idx])
+            # Movement date cannot be after deceased date – align them
+            if (
+                move_idx is not None and decease_idx is not None and
+                move_idx < len(out_row) and decease_idx < len(out_row) and
+                mv_dt and dec_dt and mv_dt > dec_dt
+            ):
+                original_move = out_row[move_idx]
+                out_row[move_idx] = out_row[decease_idx]
+                mv_dt = dec_dt
+                notes.append(f"MOVEMENTDATE after ANIMALDECEASEDDATE (movement {_format_iso_date(original_move)}, deceased {_format_iso_date(out_row[decease_idx])}); aligned movement to deceased date")
 
-            writer.writerow(out_row)
-            written += 1
-            if isinstance(limit_rows, int) and limit_rows > 0 and written >= limit_rows:
+            # Convert textual month values and numeric ambiguous dates to ISO so downstream parser accepts them
+            if move_idx is not None and move_idx < len(out_row) and out_row[move_idx]:
+                out_row[move_idx], mv_dt = _normalise_month_name(out_row[move_idx], mv_dt, "MOVEMENTDATE", notes)
+                out_row[move_idx], mv_dt = _normalise_numeric_date(out_row[move_idx], mv_dt, "MOVEMENTDATE", notes)
+            if entry_idx is not None and entry_idx < len(out_row) and out_row[entry_idx]:
+                out_row[entry_idx], en_dt = _normalise_month_name(out_row[entry_idx], en_dt, "ANIMALENTRYDATE", notes)
+                out_row[entry_idx], en_dt = _normalise_numeric_date(out_row[entry_idx], en_dt, "ANIMALENTRYDATE", notes)
+            if decease_idx is not None and decease_idx < len(out_row) and out_row[decease_idx]:
+                out_row[decease_idx], dec_dt = _normalise_month_name(out_row[decease_idx], dec_dt, "ANIMALDECEASEDDATE", notes)
+                out_row[decease_idx], dec_dt = _normalise_numeric_date(out_row[decease_idx], dec_dt, "ANIMALDECEASEDDATE", notes)
+
+            # Convert weight values from grams to kilograms (ASM stores in kg)
+            if weight_idx is not None and weight_idx < len(out_row):
+                raw_weight = (out_row[weight_idx] or "").strip()
+                if raw_weight:
+                    cleaned_weight = raw_weight.replace(",", "")
+                    cleaned_weight = re.sub(r"[^0-9.]+", "", cleaned_weight)
+                    try:
+                        grams = float(cleaned_weight)
+                    except ValueError:
+                        grams = None
+                    if grams is not None and grams >= 5:
+                        kg_value = grams / 1000.0
+                        out_row[weight_idx] = _format_weight_kg(kg_value)
+
+            # Accumulate rows for further adjustments
+            row_index = len(output_rows)
+            output_rows.append(out_row)
+            modification_notes.append(notes)
+            if chip_idx is not None and chip_idx < len(out_row):
+                chip_value = out_row[chip_idx].strip()
+                if chip_value:
+                    microchip_rows.setdefault(chip_value, []).append(row_index)
+
+            if isinstance(limit_rows, int) and limit_rows > 0 and len(output_rows) >= limit_rows:
                 break
+
+        # Handle duplicate microchip numbers by prefixing with dup_#
+        if chip_idx is not None:
+            for chip_value, indices in microchip_rows.items():
+                if len(indices) > 1:
+                    for offset, row_index in enumerate(indices, start=1):
+                        new_value = f"dup_{offset}_{chip_value}"
+                        output_rows[row_index][chip_idx] = new_value
+                        modification_notes[row_index].append(
+                            f"ANIMALMICROCHIP duplicate ({chip_value}); updated to {new_value}"
+                        )
+
+        # Append modification flag column
+        output_header = final_header + ["ANIMALADDITIONALRECORDFIXED"]
+        writer.writerow(output_header)
+        for out_row, notes in zip(output_rows, modification_notes):
+            writer.writerow(out_row + ["; ".join(notes) if notes else ""])
 
 
 # Placeholder hooks for future phases

@@ -62,7 +62,15 @@ $(function() {
                 const convertWeight = (wt) => {
                     const parsed = parseFloat(wt);
                     if (!Number.isFinite(parsed)) { return null; }
-                    return gramsMode ? Math.round(parsed * 1000) : parsed;
+                    if (!gramsMode) {
+                        return parsed;
+                    }
+                    // If value already looks like grams (legacy data), keep it.
+                    if (parsed > 10) {
+                        return Math.round(parsed);
+                    }
+                    // Otherwise treat as kilograms and convert.
+                    return Math.round(parsed * 1000);
                 };
                 const points = (data.points || []).map(p => {
                     const converted = convertWeight(p.weight);

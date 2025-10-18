@@ -47,10 +47,16 @@ if [ -z "$ASM3_CONTAINER_ID" ] || [ -z "$POSTGRES_CONTAINER_ID" ]; then
     exit 1
 fi
 
-PROJECT_ROOT=""
-MOUNTED_CUSTOM_SCRIPTS=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/custom_scripts"}}{{.Source}}{{end}}{{end}}' "$ASM3_CONTAINER_ID" 2>/dev/null || true)
-if [ -n "$MOUNTED_CUSTOM_SCRIPTS" ]; then
-    PROJECT_ROOT=$(dirname "$MOUNTED_CUSTOM_SCRIPTS")
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+if [ ! -d "$PROJECT_ROOT" ]; then
+    PROJECT_ROOT=""
+fi
+
+if [ -z "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/.env" ]; then
+    MOUNTED_CUSTOM_SCRIPTS=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/custom_scripts"}}{{.Source}}{{end}}{{end}}' "$ASM3_CONTAINER_ID" 2>/dev/null || true)
+    if [ -n "$MOUNTED_CUSTOM_SCRIPTS" ]; then
+        PROJECT_ROOT=$(dirname "$MOUNTED_CUSTOM_SCRIPTS")
+    fi
 fi
 
 if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.env" ]; then

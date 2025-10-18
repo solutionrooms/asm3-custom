@@ -290,6 +290,18 @@ db-reset-password:
 		docker-compose exec -T asm3 python3 /app/scripts/reset_password.py "$$ALIAS" "$$TARGET_USER" "$$PASS"
 	echo "Password reset complete."
 
+reset_database:
+	@set -- $(MAKECMDGOALS); shift; \
+	ALIAS="$(if $(DB),$(DB),$${1:-})"; \
+	if [ -z "$$ALIAS" ]; then \
+		echo "Usage: make reset_database <database_alias>"; \
+		echo "   or: make reset_database DB=alias"; \
+		exit 1; \
+	fi; \
+	echo "Resetting operational data for database alias '$$ALIAS'..."; \
+	docker-compose exec -T asm3 python3 /app/scripts/reset_database.py "$$ALIAS"
+	echo "Database '$$ALIAS' reset complete."
+
 # Restore database or a single table from backup file (POSIX sh, single shell)
 restore:
 	@sh -e -c '\

@@ -43,7 +43,14 @@ for alias, info in parsed.items():
             if [[ $python_output == ERROR:* ]]; then
                 printf 'WARNING: %s\n' "$python_output" >&2
             elif [ -n "$python_output" ]; then
-                mapfile -t DATABASE_ENTRIES <<<"$python_output"
+                if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ] 2>/dev/null; then
+                    mapfile -t DATABASE_ENTRIES <<<"$python_output"
+                else
+                    DATABASE_ENTRIES=()
+                    while IFS= read -r line; do
+                        DATABASE_ENTRIES+=("$line")
+                    done <<<"$python_output"
+                fi
             fi
         else
             printf 'WARNING: Unable to parse ASM3_MULTIPLE_DATABASES_MAP\n' >&2

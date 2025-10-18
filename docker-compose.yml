@@ -79,6 +79,7 @@ services:
       # Live-mount key scripts for dynamic updates in dev
       - ./weight_monitor.py:/app/weight_monitor.py:ro
       - ./scripts:/app/scripts:ro
+      - ./raw_data:/app/raw_data
       - asm3_media:/app/media
       - ./logs/asm3:/var/log/asm3
       # Development: Mount source code for hot-reload
