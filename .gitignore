@@ -50,3 +50,8 @@ customizations/sitedefs.py.local
 nginx-processed.conf
 
 raw_data/
+
+# Generated JavaScript bundles (rebuilt via make js-rebundle)
+src/static/js/bundle/rollup*.js
+src/static/js/bundle/*.map
+src/static/js/compat/

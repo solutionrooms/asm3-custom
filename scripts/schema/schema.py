@@ -3,10 +3,40 @@
 # Read the schema from a SQLite database and output it as static
 # JSON data for use by code complete within the application.
 
-import web, json
+import argparse
+import json
+import os
+import sys
+
+PATH = os.path.dirname(os.path.abspath(__file__)) + os.sep
+SRC_PATH = PATH + "../../src/"
+
+if PATH not in sys.path:
+    sys.path.append(PATH)
+if SRC_PATH not in sys.path:
+    sys.path.append(SRC_PATH)
+
+try:
+    import web  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    import web062 as web  # type: ignore
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Emit JSON schema data used for SQL editor autocompletion")
+    default_db = PATH + "../../scripts/schema/schema.db"
+    parser.add_argument(
+        "--db",
+        default=default_db,
+        help="Path to the schema SQLite database (default: %(default)s)",
+    )
+    return parser.parse_args()
+
+
+args = parse_args()
 
 web.config.debug = False
-db = web.database( dbn = "sqlite", db = "scripts/schema/schema.db" )
+db = web.database(dbn="sqlite", db=os.path.abspath(args.db))
 
 VIEWS = [ "adoption", "animal", "animalcontrol", "animalfound", "animallost", 
     "animalmedicalcombined", "animalmedicaltreatment", "animaltest", "animalvaccination", 
