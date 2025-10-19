@@ -16,6 +16,11 @@ $(function() {
             if (trimmed === "") { return ""; }
             const kg = format.to_float(trimmed);
             if (isNaN(kg)) { return trimmed; }
+            // If the stored value already looks like grams (no decimal part and very large),
+            // assume it does not need further conversion.
+            if (trimmed.indexOf(".") === -1 && Math.abs(kg) >= 100) {
+                return trimmed;
+            }
             return Math.round(kg * 1000).toString();
         },
 

@@ -66,6 +66,7 @@ services:
       - ASM3_SMTP_PASSWORD=${ASM3_SMTP_PASSWORD}
       - ASM3_SMTP_TLS=${ASM3_SMTP_TLS}
       - ASM3_USE_SENDMAIL=${ASM3_USE_SENDMAIL}
+      - ASM3_ROLLUP_JS=${ASM3_ROLLUP_JS}
       # Python memory optimizations
       - PYTHONOPTIMIZE=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -79,6 +80,7 @@ services:
       # Live-mount key scripts for dynamic updates in dev
       - ./weight_monitor.py:/app/weight_monitor.py:ro
       - ./scripts:/app/scripts:ro
+      - ./raw_data:/app/raw_data
       - asm3_media:/app/media
       - ./logs/asm3:/var/log/asm3
       # Development: Mount source code for hot-reload

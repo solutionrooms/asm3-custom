@@ -19,6 +19,9 @@ $(function() {
             if (trimmed === "") { return ""; }
             const kg = format.to_float(trimmed);
             if (isNaN(kg)) { return trimmed; }
+            if (trimmed.indexOf(".") === -1 && Math.abs(kg) >= 100) {
+                return trimmed;
+            }
             return Math.round(kg * 1000).toString();
         },
 

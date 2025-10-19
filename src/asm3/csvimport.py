@@ -219,6 +219,22 @@ def gksx(m: Dict, f: str) -> str:
     elif x.startswith("a"): return "-1"
     else: return ""
 
+def _normalise_yes_no(value: str) -> str:
+    """
+    Convert a yes/no style input value to the canonical string ASM3 expects.
+    Returns "1"/"0" when a match is found, otherwise the original value.
+    """
+    stripped = value.strip()
+    lowered = stripped.lower()
+    if stripped == "":
+        return "0"
+    if lowered in ("1", "true", "t", "yes", "y"):
+        return "1"
+    if lowered in ("0", "false", "f", "no", "n"):
+        return "0"
+    return value
+
+
 def create_additional_fields(dbo: Database, row: Dict, errors: List, rowno: int, csvkey: str = "ANIMALADDITIONAL", linktype: str = "animal", linkid: int = 0) -> None:
     """ Identifies and create any additional fields that may have been specified in
         the csv file with csvkey<fieldname> 
@@ -226,18 +242,29 @@ def create_additional_fields(dbo: Database, row: Dict, errors: List, rowno: int,
         has been supplied in the file.
     """
     for a in asm3.additional.get_field_definitions(dbo, linktype):
-        v = gks(row, csvkey + str(a.fieldname).upper())
-        if v != "":
-            try:
-                dbo.delete("additional", "LinkID=%s AND AdditionalFieldID=%s" % (linkid, a.ID))
-                dbo.insert("additional", {
-                    "LinkType":             a.linktype,
-                    "LinkID":               linkid,
-                    "AdditionalFieldID":    a.id,
-                    "Value":                v
-                }, generateID=False)
-            except Exception as e:
-                errors.append( (rowno, str(row), str(e)) )
+        key = csvkey + str(a.fieldname).upper()
+        field_present = key in row
+        raw_value = gks(row, key)
+
+        if a.fieldtype == asm3.additional.YESNO:
+            if not field_present:
+                continue
+            v = _normalise_yes_no(raw_value)
+        else:
+            if raw_value == "":
+                continue
+            v = raw_value
+
+        try:
+            dbo.delete("additional", "LinkID=%s AND AdditionalFieldID=%s" % (linkid, a.ID))
+            dbo.insert("additional", {
+                "LinkType":             a.linktype,
+                "LinkID":               linkid,
+                "AdditionalFieldID":    a.id,
+                "Value":                v
+            }, generateID=False)
+        except Exception as e:
+            errors.append( (rowno, str(row), str(e)) )
 
 def row_error(errors: List, rowtype: str, rowno: int, row: Dict, e: Any, dbo: Database, exinfo: Any):
     """ 

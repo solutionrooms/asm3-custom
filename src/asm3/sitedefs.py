@@ -50,6 +50,9 @@ def read_config_file() -> None:
                 cfg[k.strip()] = v.strip()
 
 def get_string(k: str, dv: str = "") -> str:
+    env_key = f"ASM3_{k.upper().replace('.', '_')}"
+    if env_key in os.environ and os.environ[env_key] != "":
+        return os.environ[env_key]
     global cfg
     if cfg is None: read_config_file()
     if k not in cfg: return dv
@@ -405,4 +408,3 @@ TINYMCE_5_JS = get_string("tinymce_4_js", 'static/lib/tinymce/5.5.1/tinymce/js/t
 
 # Directory where font files are located for use with image watermarking
 WATERMARK_FONT_BASEDIRECTORY = get_string("watermark_font_basedirectory", "/usr/share/fonts/truetype/")
-
