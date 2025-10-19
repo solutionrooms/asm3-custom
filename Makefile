@@ -74,6 +74,7 @@ help:
 	@echo "  clear-cache   - Clear application cache and restart"
 	@echo "  rebuild-all   - Rebundle JS, rebuild image (no cache), restart"
 	@echo "  js-rebundle   - Rebundle JS only and restart (fast)"
+	@echo "  schema-refresh - Regenerate schema.js inside Docker and rebundle"
 	@echo "  shell         - Open shell in ASM3 container"
 	@echo "  db-shell      - Open database shell"
 	@echo "  run <task>    - Run utility tasks inside containers (see below)"
@@ -140,6 +141,13 @@ js-rebundle:
 	@echo "Restarting application..."
 	docker-compose restart asm3
 	@echo "Done. If using rollup_js, the new bundle is now active."
+
+schema-refresh:
+	@echo "Regenerating schema metadata inside Docker..."
+	@docker-compose exec asm3 bash -lc 'python3 /app/scripts/schema/make_db.py --output /tmp/schema.db'
+	@docker-compose exec asm3 bash -lc 'python3 /app/scripts/schema/schema.py --db /tmp/schema.db' > src/static/js/bundle/schema.js
+	@$(MAKE) js-rebundle
+	@echo "Schema refresh complete."
 
 # Start the application
 start:
