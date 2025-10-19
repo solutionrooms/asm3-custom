@@ -788,17 +788,21 @@ o_rollup: o_compat
 	npm --silent run minify_compat
 	rm -f src/static/js/bundle/rollup.js src/static/js/bundle/rollup_compat.js
 
-o_schema: scripts/schema/schema.db o_version
-	# Generate a JSON schema of the database for use when editing
-	# SQL within the program
+o_schema: o_version
+	# Generate a JSON schema of the database for use when editing SQL
 	@echo "[schema] ============================="
 	mkdir -p src/static/js/bundle
-	scripts/schema/schema.py > src/static/js/bundle/schema.js
-
-scripts/schema/schema.db:
-	# Updates the schema.db sqlite database used for building the schema.js file.
-	@echo "[schema.db] =========================="
-	scripts/schema/make_db.py
+	@cid=""; \
+	if command -v docker-compose >/dev/null 2>&1; then \
+		cid=$$(docker-compose ps -q asm3 2>/dev/null || true); \
+	fi; \
+	if [ -n "$$cid" ]; then \
+		docker-compose exec -T asm3 bash -lc 'python3 /app/scripts/schema/make_db.py --output /tmp/schema.db'; \
+		docker-compose exec -T asm3 bash -lc 'python3 /app/scripts/schema/schema.py --db /tmp/schema.db' > src/static/js/bundle/schema.js; \
+	else \
+		python3 scripts/schema/make_db.py; \
+		python3 scripts/schema/schema.py > src/static/js/bundle/schema.js; \
+	fi
 
 o_compile: o_compilejs o_compilepy 
 

@@ -1,0 +1,523 @@
+50
+======
+
+2025-10-18 fix env var for rollup [Jon Scott] 37fbea593 (HEAD -> final_data_load_20251017, origin/final_data_load_20251017)
+2025-10-18 jsrebubdle t2 [Jon Scott] 38b5f6411
+2025-10-18 js_rebundle test [Jon Scott] b582cd3f9
+2025-10-18 updates for go-lve [Jon Scott] 54aa367ee
+2025-10-17 multi database scripts [Jon Scott] a49dc41ad (origin/try-out-multiple-databases, try-out-multiple-databases)
+2025-10-16 make commands, user@, special features for hiding home [Jon Scott] 5142150ea
+2025-10-16 multi dtabase initial [Jon Scott] a7a5956db
+2025-10-14 improve observations [Jon Scott] 49e4de97d (origin/changes_requested_and_readyness, changes_requested_and_readyness)
+2025-10-14 improve layout of observations, add qr code, [Jon Scott] 5fbd78cc2
+2025-10-13 born in shelter - g - admission [Jon Scott] 9297dab5b
+2025-10-13 add code as needed to move to mac pro [Jon Scott] 6926c6902 (origin/q3v7kx-hedgehog-animal-selector)
+2025-09-21 chore: mark R9C5JP login issue complete [Jon Scott] 1f10c1cf5 (origin/r9c5jp-login-issue)
+2025-09-21 fix: add host swap helper [Jon Scott] 66624e486
+2025-09-21 fix: flag unexpected login responses [Jon Scott] 58a5fb7ab
+2025-09-21 chore: localise log storage and restore ops docs [Jon Scott] a6a9b5938
+2025-09-21 add codex files and tidy md [Jon Scott] b7ec88bc5
+2025-09-07 fix restore [Jon Scott] 4df86d730
+2025-09-07 restore debug [Jon Scott] 64d450396
+2025-09-07 fix restore [Jon Scott] b0c77df4a
+2025-09-07 make restore fixes [Jon Scott] 2d878bbe1
+2025-09-07 Frontend: Integrate poo sample markers into analysis graph (data, drawing, interactions, and tooltips) [Jon Scott] 2a15affcd
+2025-09-07 Backend: Always parse poo sample results across all observations and expose via API [Jon Scott] ffd0598fd
+2025-09-07 Docs: Add Animal Analysis - Poo Sample Markers Not Showing entry [Jon Scott] 8154c0df3
+2025-09-07 Adds Animal Analysis with weight graph [Jon Scott] 2a0eb6781
+2025-09-07 add poo samp result to observations [Jon Scott] 3c8d1a2ac
+2025-09-07 Adds documentation for importing poo samples history [Jon Scott] 62c3e704c
+2025-09-07 Remove memory and CPU resource limits from docker-compose across services [Jon Scott] 8add4f341
+2025-09-07 Add README section for weights history import [Jon Scott] 0a5a2851c
+2025-09-07 Fix Makefile backup and restore targets by quoting TABLE and sanitizing table names [Jon Scott] 67c4ee967
+2025-09-04 docker-compose: increase memory limits for services [Jon Scott] eb3ff3706
+2025-09-04 gitignore: update to properly ignore nginx-processed config and new data [Jon Scott] 1dfb572f6
+2025-09-03 build fix [Jon Scott] 6749a6b63
+2025-09-03 rebuild v2 [Jon Scott] 500b44f2a
+2025-09-03 rebuild makes [Jon Scott] 3022cf1d7
+2025-09-03 Hedgehog observation UI enhancements: add validation, poo sample flow, and closing tweak [Jon Scott] f7e5cd141
+2025-09-03 Increase resource limits for Postgres service in docker-compose [Jon Scott] e42b43d6f
+2025-09-03 update dockerfile with pip rather than apt [Jon Scott] ca4c566da
+2025-09-03 animal history [Jon Scott] e6f14444a
+2025-09-03 Frontend: Daily Observations options form updated with dynamic Behave entries [Jon Scott] 253baa22f
+2025-09-03 Frontend: hedgehog_observation widget enhancements (state persistence, rendering, observation parsing, and photo upload) [Jon Scott] 187f93ad9
+2025-09-03 Frontend: add Observations tab in header navigation [Jon Scott] 1a213c752
+2025-09-03 Backend: add animal_observations_history endpoint and integrate latest media/last observation logic into hedgehog_observation [Jon Scott] 1c877fbb0
+2025-09-03 Configuration: add default flags and ranges for daily behaviors + minor formatting cleanup [Jon Scott] bdaba6d58
+2025-09-03 Dockerfile: extend runtime dependencies and add wkhtmltopdf support [Jon Scott] 5267ee3ac
+2025-09-03 Adds hedgehog observation endpoint and menu [Jon Scott] aa93c1e5a
+2025-09-02 code to grey a field in a form [Jon Scott] 35563d88a
+2025-09-02 Links weight readings to nearby online-form photos [Jon Scott] 036279708
+2025-09-01 Enables hot-reload and strengthens audit join [Jon Scott] 1f0a72069
+2025-09-01 makefile backup tables and make new reports work [Jon Scott] d04251abe
+2025-09-01 Adopts label-based docker exec for external scripts [Jon Scott] e0c986038
+2025-09-01 Migrate microchip-related fields and wire up UI bindings [Jon Scott] 351b99c38
+2025-09-01 Refactor photo upload flow to use shared prompt and handler for camera/library inputs [Jon Scott] 71197f87c
+2025-09-01 Add photo source selection UI for induction: dialog, library input, and wiring [Jon Scott] c1fa61784
+2025-08-31 fix hidden [Jon Scott] ffa4a370c
+2025-08-31 change nflow for new induction and add delete [Jon Scott] 0088ffd28
+2025-08-31 Ensures animal record exists before media upload [Jon Scott] eb32cf233
+2025-08-31 mobile compatibiliyty for photos [Jon Scott] fa82f4b1b
+2025-08-31 reorder and change photos section [Jon Scott] a202ad44a
+2025-08-31 Enables S3-backed DBFS storage and mirroring [Jon Scott] ac7f8f13f
+2025-08-30 Improve induction image loading reliability [Jon Scott] 2d87b7e75
+2025-08-29 Fetches animal photo via image endpoint [Jon Scott] 8d4b5a2eb
+2025-08-29 Adds mobile photo uploader tile with preview [Jon Scott] 95d939368
+2025-08-29 Feature: Implement mobile photo upload support and event wiring for induction UI [Jon Scott] d739d3b7c
+2025-08-29 UI: Add photo upload controls and description field to animal induction form, with initialization and reset handling [Jon Scott] 45d58d436
+2025-08-29 Avoid marking as dirty during initial programmatic setup; ensure clean state [Jon Scott] 940315912
+2025-08-29 Improve save flow: validate inputs, handle errors, and propagate response [Jon Scott] 08dc1416d
+2025-08-29 Gracefully handle unit loading in update_units when AJAX fails [Jon Scott] 12b9e3062
+2025-08-29 Make response parsing robust for animal_induction save operations [Jon Scott] 9722678a1
+2025-08-29 Cleanup unsaved changes hooks on widget destruction [Jon Scott] 4540cfb33
+2025-08-29 Introduce global Unsaved Changes support for animal_induction [Jon Scott] 3287d5972
+2025-08-29 Synchronize dirty flag around animal_induction save flow [Jon Scott] 01efb0a99
+2025-08-29 animal changes [Jon Scott] 90cfee661
+2025-08-28 Enhance animal induction form with coat type and size row IDs for improved functionality [Jon Scott] 5cc1ce085
+2025-08-28 Enhance animal induction form with dynamic Entry Age Range field rendering [Jon Scott] b0fa3765f
+2025-08-28 Add age group options to animal induction form and enhance dynamic population [Jon Scott] 7f946de50
+2025-08-27 Update CLAUDE.md with test credentials and enhance animal induction save feedback [Jon Scott] fbc0b0a30
+2025-08-27 Implement dynamic SSL configuration in nginx processing script [Jon Scott] e14a3276d
+2025-08-27 Fix typo in "Hedghog" to "Hedgehog" across multiple files and enhance floating button visibility logic in mobile view. [Jon Scott] 9aaa7777e
+2025-08-27 Update CLAUDE.md and Makefile for improved documentation and instructions [Jon Scott] ef9d77616
+2025-08-27 Enhance SSL configuration and troubleshooting documentation [Jon Scott] c321ebbfe
+2025-08-27 Update animal induction form with remedial actions and floating buttons [Jon Scott] e89b400ad
+2025-08-26 Refactor animal induction form with improved styling and functionality [Jon Scott] b9019b908
+2025-08-26 Enhance animal induction form with dynamic field rendering and widget initialization [Jon Scott] ac0bb8c05
+2025-08-26 Update Makefile and JavaScript for Custom Patient Induction System [Jon Scott] b895a5409
+2025-08-25 Revamp Patient Induction Form with Enhanced UI and Structure [Jon Scott] 47cfacd69
+2025-08-25 Add unique animal names constraint and validation [Jon Scott] fa3aa61c2
+2025-08-25 Enhance MODIFICATIONS.md with comprehensive documentation of ASM3 custom changes [Jon Scott] c105b1c7b
+2025-08-25 Add animal induction functionality and related updates [Jon Scott] b58b9077f
+2025-08-24 Add development settings and documentation for ASM3 customization [Jon Scott] 82f0210e8
+2025-08-24 Update Docker configuration for environment variable management and ASM3 setup [Jon Scott] b7002695c
+2025-08-24 Refactor Docker and Makefile structure for improved management [Jon Scott] 4c32e73ce
+2025-08-24 Base unmodified not yet working [Jon Scott] 328d8996a
+2025-08-07 Milestone 50 release [Robin Rawson-Tetley] 5f142dc80 (tag: 50, origin/main-custom)
+2025-08-04 Add animal costs to global search #1831 [adamdspencer77] 52ab256ff
+2025-08-04 Broken SmartTag imports #1647 [Robin Rawson-Tetley] 2fbde75df
+2025-08-04 SmartTag: new HTTP API #1647 [adamdspencer77] 2a45b5391
+2025-08-01 Never try and create lookups from MEDICALTYPE columns during CSV import [Robin Rawson-Tetley] 9c417348f
+2025-08-01 Online form import button - validate that the file is .html or .json #1816 [adamdspencer77] b031a2fc6
+2025-07-31 Fix for editing currency amounts that do not use 100 subdivisions #1830 [Robin Rawson-Tetley] d0c4326ad
+2025-07-30 Ark import for tr3485 [Robin Rawson-Tetley] a89659fd5
+2025-07-28 animal_view_adoptable_html should have template in its available params for caching [Robin Rawson-Tetley] d88bd883e
+2025-07-28 Improve readability of changes to product, stock and online form definitions in the audit trail [Robin Rawson-Tetley] ebd812455
+2025-07-28 Add dbfs to undelete screen [Robin Rawson-Tetley] 93c2bd109
+2025-07-27 Make old static publisher wordkeys compatible with html_lost/found [Robin Rawson-Tetley] a0d724d50
+2025-07-27 Add support for the old static publisher wordkeys (TITLE, TOTAL, etc) to html page service calls [Robin Rawson-Tetley] e751de3c2
+2025-07-26 Allow a special $$COUNT$$ token to be used with html_\* service call/page templates to display the number of animals [Robin Rawson-Tetley] d9d0a3d05
+2025-07-25 Show confirmation when mobile UI writes daily observations #1319 [Robin Rawson-Tetley] 7e5d85102
+2025-07-25 Do not allow movements to take place after deceased date [Robin Rawson-Tetley] c5349ec63
+2025-07-25 Audit setting of preferred when deleting media [Robin Rawson-Tetley] e86ed10c9
+2025-07-25 Fix to show changes to publishing exclusion and preferred in audit trails [Robin Rawson-Tetley] bce09017a
+2025-07-24 Updated Intakes by Date with Addresses report [Jonathan Rawson-Tetley] 89a525896
+2025-07-24 Added Animal ID microcchip manufacturer prefixes [Jonathan Rawson-Tetley] 85f8d5431
+2025-07-23 Prevent hidden fields breaking the layout of additional sliders [Robin Rawson-Tetley] 079e0c4ea (origin/ft-1699)
+2025-07-23 Tweaks/fixes to autotext widgets based on bugs in invoice items #444 [Robin Rawson-Tetley] ff31b16c1
+2025-07-23 Trigger autotext change events when menu closes/is clicked #444 [Robin Rawson-Tetley] 3545510fa
+2025-07-23 Move couple additional fields to the bottom #1325 [Robin Rawson-Tetley] 4d9288af3
+2025-07-23 Remove debug code, fix missing closer #1319 [Robin Rawson-Tetley] fc3dd41c4
+2025-07-23 Clinic: invoice items lookup #444 [adamdspencer77] 317854283
+2025-07-23 Person - Details (Couple) additional field link #1325 [adamdspencer77] 86f36dcef
+2025-07-23 Mobile interface: Daily Observations #1319 [adamdspencer77] 58a39f324
+2025-07-22 Updated updated donor mail merges [Jonathan Rawson-Tetley] 80e451386
+2025-07-16 PetFBI was logging an alert for no publishable animals [Robin Rawson-Tetley] 2418878e7
+2025-07-16 Fix litter parent query for animal_links #1115 [Robin Rawson-Tetley] 63492d18d
+2025-07-15 Incorrect semi-colon placement #1821 [Robin Rawson-Tetley] 3d7bd4eaa
+2025-07-15 Not sure how click() would work on mobile, set the box and fire change() event #1821 [Robin Rawson-Tetley] 24e665e83
+2025-07-15 Option to default new animals to non-shelter #1821 [adamdspencer77] 5c74de170
+2025-07-15 Fix missing br in person brief expander, use slide transition #1106 [Robin Rawson-Tetley] 2ef145101
+2025-07-14 Allow a template to be passed to animal_view_adoptable_html service call [Robin Rawson-Tetley] 029357c1b
+2025-07-12 Add lksmedicaltype to list of export tables for sql_dump [Robin Rawson-Tetley] c814e8a99
+2025-07-11 Escape litterid when finding links #1115 [Robin Rawson-Tetley] 9dc3e58ab
+2025-07-11 Fix bad field reference in animal link query #1115 [Robin Rawson-Tetley] 651d0fd33
+2025-07-11 Use asynctask for all CSV exports #1759 [Robin Rawson-Tetley] 5d6f39035
+2025-07-10 Use the row length instead of chunksize when updating progress meter #1759 [Robin Rawson-Tetley] e11be6bfc
+2025-07-10 Move progress meter to collating records #1759 [Robin Rawson-Tetley] 0dae720f9
+2025-07-10 Simplify animal export query #1759 [Robin Rawson-Tetley] b9348f791
+2025-07-10 Add debug logging #1759 [Robin Rawson-Tetley] f593aafe7
+2025-07-10 OFFSET needs to appear before LIMIT when chunking queries #1759 [Robin Rawson-Tetley] 58fe5818e
+2025-07-10 Yield the whole list of rows instead of one at a time #1795 [Robin Rawson-Tetley] de9e9e46c
+2025-07-10 Use generator_chunked to avoid statement timeouts #1759 [Robin Rawson-Tetley] cd1b5d0a1
+2025-07-10 Implement asynctask based export for CSV animal/adopter data #1759 [Robin Rawson-Tetley] 7d7515ebc
+2025-07-10 Add LINC Medipharm chips to the prefix database [Robin Rawson-Tetley] ba2f87850
+2025-07-09 Create the initial checkout state with the URL #1714 [Robin Rawson-Tetley] 4f27d0326
+2025-07-08 Fix auto emails not removing subject tokens [Robin Rawson-Tetley] f6d66fdfb
+2025-07-07 Substitute $URL token on the client when choosing templates #1714 [Robin Rawson-Tetley] 15d25bc8b
+2025-07-07 Pre-generate checkout links so they can be previewed and sent by other means #1714 [adamdspencer77] 92e137980
+2025-07-07 Animal links slider #1115 [adamdspencer77] 8bafdac4b
+2025-07-07 Missing semicolon #1106 [Robin Rawson-Tetley] 101702b9f
+2025-07-07 Expander for brief embedded person widget #1106 [adamdspencer77] 057f15ac3
+2025-07-03 Drop country codes when formatting phone numbers #1780 [adamdspencer77] 9e0c07f4d
+2025-07-03 Lint tools, add missing semicolon #966 [Robin Rawson-Tetley] 4fd94e0db
+2025-07-03 Check microchip screen in mobile UI #966 [adamdspencer77] 619ff1fbf
+2025-07-03 SavourLife: Set bonded animal DOB correctly [Robin Rawson-Tetley] 138538ec2
+2025-07-02 Added current product levels report #1805 [Jonathan Rawson-Tetley] 6e4f793fd
+2025-07-02 Fix bug with display of microchip numbers in mobile UI when implant date is set [Robin Rawson-Tetley] 3a3f18aad
+2025-07-02 Fix typo in variable name [Robin Rawson-Tetley] cc63d25b9
+2025-07-01 Disable add_large_text_fields as part of simple searching [Robin Rawson-Tetley] 1583de9d1
+2025-07-01 Re-enable staff/volunteer flag filters on staff rota #242 [Robin Rawson-Tetley] 50ca9f3cc
+2025-07-01 Fix image sequence ordering to newest to oldest instead of the other way around [Robin Rawson-Tetley] 009eac821
+2025-06-28 Fix old non-parameterised dbupdates - they could break in non-English locales [Robin Rawson-Tetley] b7c646eea
+2025-06-27 Prevent output causing unnecessary messages from cron #1359 [Robin Rawson-Tetley] 2c5903230
+2025-06-27 remove unnecessary stdout output from automail/send_all [Robin Rawson-Tetley] 13bec3a82
+2025-06-27 Add wordkey for EntryType [Robin Rawson-Tetley] da63d1b5a
+2025-06-26 Default flags on rota view option #242 [adamdspencer77] 2841bc71a
+2025-06-26 Bad typing when setting account description #439 [Robin Rawson-Tetley] 07dac6482
+2025-06-26 Import accounts from CSV file #439 [adamdspencer77] 0eca7b2c9
+2025-06-26 Add missing textbox class #1781 [Robin Rawson-Tetley] 02ae5405c
+2025-06-26 Timeline filter #1781 [adamdspencer77] 337405d55
+2025-06-25 Do not hide cost per treatment for single treatment regimens as it prevents users entering an amount for reports [Robin Rawson-Tetley] 46975a7d9
+2025-06-24 Correct ambiguous DateOfBirth error in Transfers In report [Robin Rawson-Tetley] 75a8d00e0
+2025-06-24 Add age at transfer to Transfers In report [Robin Rawson-Tetley] 639582913
+2025-06-24 add age at transfer [Robin Rawson-Tetley] 9b5a592a9
+2025-06-24 product.GlobalMinimum was incorrectly being assigned as a string [Robin Rawson-Tetley] fcc4b938f
+2025-06-24 Only log when chipprefixes file is actually read, format time in search debug log line [Robin Rawson-Tetley] a670de98f
+2025-06-24 Fix deprecated ANTIALIAS constant when resizing images [Robin Rawson-Tetley] f7173032e
+2025-06-23 Mark conffiles correctly when building the Debian package [Robin Rawson-Tetley] f9f1dc74f
+2025-06-23 combination of fadeOut and show caused errors with adoption checkout [Robin Rawson-Tetley] 9bbb5fb8d
+2025-06-23 Querybuilder: Add medical type options and criteria [Robin Rawson-Tetley] 0f4de844e
+2025-06-22 Add MedicalTypeName to v_animalmedicalcombined for query builder [Robin Rawson-Tetley] 70a1d7a0a
+2025-06-20 Do not copy rabies tag when cloning animals [Robin Rawson-Tetley] e5f46976b
+2025-06-20 Include pie chart totals in the legend #1795 [Robin Rawson-Tetley] 8b7a55dd2
+2025-06-20 decode HTML entities in the email address books so RFC821 can be used [Robin Rawson-Tetley] 81359415d
+2025-06-19 Update for PetLink alternative error/column attribute format [Robin Rawson-Tetley] 0e196c4cb
+2025-06-18 Updated animal database goodwithchildren manual  entry [Jonathan Rawson-Tetley] 11bf00206
+2025-06-18 Update fr.po [Mathieu MD] 3acc123fe
+2025-06-18 Remove redundant overnight batch scheduling for report execution #1790 [Robin Rawson-Tetley] e1f2449b1
+2025-06-18 Allow locked databases to run async tasks [Robin Rawson-Tetley] d6eec2162
+2025-06-17 Fix bug that made new species additional fields override hidden flag, prevent hidden fields being mandatory #1163 [Robin Rawson-Tetley] 59891bdf6
+2025-06-16 Removed redundant code that was not doing anything #1163 [Robin Rawson-Tetley] a249a42a9
+2025-06-16 Fix bug that reset breeds after being loaded #1163 [Robin Rawson-Tetley] 683162198
+2025-06-16 Fix species additional fields to also show if no species have been chosen #1163 [Robin Rawson-Tetley] ec9795d15
+2025-06-16 Better CSV import validation/dry run option #1478 [adamdspencer77] b1ffd0337
+2025-06-16 Include medical regimen type in CSV import/export #1783 [adamdspencer77] 17db3cb41
+2025-06-16 Clearer callout text, set new speciesids column to empty string #1163 [Robin Rawson-Tetley] 689b13fbd
+2025-06-16 Add callout for internal use box #1534 [Robin Rawson-Tetley] 1b71a6a23
+2025-06-16 Species specific additional fields #1163 [adamdspencer77] ab7467153
+2025-06-16 Mobile UI: Menu to show internal use online forms #1534 [adamdspencer77] 30d9e9054
+2025-06-15 Charts as subreports #1446 [adamdspencer77] 38da00dd4
+2025-06-14 Fix uninitalised variable bug #1312 [Robin Rawson-Tetley] b19933e22
+2025-06-13 removed extra junk from one of the spam reasons (non-numeric postcode) [Robin Rawson-Tetley] 6f8644bae
+2025-06-13 Online forms: Add the reason a form was identified as spam into the form [Robin Rawson-Tetley] fdd8bb4c2
+2025-06-12 Include post.data values when logging mandatory spambot check [Robin Rawson-Tetley] 753577fb6
+2025-06-12 document new spambot protection [Robin Rawson-Tetley] 13765f932
+2025-06-12 Accidentally duplicated spam check code, removed [Robin Rawson-Tetley] 00dc53050
+2025-06-12 Fix log message in new spambot check, stop after the first instance is found [Robin Rawson-Tetley] 3b982ab7a
+2025-06-12 New online form spambot option, flag when a mandatory field is blank [Robin Rawson-Tetley] 712192c5a
+2025-06-12 Switch out flot.js for chart.js #1312 [adamdspencer77] 0ee1d6e4f
+2025-06-11 Updated foster 50 grant report [Jonathan Rawson-Tetley] 189068f66
+2025-06-11 Do not attempt to register microchips with an event date in the future #1782 [Robin Rawson-Tetley] 82016d397
+2025-06-11 Work around mobile Firefox not supporting HTML5 required validation in online forms #1779 [Robin Rawson-Tetley] ea88cb886
+2025-06-10 Good with elderly incorrectly using good with kids lookup values on looking for section [Robin Rawson-Tetley] b3ddbbdcc
+2025-06-10 Updated energey level in csv import section in manual [Jonathan Rawson-Tetley] 047602e6b
+2025-06-10 PetRescue: remove unnecessary json breeds from the code as they are stored in static files [Robin Rawson-Tetley] 531b5db74
+2025-06-09 Updated foster 50 challeng grant report [Jonathan Rawson-Tetley] d26ae724a
+2025-06-09 Added foster 50 challeng grant report [Jonathan Rawson-Tetley] 313163126
+2025-06-06 pushed static update [Jonathan Rawson-Tetley] c60bdf4cf
+2025-06-06 published manual [Jonathan Rawson-Tetley] 8a470d939
+2025-06-06 Updated looking for fields in manual [Jonathan Rawson-Tetley] 064971d26
+2025-06-06 Added new looking for online form fields to manual [Jonathan Rawson-Tetley] 966665c23
+2025-06-06 Merge looking for fields on existing people from online forms #990 [Robin Rawson-Tetley] cf8ab1f31
+2025-06-06 Fix indentation #990 [Robin Rawson-Tetley] cf7ae379b
+2025-06-06 Online form: link to looking for fields #990 [adamdspencer77] 9a2f65a84
+2025-06-06 Product images #884 [adamdspencer77] 76a57bf0f
+2025-06-06 Checked and updated mail merges [Jonathan Rawson-Tetley] d828503ce
+2025-06-06 add maint_db_diagnostic [Robin Rawson-Tetley] 336be5fac
+2025-06-04 updated heartworm positive adopters mailmerge [Jonathan Rawson-Tetley] dc08965f3
+2025-06-04 Output a blank with missing CSV columns [Robin Rawson-Tetley] 42949c7ce
+2025-06-03 Updated donors between two dates for type mailmerge [Jonathan Rawson-Tetley] f59839fba
+2025-06-02 Online forms: phone number type field #1120 [adamdspencer77] e2e51c0f2
+2025-06-02 Add unit test for boarding_due_two_dates #1300 [Robin Rawson-Tetley] 292af482c
+2025-06-02 Boarding availability screen #1300 [adamdspencer77] faf836b99
+2025-05-30 Fix manual chart examples to use SQL tokens [Robin Rawson-Tetley] 152c7e2ed
+2025-05-30 Only open reports in a new browser tab if the option is on, not the reports screen [Robin Rawson-Tetley] c9a1f3408
+2025-05-30 Fix stock level quicklink [Robin Rawson-Tetley] c371fc246
+2025-05-30 do not enable querystring cache for POSTed service calls [Robin Rawson-Tetley] 68688ecf2
+2025-05-30 add .asm-formfield class to tableform, remove unnecessary closest/tr [Robin Rawson-Tetley] 08b2ba945
+2025-05-30 update npm package version/urls [Robin Rawson-Tetley] dc33d3f0e
+2025-05-30 Refactor additional.append_to_results to a single query #1775 [Robin Rawson-Tetley] be7a4b6ba
+2025-05-29 lksmedicaltype needs adding to the lookup tables #1621 [Robin Rawson-Tetley] 823ae3afd
+2025-05-29 Still got parameters wrong #1621 [Robin Rawson-Tetley] fc2aa4ed5
+2025-05-29 ValidationRule should be nullable #1727 [Robin Rawson-Tetley] aaa08ad3b
+2025-05-29 missing parameter broke medicaltype on new databases #1621 [Robin Rawson-Tetley] 937f9fbe6
+2025-05-29 Added more reserved characters to strip from media filenames [Robin Rawson-Tetley] da9fb3cfc
+2025-05-29 strip line breaks from media file names to prevent issues with email [Robin Rawson-Tetley] 487fa7564
+2025-05-27 chooser non-shelter owner field missing the class to exclude from form posts [Robin Rawson-Tetley] 72d9c36d8
+2025-05-26 SavourLife: No longer set RequirementsOtherAnimals since we have no suitable value [Robin Rawson-Tetley] 505711605
+2025-05-24 Updated print animal record for adopters report [Jonathan Rawson-Tetley] 3c57d38f2
+2025-05-24 Prevent mismatch email error on email fields other than primary #1442 [Robin Rawson-Tetley] b5c35845d
+2025-05-24 when updating transaction amounts for existing payments, deduct sales tax [Robin Rawson-Tetley] 0e58ed06c
+2025-05-24 Fix bug that caused animal templates with blank description to overwrite description on all new animals [Robin Rawson-Tetley] 2637a0136
+2025-05-24 onlineform: show email confirmation only for 'emailaddress' and with same showif as main field #1442 [Robin Rawson-Tetley] 23d236fb1
+2025-05-23 ability to write table column styles and maxwidth in tableform columns [Robin Rawson-Tetley] 299b48051
+2025-05-23 CustomTreatmentName should be created as nullable in new databases #1621 [Robin Rawson-Tetley] 3ec008f1c
+2025-05-23 Fix choosers causing unwanted bulk updates to animal type/entry category #1765 [Robin Rawson-Tetley] 7a99747b7
+2025-05-22 Set customtreatmentname to an empty string instead of null for non-custom treatments #1621 [Robin Rawson-Tetley] d303e32ff
+2025-05-22 Fix bug with finding similar people with multiple forenames [Robin Rawson-Tetley] fd3ccec1c
+2025-05-22 revert onlineform site change [Robin Rawson-Tetley] fbdb58032
+2025-05-22 onlineform: debug info on person similar checks, site matching for similar should consider no site [Robin Rawson-Tetley] de3743c86
+2025-05-21 Fix incorrect type for validation rule field #1727 [Robin Rawson-Tetley] c2c6a05a1
+2025-05-21 Update manual [Robin Rawson-Tetley] eb4da4bcd
+2025-05-21 Report PDF export, allow landscape option #1753 [adamdspencer77] b1538437f
+2025-05-21 Fix bug caused by date format being left out of online form datepickers [Robin Rawson-Tetley] dd02cfeaa
+2025-05-20 Update translation template [Robin Rawson-Tetley] 9a02452ad
+2025-05-20 Checkbox to control bulk updating of additional fields #1765 [Robin Rawson-Tetley] 98aaeb5b6
+2025-05-19 Fix for manual SAC send endpoint, specifying a month was only sending reptiles [Robin Rawson-Tetley] ac93e142e
+2025-05-19 Fixes to bulk change of additional fields (do not update on blank) #1765 [Robin Rawson-Tetley] 4024ff07e
+2025-05-19 Bulk change animals: use one widget per additional field #1765 [adamdspencer77] e0a7cb961
+2025-05-19 bad method call breaks new screens with currency additional fields [Robin Rawson-Tetley] 93c9595e6
+2025-05-19 Online form: when attaching animals by name, check other reserveanimalname fields [Robin Rawson-Tetley] 8f6120ca5
+2025-05-15 Set appropriate user-agent when making HTTP requests [Robin Rawson-Tetley] 50b0fe45f
+2025-05-15 Hide dosage and cost per treatment as appropriate #1767 [Robin Rawson-Tetley] 9cd13fa05
+2025-05-14 Clearer callout for custom timings, better table layout for medical types #1621 [Robin Rawson-Tetley] a3d58b860
+2025-05-14 Update manual with MedicalType wordkeys #1621 [Robin Rawson-Tetley] ff221fada
+2025-05-14 Add medical types and custom treatment timings #1621 [adamdspencer77] f7e90e7ee
+2025-05-14 Fix citation additional fields not appearing with person citations #1761 [Robin Rawson-Tetley] e200cc940
+2025-05-14 Allow embedded people/animals on embedded add dialogs to 1 level of depth #1764 [Robin Rawson-Tetley] c8ab94e96
+2025-05-14 Add unknown energy level and make it the default [Robin Rawson-Tetley] 2d65dc882
+2025-05-13 Hebrew translation [saggineumann] 82ff778a6
+2025-05-13 Added intakes to Michigan Dept of Agriculture report [Jonathan Rawson-Tetley] c0d4cc219
+2025-05-12 Transport "View on map" to plot a route #372 [adamdspencer77] a20e8c181
+2025-05-12 ID should not be generated a second time when saving templatehtml #1653 [Robin Rawson-Tetley] 9f1a03107
+2025-05-12 templatedocument, templatehtml - saving to them writes to deletion table #1653 [adamdspencer77] ea6a05de0
+2025-05-12 Add ^ operator to showif syntax [Robin Rawson-Tetley] 2337c6ead
+2025-05-12 Add microchip status dropdowns #1728 [adamdspencer77] 9935cbdc3
+2025-05-12 Add validation options for date fields in online forms #1727 [adamdspencer77] 1fbed1d7d
+2025-05-12 remove extra space [Robin Rawson-Tetley] dda5497d6
+2025-05-12 Citation additional fields #1602 [adamdspencer77] 7cb0dd7dc
+2025-05-12 Remove hard-coded confirm email tooltip #1442 [Robin Rawson-Tetley] 3e71d8259
+2025-05-12 Online forms: email address confirmation #1442 [adamdspencer77] a30ae6e90
+2025-05-12 Facility to update additional animal fields in bulk #1522 [adamdspencer77] 4091802e8
+2025-05-10 add export reports [Robin Rawson-Tetley] df9336f5f
+2025-05-10 Add reclaims by date map [Robin Rawson-Tetley] 9ed256939
+2025-05-08 Fix trackabeast importer to use python3, new conversion [Robin Rawson-Tetley] 3896d45ef
+2025-05-07 Separate flag logging for animals and people #1552 [adamdspencer77] 72d56f295
+2025-05-07 Allow forget/delete button to appear for publish runs in error [Robin Rawson-Tetley] f33817b3d
+2025-05-02 Report and mailmerge filtering #1748 [adamdspencer77] 72923a550
+2025-05-02 Reports, online forms and html templates: leave dialog open after save #1747 [adamdspencer77] 84a4855c6
+2025-05-02 Fix option that hides requesting of adoption paperwork [Robin Rawson-Tetley] a47a11987
+2025-05-02 include service csv methods as requiring auth, remove jsonp [Robin Rawson-Tetley] f3a6555f3
+2025-05-01 Updated generated manual pages [Robin Rawson-Tetley] cab2df7ce
+2025-05-01 include adoptable column for emblem in brief queries [Robin Rawson-Tetley] ea425d313
+2025-05-01 Fix type bug when comparing energy level in looking for [Robin Rawson-Tetley] 84033d9fb
+2025-04-28 fix maddies fund/findpet bug, fix bug that enabled only active publisher to be enabled [Robin Rawson-Tetley] a3290e3e6
+2025-04-27 minor query fixes to remove duplicate columns preventing views being created [Robin Rawson-Tetley] 09ea718c0
+2025-04-25 Updated litters between two dates report [Jonathan Rawson-Tetley] f09d43d75
+2025-04-22 remove bad 9910010 prefix that does not belong to AKC [Robin Rawson-Tetley] 419a87c2b
+2025-04-22 AKC advised they will not accept 9910010 chips, removed [Robin Rawson-Tetley] aececb662
+2025-04-21 Fix incorrect label text for include retailer animals on publish options [Robin Rawson-Tetley] e8b61eab7
+2025-04-21 Remove excess whitespace when truncating strings [Robin Rawson-Tetley] 16ec6c2bf
+2025-04-21 only save enabled publishers when they are visible [Robin Rawson-Tetley] 4a1fb421e
+2025-04-21 Fix bug that enabled all publishers on saving publish options [Robin Rawson-Tetley] 9c5cbaecc
+2025-04-21 Send fosterer weekly email to partners in couple #1741 [Robin Rawson-Tetley] 885129afe
+2025-04-21 Advanced find animal for code now includes entry history [Robin Rawson-Tetley] bc0329b61
+2025-04-19 Use the modern clipboard API when copying if available #1733 [Robin Rawson-Tetley] 2affd8005
+2025-04-19 Use a single request instead of one per link #1733 [Robin Rawson-Tetley] bf250ecfd
+2025-04-19 Signing link option to "Sign" toolbar dropdown on the media tab #1733 [adamdspencer77] 8dc14b640
+2025-04-18 tag animalchooser add dialog fields so they do not conflict with edit animal [Robin Rawson-Tetley] 5919fad9c
+2025-04-18 Giftaid and Supplier flags missing from edit header flag display used by find results [Robin Rawson-Tetley] ac27142c5
+2025-04-18 missing destructor caused issues with add new animal screen [Robin Rawson-Tetley] 09748893a
+2025-04-18 csv/json/xml service calls gracefully handle empty resultsets [Robin Rawson-Tetley] 5f9c280af
+2025-04-18 callouts cannot work on chooser widgets due to lack of id [Robin Rawson-Tetley] 0a8d83f11
+2025-04-18 Fixes to move stock, fix bug with multiple bindings caused by personchooser [Robin Rawson-Tetley] ce9f305ac
+2025-04-18 BuddyID: Add a 1s delay between requests to avoid throttle limit [Robin Rawson-Tetley] 498c01b20
+2025-04-17 Fix non-functional account number field on person records [Robin Rawson-Tetley] 434fe604a
+2025-04-17 add missing semi-colons [Robin Rawson-Tetley] ccab0d792
+2025-04-16 add csv service calls for all json/xml versions and streamline the code [Robin Rawson-Tetley] 3978485c0
+2025-04-16 Refactor bulk change animals with an accordion #1618 [adamdspencer77] 1362e375b
+2025-04-16 Fix stock move bug with expiry date [Robin Rawson-Tetley] fcaeb50ec
+2025-04-16 Refactor options and publish_options to use tableform #1708 (Adam Spencer) [Robin Rawson-Tetley] 8f27f8a2e
+2025-04-15 Remove need for manual widget initialising, add a location row, default non-shelter for incidents/licenses #1592 [Robin Rawson-Tetley] 232d17fbc
+2025-04-15 Add an 'Add' button to the animal chooser widget #1592 [adamdspencer77] 0c025f0bb
+2025-04-15 Make sure all animal emblems are displayed in movement and medical books [Robin Rawson-Tetley] 0da108a98
+2025-04-15 when logging form honeytrap, include the value in the trap [Robin Rawson-Tetley] ef8b04f44
+2025-04-14 Updated ASPCA Ride report [Jonathan Rawson-Tetley] aa73aecda
+2025-04-14 Updated ASPCA ride report [Jonathan Rawson-Tetley] 014472ee8
+2025-04-14 Fix bug with remoteip and useragent appearing in all online forms [Robin Rawson-Tetley] 06689c448
+2025-04-11 update manual, add commentsanimal/commentsperson #1689 [Robin Rawson-Tetley] 502aec91a
+2025-04-11 Update Portuguese translation (Nuno Leal) [Robin Rawson-Tetley] 8ad480d47
+2025-04-10 Reformat code slightly where comments where orphaned #1689 [Robin Rawson-Tetley] ddef34109
+2025-04-10 add onlineform fields for commentsanimal and commentsperson #1689 [adamdspencer77] b8cd0f96d
+2025-04-10 Fix bug that means current vet will never set neutering vet during csv import [Robin Rawson-Tetley] ab51652ec
+2025-04-10 add csv_adoptable_animals service call [Robin Rawson-Tetley] f8b33aa0a
+2025-04-10 Fix bug where the tax calc ran twice [Robin Rawson-Tetley] 5a096509d
+2025-04-10 Payments: only recalc vat on amount change if tax is inclusive, re-allow editing of tax [Robin Rawson-Tetley] f98f2c794
+2025-04-09 Fix bug where signature text canvas did not hide on reset [Robin Rawson-Tetley] 0d55caa55
+2025-04-09 Record IP Address during electronic signatures #1663 [adamdspencer77] 749ca0c5b
+2025-04-09 Phone number additional field type #1668 [adamdspencer77] 9426f062c
+2025-04-09 Re-calculate VAT when the payment amount changes [Robin Rawson-Tetley] 03febec67
+2025-04-08 shelter inventory at date: use the closest return date to guess days [Robin Rawson-Tetley] 227712ceb
+2025-04-07 reload the page after saving user settings [Robin Rawson-Tetley] 576eed07a
+2025-04-07 add locale for en_JO (Jordan) [Robin Rawson-Tetley] f82b41e29
+2025-04-05 reduce sending limit to 12 hours, show sent/limit on mail merge screen #1721 [Robin Rawson-Tetley] cfb848193
+2025-04-05 when auditing sent emails, include a count [Robin Rawson-Tetley] bf4894850
+2025-04-04 Updated static manual pages [Jonathan Rawson-Tetley] c196db3e4
+2025-04-03 Updated manual to include new voucher wordkeys [Jonathan Rawson-Tetley] 3ea88e01a
+2025-04-03 Additional voucher vet wordkeys #1723 [adamdspencer77] d544375d0
+2025-04-03 Fix issue with dateofbirth/idnumber not hiding properly due to classes in wrong place #1719 [Robin Rawson-Tetley] 795df99e2
+2025-04-03 Fix bug that causes users to have to re-enable 2FA after logging in via a remember me token #1713 [Robin Rawson-Tetley] d38a449da (origin/ft-1671)
+2025-04-02 change_user_settings: need to unbind validation on destroy [Robin Rawson-Tetley] 319fa5bde
+2025-04-02 Add cleanup code to unbind events #1722 [Robin Rawson-Tetley] d24b9057c
+2025-04-02 Rewrite inefficient bind_dirty function, add trigger for asmsignature widget #1722 [Robin Rawson-Tetley] 4258db485
+2025-04-02 smcom: implement bulk email sending limits over a period (3000/20 hours) #1721 [Robin Rawson-Tetley] c8f2d5300
+2025-04-02 Updated change user settings manual section [Jonathan Rawson-Tetley] cf86331ee (origin/ft-1719)
+2025-04-02 Change user settings: Fix validate/save on leaving screen [Robin Rawson-Tetley] 1ccc40c60
+2025-04-02 Report an error when an invalid 2FA code is given [Robin Rawson-Tetley] 7c86668aa
+2025-04-01 Use the word paused instead of held for medical regimens to avoid ambiguity with animal holds [Robin Rawson-Tetley] 8b9776bdd
+2025-04-01 Update manual static files and images [Robin Rawson-Tetley] 08feab5f5
+2025-03-31 Add info on using javascript with Wix to the manual [Robin Rawson-Tetley] 2497b2dbf
+2025-03-31 adoptable_js: optional delay parameter to push back rendering [Robin Rawson-Tetley] 857944cef
+2025-03-31 adoptable_js: allow the host element to be overridden [Robin Rawson-Tetley] 919164d3f
+2025-03-31 adoptable_js: remove redundant DOM events [Robin Rawson-Tetley] 8dbb4548d
+2025-03-31 adoptable_js: use insertAdjacentHTML for performance [Robin Rawson-Tetley] 6be702118
+2025-03-31 adoptable_js: Find the first section tag if no div has been given [Robin Rawson-Tetley] 4eb99c09f
+2025-03-31 Square: Redirect mechanism was broken [Robin Rawson-Tetley] bd88f9e19
+2025-03-26 Added duplicate people with links report [Jonathan Rawson-Tetley] e38e52838
+2025-03-26 Fix tax rate overwriting destination account in payment widget #1679 [Robin Rawson-Tetley] b0aa36693
+2025-03-25 Fix bug when importing people from CSV that need to be merged [Robin Rawson-Tetley] 63922bbd8
+2025-03-25 Remove non-existent table from lookups list, add lksunittypes #1659 [Robin Rawson-Tetley] 7557eae21
+2025-03-25 fix broken quote escaping in pt.po [Robin Rawson-Tetley] 5a4ad82c1
+2025-03-25 updated Portuguese translation (Nuno Leal) [Robin Rawson-Tetley] a4b83bb88
+2025-03-25 Handle windows linebreaks when sanitising email addresses [Robin Rawson-Tetley] 33e8b0057
+2025-03-25 remove unnecessary validation on payment due date [Robin Rawson-Tetley] 43fca8b2e
+2025-03-25 Updated Non-netured/spayed adopted animals report to use SQL age token [Jonathan Rawson-Tetley] 128c202d0
+2025-03-25 PetRescue: log animal name/sheltercode on status update errors [Robin Rawson-Tetley] 5170f8a00
+2025-03-25 Handle null followup ACOs when viewing incidents #801 [Robin Rawson-Tetley] 57e807112
+2025-03-24 Added animals with media flag report [Jonathan Rawson-Tetley] c3ca3f2b4
+2025-03-24 Correction to cat_cage_card_report.html [Jonathan Rawson-Tetley] 1c99bffb7
+2025-03-24 Updated manual static pages [Jonathan Rawson-Tetley] 73f20eb6e
+2025-03-24 Updated stock control manual section [Jonathan Rawson-Tetley] 8ca492852
+2025-03-24 use central layout for tableform tabs widget [Robin Rawson-Tetley] 167c93d40
+2025-03-24 remove redundant data_encoding call [Robin Rawson-Tetley] ef4a2b136
+2025-03-24 Tabs added to change user settings screen #1706 [adamdspencer77] a7efda989
+2025-03-24 Updated stock control section in manual [Jonathan Rawson-Tetley] 84342df09
+2025-03-24 Added stock_products image to manual [Jonathan Rawson-Tetley] ad58bbcd9
+2025-03-24 service dbo requires installpath [Robin Rawson-Tetley] 794c90bcb
+2025-03-23 ownercitation view was broken, rollback on SELECT queries is still needed for postgres [Robin Rawson-Tetley] 4376cda18
+2025-03-23 Show products below stock levels in menu #1659 [Robin Rawson-Tetley] 5eeae41b6
+2025-03-22 Add Fi Nano chip prefix 900263 [Jonathan Rawson-Tetley] e92057112
+2025-03-22 Fix bug with apostrophes in unit names [Robin Rawson-Tetley] a9ea276ba
+2025-03-21 broken reverse logic on s3 backup folder #1657 [Robin Rawson-Tetley] a43f8b358
+2025-03-21 Defend against nulls when calculating sales tax for transactions [Robin Rawson-Tetley] 3328ab9de
+2025-03-21 Add tableform widget for rendering tabs #1707 [Robin Rawson-Tetley] a7d0c5620
+2025-03-21 Correct spambot name to textbox rather than checkbox [Robin Rawson-Tetley] 42964e55e
+2025-03-21 Fix concat/rate name #1679 [Robin Rawson-Tetley] f2db073f4
+2025-03-21 Tax rate parameter to createpayment, supply to boarding screens #1679 [Robin Rawson-Tetley] a294e6653
+2025-03-21 Use tableform dialog state to check for add mode #1679 [Robin Rawson-Tetley] 2c9b6ee77
+2025-03-21 Use new tax rate lookups for payments and clinic #1679 [adamdspencer77] fdcb6ea9e
+2025-03-21 Add unrecognised ACOs to the list as with dispatch ACO #801 [Robin Rawson-Tetley] f5648ebef
+2025-03-21 Add text/typing support to signature widget #1440 [adamdspencer77] 9e93f39c5
+2025-03-21 Square: Always use a unique idempotency key for repeat checkout visits [Robin Rawson-Tetley] 4b2e65ceb
+2025-03-21 FollowupACO fields #801 [adamdspencer77] 57fbaffb4
+2025-03-20 Square: Output checkout response errors to the page instead of just the log [Robin Rawson-Tetley] 233eafb65
+2025-03-19 Code layout tweaks, add stock level import columns to manual #670 [Robin Rawson-Tetley] a739bdd39
+2025-03-19 Stock levels import from CSV #670 [adamdspencer77] 5778285a8
+2025-03-19 remove double entry for animalcontrolanimal [Robin Rawson-Tetley] 9ef19d650
+2025-03-19 Fix report footer bug that appears if the toolbar is not used and on looking for/match reports [Robin Rawson-Tetley] 37ce27389
+2025-03-19 Match new good with fields in person looking for (new db update) #1684 [Robin Rawson-Tetley] 3ba86d247
+2025-03-19 Squashed commit of the following: [Robin Rawson-Tetley] 3447f7d81
+2025-03-18 include a timestamp with each publisher log message [Robin Rawson-Tetley] 732637575
+2025-03-18 updated boarded_animals.rep [Jonathan Rawson-Tetley] 9368e95b6
+2025-03-18 Added boarded_animals.rep. [Jonathan Rawson-Tetley] ff44d95a1
+2025-03-17 Fix bug in active products #1659 [Robin Rawson-Tetley] 92f88fc67
+2025-03-17 Remove superfluous recentbatch/expiry fields, fix bug identified by postgres #1659 [Robin Rawson-Tetley] 3143dfdd7
+2025-03-17 Fix maint_db_update endpoint to use perform_updates instead so table check is done #1675 [Robin Rawson-Tetley] ed89c7040
+2025-03-17 Add tableform.dialog_state to indicate whether the dialog is open and in add/edit mode [Robin Rawson-Tetley] a1136a243
+2025-03-16 some maint functions do not require a login [Robin Rawson-Tetley] 160447b0f
+2025-03-15 Move view/sequence creation and updates to maint_db_update endpoint and cron #1675 [Robin Rawson-Tetley] b6bfb0e4c
+2025-03-15 Minor fixes from the dbupdate changes #1675 [Robin Rawson-Tetley] bce78028b
+2025-03-14 Updated ASPCA Ride report [Jonathan Rawson-Tetley] 76611ad24
+2025-03-14 Example import/lines for dbupdate scripts to play nice with vscode #1675 [Robin Rawson-Tetley] c559872df
+2025-03-14 Refactor dbupdates into separate files, Remove broken db_lock functionality #1675 [Robin Rawson-Tetley] 1acde990c
+2025-03-14 Corrected dbupdate files [Jonathan Rawson-Tetley] da87b5628
+2025-03-14 Added dbupdate folder [Jonathan Rawson-Tetley] 02178f431
+2025-03-13 Fix bug when 'notblank' validation applied to datetime fields [Robin Rawson-Tetley] d7817ecfb
+2025-03-12 fix alerts bug, show low balance for products #1659 [Robin Rawson-Tetley] b0e44847f
+2025-03-12 Add by column to stock usage #1659 [Robin Rawson-Tetley] 7141b64e1
+2025-03-12 SavourLife: remove dogId after a 200 from DeleteDog call #1690 (#1696) [adamdspencer77] 2b7e3b8d1
+2025-03-12 Missing locale param #83 [Robin Rawson-Tetley] 2ce69e701
+2025-03-12 Changes to animal names may be optionally logged #83 (#1694) [adamdspencer77] 5d57ebc17
+2025-03-12 Update quality_control.rep (#1695) [kwinlr] 15320bff2
+2025-03-12 Rename stock movement to usage for clarity #1659 [Robin Rawson-Tetley] 4c6368159
+2025-03-12 Add basic manual section, fix merge bug with double quantity #1659 [Robin Rawson-Tetley] 19226f518
+2025-03-12 rename movement usage type for clarity [Robin Rawson-Tetley] c9badd032
+2025-03-12 Add product and stock movement screens #1659 [Robin Rawson-Tetley] d016ebeb3
+2025-03-11 Apply same multiple image mobile fix to incidents #1682 [Robin Rawson-Tetley] 912cc0c4b
+2025-03-11 Image sliders on mobile animal/incidents should handle multiple images #1682 [adamdspencer77] a51b959d0
+2025-03-10 Added deaths between two dates by category for site [Jonathan Rawson-Tetley] 412f74765
+2025-03-10 Added export people as csv to manual [Jonathan Rawson-Tetley] d1845876e
+2025-03-10 remove duplicate CitationNumber [Robin Rawson-Tetley] a6b31ae3a
+2025-03-08 rename csvexport_people, ownercode deduplication, add new permission to roles screen #1391 [Robin Rawson-Tetley] 498b43136
+2025-03-08 Option to export people as importable CSV #1391 [adamdspencer77] 32730f254
+2025-03-07 Removed facebook iframe section and added html lost and found methods to manual [Jonathan Rawson-Tetley] 00518edc8
+2025-03-07 turn nulls into empty strings when exporting reports to CSV or Excel spreadsheets [Robin Rawson-Tetley] 0f41fae04
+2025-03-07 stocklevel.barcode was erroneously created as not nullable #1655 [Robin Rawson-Tetley] eb91a76c9
+2025-03-06 strip special directive columns from csv/excel output [Robin Rawson-Tetley] ad541b485
+2025-03-06 Updated ASPCA Ride report [Jonathan Rawson-Tetley] 19ee19be7
+2025-03-06 Updated ASPCA Ride report [Jonathan Rawson-Tetley] 897fd6818
+2025-03-06 Added findpet microchip prefix to manufacturers [Jonathan Rawson-Tetley] b775a7803
+2025-03-06 FindPet: check for Registered or Passed status correctly [Robin Rawson-Tetley] f4d2e0815
+2025-03-05 Include Square in the list of payment processors for the checkout [Robin Rawson-Tetley] 2b2465bd6
+2025-03-05 Accounts payment callout: use ID instead of receipt for uniqueness [Robin Rawson-Tetley] 3b65d90bf
+2025-03-05 PetRescue: map additional entry types [Robin Rawson-Tetley] 9a0a1b635
+2025-03-04 animal types referencing wrong table on person/lookup #1103 [Robin Rawson-Tetley] a084776fe
+2025-03-04 fix bug in exception handler for updating primary key table [Robin Rawson-Tetley] 0d038c88c
+2025-03-04 use shorter cache_pk times to avoid database teardown/import bugs [Robin Rawson-Tetley] d19fb8e57
+2025-03-03 Remove redundant syear code param, validate both records exist when merging animals and people #1643 [Robin Rawson-Tetley] 01195bc65
+2025-03-03 Added findpet to publishing section of manual [Jonathan Rawson-Tetley] 15aa9e875
+2025-03-03 update translation pot with new strings [Robin Rawson-Tetley] 1f9a55e8c
+2025-03-03 4 digit padding for sheltercodes, PPP codes plus unit tests #1643 [adamdspencer77] 99297f0fc
+2025-02-28 Set juridiction from caller/suspect when adding an incident #1661 [adamdspencer77] 588d6debe
+2025-02-27 Added ASPCA ride report [Jonathan Rawson-Tetley] 21fe4fdde
+2025-02-27 Added Square to the payment processors section in the manual [Jonathan Rawson-Tetley] fdda181fd
+2025-02-24 querybuilder: Allow animal medical dates to be sorted on [Robin Rawson-Tetley] 178ed7f16 (origin/ft-1558)
+2025-02-24 Petcademy: Use 'Exclude from petcademy' flag to exclude rather than bulk email flag [Robin Rawson-Tetley] 16d0fc7e9
+2025-02-24 ASK MEDIAFLAG report token #1665 [Robin Rawson-Tetley] 69573b802
+2025-02-24 tableform: close any open callouts when closing the dialog [Robin Rawson-Tetley] 11480071b
+2025-02-24 PetRescue: Default intake_origin to owner_surrender before finding a more suitable type [Robin Rawson-Tetley] 545618b81
+2025-02-23 Fix bug running SAC for months identified by a movement, continue after one publisher fails [Robin Rawson-Tetley] 7b225368d
+2025-02-21 PetRescue: Set intake_origin for species other than just cats [Robin Rawson-Tetley] 7124cfc3a
+2025-02-21 revert back to using squareup package due to potential for oauth issues #1121 [Robin Rawson-Tetley] a4f88a6f7
+2025-02-20 Correct production URL for Square #1121 [Robin Rawson-Tetley] 0e2c900e7
+2025-02-20 Modify Square payment links to use straight HTTP instead of their API #1121 [Robin Rawson-Tetley] 1e1c3021a
+2025-02-20 Updated aspca aggregate report to fix error with new SQL tokens [Jonathan Rawson-Tetley] 4407cf59d
+2025-02-19 old bug fixed, gdpr options were returning a list of HTML elements instead of a string [Robin Rawson-Tetley] ea10da2e5
+2025-02-19 remove redundant rename step from create_document_animalperson [Robin Rawson-Tetley] cb085eef2
+2025-02-19 prevent subsequent movement documents from move_gendoc overwriting each other [Robin Rawson-Tetley] 8b591383f
+2025-02-17 Stop check SQL errors hanging around after trying again [Robin Rawson-Tetley] 454714543
+2025-02-17 Removed old ASPCA transport manifest report from repository [Jonathan Rawson-Tetley] 8c05140fc
+2025-02-17 Fix mobile UI jshint references #1625 [Robin Rawson-Tetley] 8ae2ac979
+2025-02-17 Added ASPCA Ride report [Jonathan Rawson-Tetley] 8665f24fb
+2025-02-17 Break up mobile ui into separate files, rename mobile2 back to mobile #1625 [Robin Rawson-Tetley] 6de2ee546
+2025-02-14 Add unit test for embedded_forbidden [Robin Rawson-Tetley] 1413462a9
+2025-02-14 Show 'forbidden' owner with correct ID on permission fail. Strip incident list in animal records without permission [Robin Rawson-Tetley] 6b4a8fa01
+2025-02-13 Final refactoring of autotext, add source option #1103 [Robin Rawson-Tetley] 86168f044
+2025-02-12 Fix bug that prevented lookups from being deleted [Robin Rawson-Tetley] caf340fda
+2025-02-12 Fix error message when saving incoming forms as CSV [Robin Rawson-Tetley] 28072e806
+2025-02-12 rename new widget to autotext, refactor to use where possible on screens #1103 [Robin Rawson-Tetley] b3a4aa5a5
+2025-02-12 Fix CTRL+A being captured when not viewing tables, Add tableform autocomplete widget #1103 [Robin Rawson-Tetley] a651f8d42
+2025-02-10 merge resolution broke dbupdate version list [Robin Rawson-Tetley] ceca7497b
+2025-02-10 Add stocklevel barcode column and mobile scanner option #1655 (#1662) [Robin Rawson-Tetley] 467e1d74b
+2025-02-09 Updated people with flags mailmerge [Jonathan Rawson-Tetley] e0380ad93
+2025-02-07 Use s3 queue as a backup rather than normal operation #1657 [Robin Rawson-Tetley] e398ef665
+2025-02-07 attempt to create the queue folder first #1657 [Robin Rawson-Tetley] 976f93f56
+2025-02-07 S3 file queue option for failover #1657 [Robin Rawson-Tetley] 5d9b6219a
+2025-02-06 no need to strip pickuplocation or jurisdiction as sensitive data [Robin Rawson-Tetley] aab9c8d18
+2025-02-05 when constructing media file names for emails, strip line breaks [Robin Rawson-Tetley] 08b222a6b
+2025-02-05 Use correct title, filter is not needed right now #606 [Robin Rawson-Tetley] 0773bad3a
+2025-02-05 Fix unpaid fines screen layout and add filter #606 [Robin Rawson-Tetley] 434de5e8e
+2025-02-05 Use id_max for next citation number to avoid exhausting sequences #606 [Robin Rawson-Tetley] a18eda233
+2025-02-05 Show citation number in table, supply next id to incident citations #606 [Robin Rawson-Tetley] 7fe19e7e8
+2025-02-05 reorder code so index is added first #606 [Robin Rawson-Tetley] dcab0b2bf (origin/ft-1651)
+2025-02-05 Added missing parts to dbupdate.py. #1561 [Adam Spencer] d3d3a0c92
+2025-02-05 Tweaked code following feedback. #1561 [Adam Spencer] 4def5141d
+2025-02-04 Tweaked dbupdate code. #1561 [Adam Spencer] ec9a46a01
+2025-02-04 Updated code following feedback. #1561 [Adam Spencer] b56b33de3
+2025-02-04 Added ownercode to mailmerges [Jonathan Rawson-Tetley] 4157667f3
+2025-02-04 Update code following feedback. #1561 [Adam Spencer] 0c4dd7351
+2025-02-04 Removed stray console.log. #606 [Adam Spencer] f83a036b9
+2025-02-04 Hadn't allowed citation number to be save when creating new citations, fixed. Added fine amount to results. #606 [Adam Spencer] 55cbfbb22
+2025-02-04 Added citation numbers to citations. Made citation numbers searchable. #606 [Adam Spencer] 1625ac523
+2025-02-04 ready for development to start on 50 milestone [Robin Rawson-Tetley] 478a18696

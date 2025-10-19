@@ -1972,6 +1972,7 @@ $.widget("asm.sqleditor", {
     _create: function() {
         let self = this;
         setTimeout(function() {
+            const schemaTables = (typeof window !== "undefined" && window.schema && typeof window.schema === "object") ? window.schema : {};
             self.options.editor = CodeMirror.fromTextArea(self.element[0], {
                 lineNumbers: true,
                 mode: "text/x-sql",
@@ -1990,7 +1991,7 @@ $.widget("asm.sqleditor", {
                     },
                     "Ctrl-Space": "autocomplete"
                 },
-                hintOptions: { tables: schema }
+                hintOptions: { tables: schemaTables }
             });
             // Override height and width if they were set as attributes of the text area
             if (self.element.attr("data-width")) {
