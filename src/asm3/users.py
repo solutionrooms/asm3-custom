@@ -664,18 +664,45 @@ def insert_user_from_form(dbo: Database, username: str, post: PostedData) -> int
     # Note: we do not audit the actual email content to prevent plaintext passwords appearing in the audit log
     if post.boolean("emailcred") and post["email"] != "":
         fromaddress = asm3.configuration.email(dbo)
-        subject = asm3.i18n._("New user account", l)
-        url = "%s/login" % BASE_URL
-        if asm3.smcom.active(): url = asm3.smcom.get_login_url(dbo)
-        bodynopass = "%s:\n\n%s: {url}\n%s: {user}\n%s: {pass}" % (
-            asm3.i18n._("A new ASM user account has been set up for you", l), 
-            asm3.i18n._("URL", l), asm3.i18n._("Username", l), asm3.i18n._("Password", l) )
-        bodynopass = bodynopass.replace("{url}", url)
-        bodynopass = bodynopass.replace("{user}", post["username"])
-        body = bodynopass.replace("{pass}", post["password"])
+        subject_template = asm3.configuration.new_user_email_subject(dbo)
+        body_template = asm3.configuration.new_user_email_body(dbo)
+        base_url = BASE_URL.rstrip("/")
+        login_url = "%s/login" % base_url
+        if asm3.smcom.active():
+            login_url = asm3.smcom.get_login_url(dbo)
+            # Derive base url from the login url if possible
+            if "/login" in login_url:
+                base_url = login_url.split("/login", 1)[0].rstrip("/")
+            else:
+                base_url = login_url.rstrip("/")
+        replacements = {
+            "{url}": base_url,
+            "{login_url}": login_url,
+            "{user}": post["username"],
+            "{pass}": post["password"]
+        }
+        redacted_replacements = dict(replacements)
+        redacted_replacements["{pass}"] = asm3.i18n._("(password redacted)", l)
+
+        subject = subject_template
+        for token, value in replacements.items():
+            subject = subject.replace(token, value)
+
+        subjectlog = subject_template
+        for token, value in redacted_replacements.items():
+            subjectlog = subjectlog.replace(token, value)
+
+        body = body_template
+        for token, value in replacements.items():
+            body = body.replace(token, value)
+
+        bodynopass = body_template
+        for token, value in redacted_replacements.items():
+            bodynopass = bodynopass.replace(token, value)
+
         asm3.utils.send_email(dbo, fromaddress, post["email"], "", "", subject, body, "plain", exceptions=False)
         if asm3.configuration.audit_on_send_email(dbo): 
-            asm3.audit.email(dbo, username, fromaddress, post["email"], "", "", subject, bodynopass)
+            asm3.audit.email(dbo, username, fromaddress, post["email"], "", "", subjectlog, bodynopass)
 
     return nuserid
 
@@ -820,6 +847,7 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
     session.siteid = 0
     session.locationfilter = ""
     session.visibleanimalids = ""
+    session.forcechangepassword = False
     if "ROLES" in user: session.roles = user.ROLES
     if "ROLEIDS" in user: session.roleids = user.ROLEIDS
     if "SITEID" in user: session.siteid = asm3.utils.cint(user.SITEID)
@@ -923,6 +951,9 @@ def web_login(post: PostedData, session: Session, remoteip: str, useragent: str,
         if use2fa:
             session.force2fa = not asm3.smcom.is_master_user(user.USERNAME, dbo.name()) and asm3.configuration.force_2fa(dbo) and onetimepass == ""
         update_session(dbo, session, user.USERNAME)
+        token = asm3.configuration.cstring(dbo, "ForcePasswordChangeToken", "changemenow").strip()
+        if token != "" and verify_password(token, user.PASSWORD):
+            session.forcechangepassword = True
     except:
         asm3.al.error("failed setting up session: %s" % str(sys.exc_info()[0]), "users.web_login", dbo, sys.exc_info())
         return "FAIL"

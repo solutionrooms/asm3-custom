@@ -685,6 +685,10 @@ $(function() {
                             callout: "BCC this address when sending email. This is useful if you want to archive your emails with another service." }, 
                         { id: "emailsig", post_field: "EmailSignature", label: _("Email signature"), type: "richtextarea", doublesize: true, height: "150px", 
                             callout: "This text will be added to the bottom of all send email dialogs" }, 
+                        { id: "newuseremailsubject", post_field: "NewUserEmailSubject", label: _("New user email subject"), type: "text", doublesize: true,
+                            callout: _("Template for the subject line when sending credentials to a new user. Use {url}, {login_url}, {user} and {pass} placeholders.") },
+                        { id: "newuseremailbody", post_field: "NewUserEmailBody", label: _("New user email body"), type: "textarea", doublesize: true, height: "150px",
+                            callout: _("Template for the email body when sending credentials to a new user. Use {url}, {login_url}, {user} and {pass} placeholders.") },
                         { type: "nextcol" },
                         { id: "emailfromadd", post_field: "EmailFromAddresses", label: _("From address book"), type: "textarea", doublesize: true, 
                             callout: "Comma separated list of extra addresses that the From email field of send email dialogs will prompt with" }, 
@@ -1131,6 +1135,13 @@ $(function() {
             // multi-select widgets to 300px - remove it for this screen so that
             // the find screens and quick links can take up more room.
             $(".asmContainer").css("max-width", "800px");
+
+            if ($.trim($("#newuseremailsubject").val()) === "" && controller.newuseremailsubjectdefault) {
+                $("#newuseremailsubject").val(controller.newuseremailsubjectdefault);
+            }
+            if ($.trim($("#newuseremailbody").val()) === "" && controller.newuseremailbodydefault) {
+                $("#newuseremailbody").val(controller.newuseremailbodydefault);
+            }
 
             validate.bind_dirty();
 

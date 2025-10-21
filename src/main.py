@@ -168,7 +168,7 @@ def session_manager():
     if asm3.utils.websession is None:
         sess = web.session.Session(app, MemCacheStore(), initializer={"user" : None, "dbo" : None, "locale" : None, 
             "roles": None, "securitymap": None, "superuser": None, "searches" : [], "staffid": None, 
-            "siteid": None, "locationfilter": None,  "visibleanimalids": "" })
+            "siteid": None, "locationfilter": None,  "visibleanimalids": "", "forcechangepassword": False })
         asm3.utils.websession = sess
     else:
         sess = asm3.utils.websession
@@ -361,6 +361,7 @@ class ASMEndpoint(object):
         if self.check_logged_in:
             self.check_loggedin(session, web, self.login_url)
             self.check_2fa(session, web)
+            self.check_force_password(session, web)
         if isinstance(permissions, str):
             asm3.users.check_permission(session, permissions)
         else:
@@ -409,6 +410,20 @@ class ASMEndpoint(object):
         """
         if "force2fa" in session and session.force2fa and web.ctx.path.find("/change_user_settings") == -1:
             raise web.seeother("%s/change_user_settings?force2fa=1" % BASE_URL)
+
+    def check_force_password(self, session: Session, web: Any) -> None:
+        """
+        Redirects users who are flagged to change their password before
+        continuing. We allow access to the change password and logout
+        endpoints to avoid redirect loops.
+        """
+        if (
+            "forcechangepassword" in session
+            and session.forcechangepassword
+            and web.ctx.path.find("/change_password") == -1
+            and web.ctx.path.find("/logout") == -1
+        ):
+            raise web.seeother("%s/change_password?forcechangepassword=1" % BASE_URL)
 
     def check_mode(self, mode: str) -> bool:
         """
@@ -3613,7 +3628,8 @@ class change_password(JSONEndpoint):
         asm3.al.debug("%s change password screen" % o.user, "main.change_password", o.dbo)
         return {
             "ismaster": asm3.smcom.is_master_user(o.user, o.dbo.name()),
-            "username": o.user
+            "username": o.user,
+            "forcechangepassword": "forcechangepassword" in o.session and o.session.forcechangepassword
         }
 
     def post_all(self, o):
@@ -3621,6 +3637,8 @@ class change_password(JSONEndpoint):
         newpass = o.post["newpassword"]
         asm3.al.debug("%s changed password" % (o.user), "main.change_password", o.dbo)
         asm3.users.change_password(o.dbo, o.user, oldpass, newpass)
+        if "forcechangepassword" in o.session:
+            o.session.forcechangepassword = False
 
 class change_user_settings(JSONEndpoint):
     url = "change_user_settings"
@@ -6889,7 +6907,9 @@ class options(JSONEndpoint):
             "urgencies": asm3.lookups.get_urgencies(dbo),
             "usersandroles": asm3.users.get_users_and_roles(dbo),
             "vaccinationtypes": asm3.lookups.get_vaccination_types(dbo),
-            "waitinglistcolumns": asm3.html.json_waitinglistcolumns(dbo)
+            "waitinglistcolumns": asm3.html.json_waitinglistcolumns(dbo),
+            "newuseremailsubjectdefault": asm3.configuration.new_user_email_subject(dbo),
+            "newuseremailbodydefault": asm3.configuration.new_user_email_body(dbo)
         }
         asm3.al.debug("lookups loaded", "main.options", dbo)
         return c
