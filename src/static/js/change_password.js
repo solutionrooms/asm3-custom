@@ -73,6 +73,12 @@ $(function() {
                     header.show_info(_("Password successfully changed."));
                     $("#button-change").button("enable");
                     $("#oldpassword, #newpassword, #confirmpassword").val("");
+                    if (controller.forcechangepassword || common.querystring_param("forcechangepassword") == "1") {
+                        controller.forcechangepassword = false;
+                        setTimeout(function() {
+                            common.route("main");
+                        }, 500);
+                    }
                 }
                 finally {
                     header.hide_loading();
