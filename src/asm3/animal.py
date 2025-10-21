@@ -53,6 +53,7 @@ class LocationFilter(object):
             -9: non-shelter animals (excluded from this functionality)
             -12: has set visibleanimalids for "My fosters"
             -13: has set visibleanimalids for "My coordinated animals"
+            -14: has set visibleanimalids for "My vet cases"
             -21: died on shelter
             -22: doa
             -23: euthanised
@@ -91,7 +92,7 @@ class LocationFilter(object):
             if "-9" in locs:
                 clauses.append(f"{tablequalifier}.NonShelterAnimal=1")
             # My Fosters, My Coordinated Animals
-            if "-12" in locs or "-13" in locs:
+            if "-12" in locs or "-13" in locs or "-14" in locs:
                 if visibleanimalids == "": visibleanimalids = "0"
                 clauses.append(f"{tablequalifier}.ID IN ({visibleanimalids})")
             # Died on shelter

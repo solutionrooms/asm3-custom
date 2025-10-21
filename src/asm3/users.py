@@ -826,7 +826,12 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
     if "LOCATIONFILTER" in user: session.locationfilter = asm3.utils.nulltostr(user.LOCATIONFILTER)
     if "OWNERID" in user: session.staffid = user.OWNERID
     # If the user has a location filter that involves a filtered list of animals linked to them, load them now.
-    if "LOCATIONFILTER" in user and user.LOCATIONFILTER is not None and user.LOCATIONFILTER != "":
+    if (
+        "LOCATIONFILTER" in user
+        and user.LOCATIONFILTER is not None
+        and user.LOCATIONFILTER != ""
+        and user.OWNERID is not None
+    ):
         af = []
         # My Fosters
         if user.LOCATIONFILTER.find("-12") != -1:
@@ -835,6 +840,9 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
         # My Coordinated Animals
         if user.LOCATIONFILTER.find("-13") != -1:
             af += dbo.query("SELECT ID AS AnimalID FROM animal WHERE Archived=0 AND AdoptionCoordinatorID=?", [user.OWNERID])
+        # My Vet Cases
+        if user.LOCATIONFILTER.find("-14") != -1:
+            af += dbo.query("SELECT ID AS AnimalID FROM animal WHERE Archived=0 AND CurrentVetID=?", [user.OWNERID])
         va = []
         for r in af:
             va.append(str(r.ANIMALID))
