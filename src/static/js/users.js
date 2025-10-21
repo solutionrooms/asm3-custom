@@ -21,6 +21,7 @@ $(function() {
                 { ID: -5, LOCATIONNAME: _("Reclaimed Animals")},
                 { ID: -13, LOCATIONNAME: _("My Coordinated Animals")},
                 { ID: -12, LOCATIONNAME: _("My Fosters")},
+                { ID: -14, LOCATIONNAME: _("My Vet Cases")},
                 { ID: -9, LOCATIONNAME: _("Non-shelter Animals")},
                 { ID: -8, LOCATIONNAME: _("Retailer Animals")},
                 { ID: -6, LOCATIONNAME: _("Stolen Animals")},
