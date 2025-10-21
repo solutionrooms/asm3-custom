@@ -1,4 +1,4 @@
-/*global $, jQuery, _, asm, common, config, controller, dlgfx, format, header, html, validate */
+/*global $, jQuery, _, asm, common, config, controller, dlgfx, format, header, html, tableform, validate */
 
 $(function() {
 
@@ -9,6 +9,7 @@ $(function() {
         render: function() {
             return [
                 html.content_header(_("Change Password")),
+                html.error(_("You must change your password before continuing."), "forcepasswordwarning"),
                 html.error(_("The sheltermanager.com admin account password cannot be changed here, please visit {0}").replace("{0}", 
                     "<a href=\"https://sheltermanager.com/my/\">https://sheltermanager.com/my/</a>"), "mastererror"),
                 '<div id="changepassword">',
@@ -85,6 +86,11 @@ $(function() {
             });
 
             $("#mastererror").hide();
+            $("#forcepasswordwarning").hide();
+
+            if (controller.forcechangepassword || common.querystring_param("forcechangepassword") == "1") {
+                $("#forcepasswordwarning").show();
+            }
 
             // If it's the master sheltermanager.com user, don't allow changing
             if (controller.ismaster) {

@@ -225,6 +225,8 @@ DEFAULTS = {
     "EmailLicenceReminderTemplate": "0",
     "EmailLogType": "3",
     "EmailMessages": "Yes", 
+    "NewUserEmailSubject": "",
+    "NewUserEmailBody": "",
     "EmblemAdoptable": "Yes",
     "EmblemAlwaysLocation": "No",
     "EmblemBoarding": "Yes",
@@ -1108,6 +1110,25 @@ def email_licence_reminder_template(dbo: Database) -> int:
 
 def email_messages(dbo: Database) -> bool:
     return cboolean(dbo, "EmailMessages", DEFAULTS["EmailMessages"] == "Yes")
+
+def new_user_email_subject(dbo: Database) -> str:
+    subject = cstring(dbo, "NewUserEmailSubject")
+    if subject.strip() == "":
+        l = getattr(dbo, "locale", None) or LOCALE
+        return asm3.i18n._("New user account", l)
+    return subject
+
+def new_user_email_body(dbo: Database) -> str:
+    body = cstring(dbo, "NewUserEmailBody")
+    if body.strip() == "":
+        l = getattr(dbo, "locale", None) or LOCALE
+        return "%s:\n\n%s: {login_url}\n%s: {user}\n%s: {pass}" % (
+            asm3.i18n._("A new ASM user account has been set up for you", l),
+            asm3.i18n._("URL", l),
+            asm3.i18n._("Username", l),
+            asm3.i18n._("Password", l)
+        )
+    return body
 
 def findpet_int_level(dbo: Database) -> str:
     return cint(dbo, "FindPetIntLevel")
