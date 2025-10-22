@@ -1,4 +1,4 @@
-/*global $, jQuery, _, asm, common, config, controller, dlgfx, format, header, html, mapping, validate */
+/*global $, jQuery, _, asm, common, config, controller, dlgfx, format, header, html, mapping, tableform, validate */
 /*global MASK_VALUE */
 
 $(function() {
@@ -75,6 +75,133 @@ $(function() {
             "seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen", "steelblue",
             "tan", "teal", "thistle", "tomato", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen",
         ],
+
+        initialise_name_pool: function() {
+            const rows = controller.randomnames || [];
+            controller.randomnames = rows;
+            const sexes = {};
+            $.each(controller.sexes || [], function(i, s) {
+                sexes[s.ID] = s.SEX;
+            });
+
+            const dialog = {
+                add_title: _("Add random name"),
+                edit_title: _("Edit random name"),
+                close_on_ok: false,
+                columns: 1,
+                width: 400,
+                fields: [
+                    { json_field: "NAME", post_field: "animalname", label: _("Name"), type: "text", validation: "notblank" },
+                    { json_field: "SEX", post_field: "sex", label: _("Sex"), type: "select",
+                        options: { rows: controller.sexes || [], valuefield: "ID", displayfield: "SEX" } }
+                ]
+            };
+
+            const table = {
+                rows: rows,
+                idcolumn: "ID",
+                edit: async function(row) {
+                    await tableform.dialog_show_edit(dialog, row);
+                    tableform.fields_update_row(dialog.fields, row);
+                    await tableform.fields_post(dialog.fields, "mode=update&id=" + row.ID, "animal_name_pool");
+                    row.SEX = parseInt(row.SEX, 10);
+                    tableform.table_update(table);
+                    tableform.dialog_close();
+                },
+                columns: [
+                    { field: "NAME", display: _("Name"), initialsort: true,
+                        formatter: function(row) {
+                            return tableform.table_render_edit_link(row.ID, row.NAME);
+                        }
+                    },
+                    { field: "SEX", display: _("Sex"), formatter: function(row) {
+                        const label = sexes[row.SEX];
+                        return label ? label : "";
+                    }}
+                ]
+            };
+
+            const buttons = [
+                { id: "randomname-new", text: _("New name"), icon: "new", enabled: "always", click: async function() {
+                    await tableform.dialog_show_add(dialog);
+                    let response = await tableform.fields_post(dialog.fields, "mode=create", "animal_name_pool");
+                    let row = { ID: parseInt(response, 10) };
+                    tableform.fields_update_row(dialog.fields, row);
+                    row.SEX = parseInt(row.SEX, 10);
+                    rows.push(row);
+                    tableform.table_update(table);
+                    tableform.dialog_close();
+                }},
+                { id: "randomname-edit", text: _("Edit"), icon: "edit", enabled: "one", click: async function() {
+                    const selected = tableform.table_selected_row(table);
+                    if (!selected) { return; }
+                    await table.edit(selected);
+                }},
+                { id: "randomname-delete", text: _("Delete"), icon: "delete", enabled: "multi", click: async function() {
+                    await tableform.delete_dialog();
+                    let ids = tableform.table_ids(table);
+                    if (ids === "") { return; }
+                    await common.ajax_post("animal_name_pool", "mode=delete&ids=" + ids);
+                    tableform.table_remove_selected_from_json(table, rows);
+                    tableform.table_update(table);
+                    tableform.buttons_default_state(buttons);
+                }},
+                { id: "randomname-import", text: _("Import CSV"), icon: "upload", enabled: "always", click: function() {
+                    $("#randomname-import-file").click();
+                }}
+            ];
+
+            const import_handler = async function(evt) {
+                const input = evt.target;
+                const file = input.files && input.files[0];
+                if (!file) { return; }
+                try {
+                    const text = await file.text();
+                    const response = await common.ajax_post("animal_name_pool", "mode=import&csv=" + encodeURIComponent(text));
+                    const result = JSON.parse(response || '{}');
+                    if (result.rows && result.rows.length) {
+                        $.each(result.rows, function(i, row) {
+                            row.SEX = parseInt(row.SEX, 10);
+                            rows.push(row);
+                        });
+                        tableform.table_update(table);
+                    }
+                    let messages = [];
+                    if (result.added) {
+                        messages.push(_("Added {0} names", result.added));
+                    }
+                    if (result.skipped) {
+                        messages.push(_("Skipped {0} existing names", result.skipped));
+                    }
+                    if (messages.length) {
+                        header.show_info(messages.join(". "));
+                    }
+                    if (result.errors && result.errors.length) {
+                        header.show_error(result.errors.join("\n"));
+                    }
+                }
+                catch (err) {
+                    console.log(err);
+                    header.show_error(_("Import failed"));
+                }
+                finally {
+                    $(input).val("");
+                }
+            };
+
+            this.namepool = {
+                dialog: dialog,
+                table: table,
+                buttons: buttons,
+                import_handler: import_handler,
+                markup: [
+                    tableform.dialog_render(dialog),
+                    tableform.buttons_render(buttons),
+                    '<input type="file" id="randomname-import-file" accept=".csv,text/csv" style="display:none" />',
+                    tableform.table_render(table)
+                ].join("\n")
+            };
+        },
 
         render: function() {
             const emblemvalues = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@$%^&*!?#",
@@ -166,6 +293,8 @@ $(function() {
                     '</option><option value="not">' + _("if animal does not have") + '</option>';
             $.each(emblemglyphs, function(i, v) { emblemoptions.push('<option value="&#' + v + ';">&#' + v + ';</option>'); });
             for (let i = 0; i < emblemvalues.length; i=i+1) { emblemoptions.push('<option>' + emblemvalues[i] + '</option>'); }
+
+            this.initialise_name_pool();
 
             return [
                 html.content_header(_("System Options")),
@@ -988,6 +1117,9 @@ $(function() {
                         { id: "watermarkfontfile", post_field: "WatermarkFontFile", label: _("Watermark font"), type: "select", doublesize: true, options: html.list_to_options_array(asm.fontfiles), xmarkup: '<img id="watermarkfontpreview" src="" style="height: 40px; width: 200px; border: 1px solid #000; vertical-align: middle" />' }, 
                         { id: "watermarkfontoffset", post_field: "WatermarkFontOffset", label: _("Watermark name offset"), type: "number", min: 0, max: 100, callout: _("Offset from left edge of the image") }, 
                         { id: "watermarkfontmaxsize", post_field: "WatermarkFontMaxSize", label: _("Watermark name max font size"), type: "number", min: 0, max: 999 }
+                    ]},
+                    { id: "tab-randomnames", title: _("Name Pool"), fields: [
+                        { type: "raw", fullrow: true, markup: this.namepool.markup }
                     ]}
                 ], {full_width: false}),
                 html.content_footer()
@@ -1143,6 +1275,13 @@ $(function() {
                 $("#newuseremailbody").val(controller.newuseremailbodydefault);
             }
 
+            if (options.namepool) {
+                tableform.dialog_bind(options.namepool.dialog);
+                tableform.buttons_bind(options.namepool.buttons);
+                tableform.table_bind(options.namepool.table, options.namepool.buttons);
+                $("#randomname-import-file").off("change").on("change", options.namepool.import_handler);
+            }
+
             validate.bind_dirty();
 
         },
@@ -1161,6 +1300,7 @@ $(function() {
 
         destroy: function() {
             validate.unbind_dirty();
+            tableform.dialog_destroy();
             common.widget_destroy("#DefaultBroughtInBy", "personchooser");
         },
 

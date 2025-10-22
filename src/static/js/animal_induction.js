@@ -455,7 +455,10 @@ $(function() {
                 '            <div class="field-label">' + _("Name") + ' <span class="asm-has-validation">*</span></div>',
                 '            <div class="field-input">',
                                 tableform.render_text({ post_field: "animalname", justwidget: true }),
-                '                <button id="button-animalname" type="button" title="' + _("Generate a random name for this animal") + '">🎲</button>',
+                '                <span class="random-name-buttons">',
+                '                    <button id="button-animalname-female" type="button" title="' + _("Generate a random female name") + '">&#9792;</button>',
+                '                    <button id="button-animalname-male" type="button" title="' + _("Generate a random male name") + '">&#9794;</button>',
+                '                </span>',
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row" id="entryagerangerow">',
@@ -2565,13 +2568,32 @@ $(function() {
             $("#induction-photo-file").off('change').on('change', function(){ onPhotoFileChange(this); });
             $("#induction-photo-library").off('change').on('change', function(){ onPhotoFileChange(this); });
 
-            $("#button-animalname")
+            const requestRandomName = async function(sexValue) {
+                try {
+                    let response = await common.ajax_post("animal", "mode=randomname&sex=" + sexValue);
+                    if (!response) {
+                        header.show_error(_("No unused names are available for the selected sex."));
+                        return;
+                    }
+                    $("#animalname").val(response);
+                }
+                catch (err) {
+                    console.log(err);
+                    header.show_error(_("Unable to generate a name right now."));
+                }
+            };
+
+            $("#button-animalname-female")
                 .button({ icons: { primary: "ui-icon-tag" }, text: false })
                 .click(async function() {
-                let formdata = "mode=randomname&sex=" + $("#sex").val();
-                const response = await common.ajax_post("animal", formdata);
-                $("#animalname").val(response); 
-            });
+                    await requestRandomName(0);
+                });
+
+            $("#button-animalname-male")
+                .button({ icons: { primary: "ui-icon-tag" }, text: false })
+                .click(async function() {
+                    await requestRandomName(1);
+                });
 
             $("#species").change(function() {
                 additional.toggle_elements_by_species("additional", $("#species").val());

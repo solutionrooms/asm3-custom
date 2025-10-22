@@ -13,6 +13,7 @@ import web062 as web
 import asm3.al
 import asm3.additional
 import asm3.animal
+import asm3.animalnamepool
 import asm3.animalcontrol
 import asm3.asynctask
 import asm3.audit
@@ -6888,6 +6889,7 @@ class options(JSONEndpoint):
             "paymentmethods": asm3.lookups.get_payment_methods(dbo),
             "personfindcolumns": asm3.html.json_personfindcolumns(dbo),
             "personflags": asm3.lookups.get_person_flags(dbo),
+            "sexes": asm3.lookups.get_sexes(dbo),
             "pp_paypal": pp_paypal,
             "pp_stripe": pp_stripe,
             "pp_square": pp_square,
@@ -6909,7 +6911,8 @@ class options(JSONEndpoint):
             "vaccinationtypes": asm3.lookups.get_vaccination_types(dbo),
             "waitinglistcolumns": asm3.html.json_waitinglistcolumns(dbo),
             "newuseremailsubjectdefault": asm3.configuration.new_user_email_subject(dbo),
-            "newuseremailbodydefault": asm3.configuration.new_user_email_body(dbo)
+            "newuseremailbodydefault": asm3.configuration.new_user_email_body(dbo),
+            "randomnames": asm3.animalnamepool.get_all(dbo)
         }
         asm3.al.debug("lookups loaded", "main.options", dbo)
         return c
@@ -6917,6 +6920,37 @@ class options(JSONEndpoint):
     def post_save(self, o):
         asm3.configuration.csave(o.dbo, o.user, o.post)
         self.reload_config()
+
+
+class animal_name_pool(JSONEndpoint):
+    url = "animal_name_pool"
+    get_permissions = asm3.users.SYSTEM_OPTIONS
+    post_permissions = asm3.users.SYSTEM_OPTIONS
+
+    def controller(self, o):
+        return {
+            "rows": asm3.animalnamepool.get_all(o.dbo)
+        }
+
+    def post_create(self, o):
+        nid = asm3.animalnamepool.insert(o.dbo, o.user, o.post.string("animalname"), o.post.integer("sex"))
+        return str(nid)
+
+    def post_update(self, o):
+        asm3.animalnamepool.update(
+            o.dbo,
+            o.user,
+            o.post.integer("id"),
+            o.post.string("animalname"),
+            o.post.integer("sex")
+        )
+
+    def post_delete(self, o):
+        asm3.animalnamepool.delete_many(o.dbo, o.user, o.post.integer_list("ids"))
+
+    def post_import(self, o):
+        summary = asm3.animalnamepool.import_csv(o.dbo, o.user, o.post.string("csv"))
+        return asm3.utils.json(summary)
 
 class options_font_preview(ASMEndpoint):
     url = "options_font_preview"

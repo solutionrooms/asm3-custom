@@ -2,6 +2,7 @@
 import asm3.additional
 import asm3.al
 import asm3.animalname
+import asm3.animalnamepool
 import asm3.asynctask
 import asm3.audit
 import asm3.configuration
@@ -3025,6 +3026,9 @@ def get_random_name(dbo: Database, sex: int = 0) -> str:
     that end with numbers and try to prefer less well used names.
     sex: A sex from lksex - 0 = Female, 1 = Male, 2 = Unknown
     """
+    pool_name = asm3.animalnamepool.pick_random_name(dbo, sex)
+    if pool_name:
+        return pool_name
     names = dbo.query("SELECT AnimalName, COUNT(AnimalName) AS Total " \
         "FROM animal " \
         "WHERE Sex = ? " \

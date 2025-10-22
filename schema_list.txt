@@ -684,3 +684,17 @@ MatchCommentsContain
     VARCHAR
 MatchFlags
     VARCHAR
+animalname
+----------
+
+Stores curated random names that feed the themed name generator.
+
+ID 
+    INTEGER
+    Unique identifier for the curated name
+Name 
+    VARCHAR
+    The animal name suggestion
+Sex 
+    INTEGER
+    0 = Female, 1 = Male, 2 = Unknown/neutral

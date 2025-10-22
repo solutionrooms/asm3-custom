@@ -53,7 +53,16 @@ $(function() {
                     { post_field: "nsowner", label: _("Owner"), type: "person" },
                     { post_field: "sheltercode", label: _("Code"), type: "text", halfsize: true, rowid: "coderow", 
                         xmarkup: tableform.render_text({ post_field: "shortcode", halfsize: true, justwidget: true }) }, 
-                    { post_field: "animalname", label: _("Name"), type: "text", xbutton: _("Generate a random name for this animal") },
+                    { post_field: "animalname", label: _("Name"), type: "text", xmarkup: [
+                        ' <span class="random-name-buttons">',
+                        '<button id="button-animalname-female" type="button" title="' + _("Generate a random female name") + '">',
+                        '&#9792;',
+                        '</button> ',
+                        '<button id="button-animalname-male" type="button" title="' + _("Generate a random male name") + '">',
+                        '&#9794;',
+                        '</button>',
+                        '</span>'
+                    ].join("") },
                     { post_field: "dateofbirth", label: _("Date of Birth"), type: "date" },
                     { post_field: "estimatedage", label: _("or estimated age in years"), type: "number" },
                     { post_field: "sex", label: _("Sex"), type: "select", 
@@ -620,13 +629,32 @@ $(function() {
                 animal_new.reset();
             });
 
-            $("#button-animalname")
+            const requestRandomName = async function(sexValue) {
+                try {
+                    let response = await common.ajax_post("animal", "mode=randomname&sex=" + sexValue);
+                    if (!response) {
+                        header.show_error(_("No unused names are available for the selected sex."));
+                        return;
+                    }
+                    $("#animalname").val(response);
+                }
+                catch (err) {
+                    console.log(err);
+                    header.show_error(_("Unable to generate a name right now."));
+                }
+            };
+
+            $("#button-animalname-female")
                 .button({ icons: { primary: "ui-icon-tag" }, text: false })
                 .click(async function() {
-                let formdata = "mode=randomname&sex=" + $("#sex").val();
-                const response = await common.ajax_post("animal", formdata);
-                $("#animalname").val(response); 
-            });
+                    await requestRandomName(0);
+                });
+
+            $("#button-animalname-male")
+                .button({ icons: { primary: "ui-icon-tag" }, text: false })
+                .click(async function() {
+                    await requestRandomName(1);
+                });
 
             $("#species").change(function() {
                 additional.toggle_elements_by_species("additional", $("#species").val());

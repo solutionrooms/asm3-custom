@@ -11,6 +11,7 @@
 | 2025-08-30 | Storage | S3-backed media storage and S3 mirroring for DB backups | [External Storage & Backups](#external-storage--backups) |
 | 2025-09-01 | Operations | Cron hardening, single-table backup helpers, dev hot-reload mounts, weight monitor photo linking | [Operational Automation](#operational-automation) |
 | 2025-09-07 | Application | Observations history poo sample column and Analysis tab with weight graph | [Observations & Analysis Enhancements](#observations--analysis-enhancements) |
+| 2025-09-18 | Application | Curated random name pool with themed CSV import | [Curated Random Name Pool](#curated-random-name-pool) |
 
 ---
 
@@ -36,6 +37,13 @@
 - `src/static/js/animal_observations_history.js` now surfaces poo sample results in a dedicated column and includes logs that previously hid when only a sample was recorded.
 - New "Analysis" tab (`src/static/js/header_edit_header.js`) loads `src/static/js/animal_analysis.js`, backed by `animal_analysis` and `animal_weight_graph` endpoints in `src/main.py`. Matplotlib renders a PNG weight graph, with client-side hover detail and a PNG fallback.
 - Hedgehog daily observation screen keeps the animal selector visible (`src/static/js/hedgehog_observation.js`), ensuring `/hedgehog_observation` loads with a searchable picker even without context; regression hook added in `unittest/test_hedgehog.py`.
+
+### Curated Random Name Pool
+**When**: 2025-09-18 (branch `develop`)
+
+- New curated name pool endpoint (`animal_name_pool` in `src/main.py`) backed by helper module `src/asm3/animalnamepool.py`; supports add/edit/delete plus CSV import with per-sex validation and duplicate shielding.
+- System Options gains a "Name Pool" tab (`src/static/js/options.js`) with a sortable table, CRUD toolbar, and drag-and-drop CSV import (sex/name columns). Entries feed two dedicated random-name buttons on animal intake (`src/static/js/animal_new.js`, `src/static/js/animal_induction.js`).
+- Random name generation now prefers unused pool entries (`src/asm3/animal.py`), falling back to legacy dictionary only when necessary, guaranteeing themed uniqueness month-to-month. Regression coverage added in `unittest/test_animalname.py`.
 
 ### Animal Data Integrity
 **When**: 2025-08-25 (branch `develop`)
