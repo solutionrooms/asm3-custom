@@ -36,6 +36,8 @@
 - `src/static/js/animal_observations_history.js` now surfaces poo sample results in a dedicated column and includes logs that previously hid when only a sample was recorded.
 - New "Analysis" tab (`src/static/js/header_edit_header.js`) loads `src/static/js/animal_analysis.js`, backed by `animal_analysis` and `animal_weight_graph` endpoints in `src/main.py`. Matplotlib renders a PNG weight graph, with client-side hover detail and a PNG fallback.
 - Hedgehog daily observation screen keeps the animal selector visible (`src/static/js/hedgehog_observation.js`), ensuring `/hedgehog_observation` loads with a searchable picker even without context; regression hook added in `unittest/test_hedgehog.py`.
+- Historical entry workflow introduced for hedgehog observations: dedicated endpoint (`hedgehog_observation_history` in `src/main.py`) honours custom observation dates, updated single-animal UI (`src/static/js/hedgehog_observation.js`), navigation entry from the multi-animal screen (`src/static/js/animal_observations.js`), and regression coverage in `unittest/test_hedgehog.py`.
+- Historical mode bypasses clinician/poo confirmation prompts and the new binary flags (“Poo Sample Taken?”, “Clinician Alerted?”) display across single-entry, multi-entry, and history tables (`src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/static/js/animal_observations_history.js`).
 
 ### Animal Data Integrity
 **When**: 2025-08-25 (branch `develop`)

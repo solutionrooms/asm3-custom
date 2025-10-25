@@ -60,6 +60,26 @@ $(function() {
                     colwidgets.push('<input type="text" class="asm-textbox widget" data-name="' + dataName + '" data-index="' + i + '" />');
                 }
             }
+            const ensureBinaryField = function(label) {
+                const lower = (label || "").toLowerCase();
+                const exists = meta.some(function(entry){ return (entry.label || "").toLowerCase() === lower; });
+                if (exists) { return; }
+                const idx = "extra-" + lower.replace(/[^a-z0-9]+/g, "-");
+                const dataName = html.title(label);
+                meta.push({
+                    idx: idx,
+                    label: label,
+                    dataName: dataName,
+                    required: false,
+                    range: ""
+                });
+                colnames.push(label);
+                const yesNoOptions = '<option value=""></option><option value="Yes">' + _("Yes") + '</option><option value="No">' + _("No") + '</option>';
+                colwidgets.push('<select class="asm-selectbox asm-halfselectbox widget" data-name="' + dataName + '" data-index="' + idx + '">' + yesNoOptions + '</select>');
+            };
+
+            ensureBinaryField("Poo Sample Taken?");
+            ensureBinaryField("Clinician Alerted?");
             animal_observations.behave_meta = meta;
 
             // Map animal ids for quick lookup later
@@ -71,6 +91,7 @@ $(function() {
                 html.content_header(headerTitle),
                 tableform.buttons_render([
                     { type: "raw", markup: '<button id="button-selectall">' + _("Select all") + '</button>' },
+                    { type: "raw", markup: '<button id="button-history">' + _("Enter historical observations") + '</button>' },
                     { id: "save", icon: "save", tooltip: _("Write observation logs for all selected rows") },
                     { id: "location", type: "dropdownfilter", options: html.list_to_options(controller.internallocations, "ID", "DISPLAY") }
                 ]),
@@ -622,6 +643,22 @@ $(function() {
                     $(this).removeClass("asm-completerow").addClass("ui-state-highlight");
                     $(this).find(".widget").prop("disabled", false);
                 });
+            });
+
+            $("#button-history").button({
+                icons: { primary: "ui-icon-clock" }
+            }).click(function() {
+                let target = "hedgehog_observation_history";
+                const selectedRow = $(".asm-daily-observations tbody tr").filter(function() {
+                    return $(this).find(".selector").is(":checked");
+                }).first();
+                if (selectedRow.length) {
+                    const aid = selectedRow.data("animalid");
+                    if (aid) {
+                        target += "?animalid=" + aid;
+                    }
+                }
+                common.route(target);
             });
 
             $("#button-save").button().click(async function() {

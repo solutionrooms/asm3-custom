@@ -58,7 +58,8 @@ import asm3.wordprocessor
 
 from asm3.i18n import _, translate, get_version, get_display_date_format, \
     get_currency_prefix, get_currency_symbol, get_currency_dp, get_currency_radix, \
-    get_currency_digit_grouping, get_dst, get_locales, parse_date, python2display, \
+    get_currency_digit_grouping, get_dst, get_locales, parse_date, parse_time, \
+    python2display, display2python, \
     add_minutes, add_days, subtract_days, subtract_months, first_of_month, last_of_month, \
     monday_of_week, sunday_of_week, first_of_year, last_of_year, now, format_currency
 
@@ -3219,13 +3220,83 @@ class hedgehog_observation(JSONEndpoint):
             ensure_barcode_template(dbo, o.user)
         return {
             "animal": animal,
+            "endpoint": self.url,
             "logtypes": asm3.lookups.get_log_types(dbo),
             "recent": recent,
             "today": today,
             "latestmediaid": latest_media_id,
             "history7": history7,
-            "is_mobile": is_mobile
+            "is_mobile": is_mobile,
+            "history_mode": False,
+            "allow_custom_date": False,
+            "defaultlogdatetime": now,
+            "history": []
         }
+
+    def _resolve_logdatetime(self, o) -> Any:
+        """
+        Attempts to resolve a specific datetime for the observation being saved.
+        Supports ISO strings (YYYY-MM-DDTHH:MM[:SS]), locale display dates with optional
+        time component, or separate logdate/logtime fields. Returns None if no override
+        was supplied.
+        """
+        def _combine_with_now(base_date):
+            if base_date is None:
+                return None
+            current = o.dbo.now()
+            try:
+                return base_date.replace(
+                    hour=current.hour,
+                    minute=current.minute,
+                    second=current.second,
+                    microsecond=current.microsecond
+                )
+            except Exception:
+                return base_date
+
+        raw_iso = o.post["logdatetime"] if o.post.has_key("logdatetime") else ""
+        if raw_iso:
+            raw_iso = raw_iso.strip()
+            tests = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S",
+                     "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M")
+            for fmt in tests:
+                dt = parse_date(fmt, raw_iso)
+                if dt is not None:
+                    return dt
+            if len(raw_iso) >= 10:
+                base = parse_date("%Y-%m-%d", raw_iso[:10])
+                if base is not None:
+                    time_part = ""
+                    if "T" in raw_iso:
+                        time_part = raw_iso.split("T", 1)[1]
+                    elif " " in raw_iso:
+                        time_part = raw_iso.split(" ", 1)[1]
+                    time_part = time_part.strip()
+                    if time_part:
+                        parsed = parse_time(base, time_part)
+                        if parsed is not None:
+                            return parsed
+                    return _combine_with_now(base)
+
+        logdate = o.post["logdate"] if o.post.has_key("logdate") else ""
+        logtime = o.post["logtime"] if o.post.has_key("logtime") else ""
+        base_date = None
+        if logdate:
+            base_date = display2python(o.locale, logdate)
+            if base_date is None:
+                base_date = parse_date("%Y-%m-%d", logdate)
+        if base_date is not None:
+            if logtime:
+                resolved = parse_time(base_date, logtime)
+                if resolved is not None:
+                    return resolved
+            return _combine_with_now(base_date)
+        elif logtime:
+            nowdt = o.dbo.now()
+            resolved = parse_time(nowdt, logtime)
+            if resolved is not None:
+                return resolved
+        return None
 
     def post_save(self, o):
         # Accept same packed format as animal_observations
@@ -3237,6 +3308,7 @@ class hedgehog_observation(JSONEndpoint):
         logtype = o.post.integer("logtype")
         nocreated = 0
         updatelogid = o.post.integer("updatelogid") if o.post.has_key("updatelogid") else 0
+        logdatetime = self._resolve_logdatetime(o)
 
         if updatelogid and entries:
             first = entries[0]
@@ -3248,7 +3320,7 @@ class hedgehog_observation(JSONEndpoint):
                     o.dbo.update("log", updatelogid, {
                         "LogTypeID": logtype,
                         "Comments": msg,
-                        "Date": existing.DATE or o.dbo.now()
+                        "Date": logdatetime or existing.DATE or o.dbo.now()
                     }, o.user)
                     nocreated += 1
                     entries = entries[1:]
@@ -3257,10 +3329,49 @@ class hedgehog_observation(JSONEndpoint):
             if not row or "==" not in row:
                 continue
             animalid, msg = row.split("==", 1)
-            asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, asm3.utils.atoi(animalid), logtype, msg)
+            asm3.log.add_log(
+                o.dbo,
+                o.user,
+                asm3.log.ANIMAL,
+                asm3.utils.atoi(animalid),
+                logtype,
+                msg,
+                logdatetime
+            )
             nocreated += 1
 
         return str(nocreated)
+
+class hedgehog_observation_history(hedgehog_observation):
+    url = "hedgehog_observation_history"
+    js_module = "hedgehog_observation"
+
+    def controller(self, o):
+        data = super().controller(o)
+        data["history_mode"] = True
+        data["allow_custom_date"] = True
+        data["endpoint"] = self.url
+        data["history"] = []
+        animal = data.get("animal")
+        now_dt = o.dbo.now()
+        data["defaultlogdatetime"] = animal and now_dt or now_dt
+        if animal:
+            try:
+                behave_logtype = asm3.configuration.cint(o.dbo, "BehaveLogType", 3)
+                logs = asm3.log.get_logs(o.dbo, asm3.log.ANIMAL, animal["ID"], behave_logtype)
+                cutoff = subtract_days(now_dt, 120)
+                history = []
+                for record in logs:
+                    dt = record.get("DATE")
+                    if dt is None or dt >= cutoff:
+                        history.append(record)
+                    if len(history) >= 120:
+                        break
+                data["history"] = history
+            except Exception as e:
+                asm3.al.warn(f"hedgehog_observation_history history load failed: {e}", "main.hedgehog_observation_history", o.dbo)
+        data["today"] = None
+        return data
 
 class animal_test(JSONEndpoint):
     url = "animal_test"

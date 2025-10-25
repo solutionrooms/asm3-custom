@@ -4,23 +4,40 @@ $(function() {
 
     "use strict";
 
+    const hasExistingTranslate = (typeof window !== "undefined" && typeof window._ === "function");
+    const __translate = hasExistingTranslate ? window._ : function() {
+        if (arguments.length === 0) { return ""; }
+        return arguments[0];
+    };
+    const translate = function() {
+        return __translate.apply(this, arguments);
+    };
+    if (typeof window !== "undefined") {
+        window._ = translate;
+    }
+
     const hedgehog_observation = {
 
         today_map: null,
         today_log_id: null,
         today_extras: {},
+        allow_custom_date: false,
+        history_mode: false,
+        history_map: {},
+        history_selected_id: null,
         is_mobile: false,
         state_restored: false,
 
         storage_key: function() {
             let aid = controller.animal ? controller.animal.ID : "unknown";
-            return "hedgehog_observation:" + aid;
+            let prefix = this.history_mode ? "hedgehog_observation_history" : "hedgehog_observation";
+            return prefix + ":" + aid;
         },
 
         save_state: function() {
             try {
                 let state = {};
-                $(".widget").each(function(){
+                $(".widget, .hhog-store").each(function(){
                     let k = $(this).attr("data-name");
                     if (!k) { return; }
                     state[k] = $(this).val();
@@ -35,7 +52,7 @@ $(function() {
                 let raw = sessionStorage.getItem(this.storage_key());
                 if (!raw) { return; }
                 let state = JSON.parse(raw);
-                $(".widget").each(function(){
+                $(".widget, .hhog-store").each(function(){
                     let k = $(this).attr("data-name");
                     if (!k) { return; }
                     if (state.hasOwnProperty(k)) { $(this).val(state[k]); }
@@ -45,15 +62,30 @@ $(function() {
             } catch(e) { /* ignore parse/storage errors */ }
         },
 
+        default_datetime_values: function() {
+            let base = controller.defaultlogdatetime || (controller.recent && controller.recent.DATE) || null;
+            let dateValue = base ? format.date(base) : format.date(new Date());
+            let timeValue = base ? format.time(base) : format.time_now();
+            if (!timeValue) { timeValue = format.time_now(); }
+            return { date: dateValue, time: timeValue };
+        },
+
         render: function() {
+            const ho = this;
             let a = controller.animal;
-            this.today_map = controller.today ? this.parse_observation_map(controller.today.COMMENTS) : null;
-            this.today_log_id = controller.today ? controller.today.LOGID : null;
+            const historyRows = Array.isArray(controller.history) ? controller.history : [];
+            this.history_mode = !!controller.history_mode;
+            this.allow_custom_date = !!controller.allow_custom_date;
+            this.history_map = {};
+            this.history_selected_id = null;
+            const effectiveToday = this.history_mode ? null : controller.today;
+            this.today_map = effectiveToday ? this.parse_observation_map(effectiveToday.COMMENTS) : null;
+            this.today_log_id = effectiveToday ? effectiveToday.LOGID : null;
             this.today_extras = {};
             this.is_mobile = !!controller.is_mobile;
             this.state_restored = false;
 
-            let h = [ html.content_header(_("Daily Observation")) ];
+            let h = [ html.content_header(translate("Daily Observation")) ];
 
             h.push('<style>');
             h.push('.hhog-hero-card{background:linear-gradient(135deg,#f8fafc,#ffffff);border-radius:18px;padding:22px;box-shadow:0 18px 45px rgba(15,23,42,0.12);margin-bottom:20px;}');
@@ -92,7 +124,24 @@ $(function() {
             h.push('.hhog-checkbox input{width:auto;}');
             h.push('.hhog-actions{margin-top:30px;display:flex;flex-wrap:wrap;gap:14px;}');
             h.push('.hhog-actions button{min-width:170px;font-size:1rem;padding:11px 20px;}');
-            h.push('@media (max-width:780px){.hhog-hero{gap:16px;}.hhog-hero-thumb img{width:96px;height:96px;}.hhog-card{padding:18px;}.asm-hhog-observation{padding:22px;}.hhog-actions{flex-direction:column;}.hhog-banner{flex-direction:column;align-items:flex-start;}.hhog-checkbox-group{flex-direction:column;}}');
+            h.push('.hhog-schedule{display:flex;flex-wrap:wrap;gap:16px;margin-top:20px;}');
+            h.push('.hhog-schedule .hhog-field{flex:1 1 200px;}');
+            h.push('.hhog-schedule-note{margin-top:18px;color:#475569;font-size:0.9rem;}');
+            h.push('.hhog-history{margin-top:12px;}');
+            h.push('.hhog-history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}');
+            h.push('.hhog-history-title{font-weight:700;font-size:1.05rem;color:#1f2937;}');
+            h.push('.hhog-history-reset{display:inline-flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;background:#e0f2fe;color:#1d4ed8;border:none;font-size:0.85rem;font-weight:600;cursor:pointer;}');
+            h.push('.hhog-history-reset:hover{background:#bfdbfe;}');
+            h.push('.hhog-history-list{list-style:none;margin:0;padding:0;}');
+            h.push('.hhog-history-item{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:8px;background:#f8fafc;cursor:pointer;transition:background .2s,border-color .2s,box-shadow .2s;}');
+            h.push('.hhog-history-item:hover{background:#fff;border-color:#3b82f6;box-shadow:0 10px 24px rgba(59,130,246,0.14);}');
+            h.push('.hhog-history-item.active{border-color:#2563eb;background:#eff6ff;box-shadow:0 0 0 2px rgba(37,99,235,0.22);}');
+            h.push('.hhog-history-item-title{font-weight:600;color:#1f2937;margin-bottom:2px;}');
+            h.push('.hhog-history-item-meta{font-size:0.85rem;color:#475569;}');
+            h.push('.hhog-history-empty{font-size:0.93rem;color:#475569;background:#f1f5f9;border-radius:12px;padding:16px;}');
+            h.push('.hhog-history-item span.asm-icon{margin-right:6px;}');
+            h.push('.hhog-history-item-meta span{display:block;}');
+            h.push('@media (max-width:780px){.hhog-hero{gap:16px;}.hhog-hero-thumb img{width:96px;height:96px;}.hhog-card{padding:18px;}.asm-hhog-observation{padding:22px;}.hhog-actions{flex-direction:column;}.hhog-banner{flex-direction:column;align-items:flex-start;}.hhog-checkbox-group{flex-direction:column;}.hhog-schedule{flex-direction:column;}.hhog-history-header{flex-direction:column;align-items:flex-start;gap:8px;}.hhog-history-reset{align-self:flex-start;}}');
             h.push('</style>');
 
             if (a) {
@@ -130,21 +179,39 @@ $(function() {
                 h.push('</div></div></div>');
             }
 
+            if (!this.history_mode && a) {
+                const historyUrl = 'hedgehog_observation_history?animalid=' + a.ID;
+                h.push('<div class="hhog-card" id="hhog-history-launch">');
+                h.push('<div class="hhog-history-header">');
+                h.push('<div class="hhog-history-title">' + translate("Need to back-fill past observations?") + '</div>');
+                h.push('<button type="button" class="hhog-history-reset" data-history-url="' + historyUrl + '"><span class="asm-icon asm-icon-clock"></span>' + translate("Enter historical observations") + '</button>');
+                h.push('</div>');
+                h.push('<div class="hhog-history-empty">' + translate("Open a dedicated screen to record or edit older logs with custom dates.") + '</div>');
+                h.push('</div>');
+            }
+
             const chooserValueAttr = a ? ' value="' + a.ID + '"' : '';
             h.push('<div class="hhog-card asm-main-section">');
-            h.push('<div class="hhog-intro">' + (a ? _("Switch to another animal to record their observations.") : _("Select an animal to start a new observation.")) + '</div>');
+            let introText;
+            if (this.history_mode) {
+                introText = a ? translate("Switch to another animal to record historical observations.") : translate("Select an animal to back-fill historical observations.");
+            }
+            else {
+                introText = a ? translate("Switch to another animal to record their observations.") : translate("Select an animal to start a new observation.");
+            }
+            h.push('<div class="hhog-intro">' + introText + '</div>');
             h.push('<div class="asm-field">');
-            h.push('<label class="asm-label" for="animal">' + _("Animal") + '</label>');
+            h.push('<label class="asm-label" for="animal">' + translate("Animal") + '</label>');
             h.push('<input id="animal" type="hidden" class="asm-animalchooser"' + chooserValueAttr + ' />');
             h.push('</div></div>');
 
-            if (controller.today && a) {
+            if (!this.history_mode && controller.today && a) {
                 let stamp = format.date(controller.today.DATE) + ' ' + format.time(controller.today.DATE);
-                let by = controller.today.BY ? html.title(controller.today.BY) : _("Unknown");
+                let by = controller.today.BY ? html.title(controller.today.BY) : translate("Unknown");
                 h.push('<div class="hhog-banner hhog-banner-update">');
                 h.push('<span class="asm-icon asm-icon-info hhog-banner-icon"></span>');
-                h.push('<div><div class="hhog-banner-title">' + _("Updating today's observation") + '</div>');
-                h.push('<div class="hhog-banner-note">' + common.substitute(_("Last recorded {0} by {1}. Saving will update the same log entry."), { "0": html.title(stamp), "1": by }) + '</div></div></div>');
+                h.push('<div><div class="hhog-banner-title">' + translate("Updating today's observation") + '</div>');
+                h.push('<div class="hhog-banner-note">' + common.substitute(translate("Last recorded {0} by {1}. Saving will update the same log entry."), { "0": html.title(stamp), "1": by }) + '</div></div></div>');
             }
 
             if (controller.recent && a) {
@@ -156,8 +223,8 @@ $(function() {
                     $.each(obs, function(k, v){ if (v) { parts.push(html.title(k) + ': ' + html.title(v)); } });
                     h.push('<div class="hhog-banner hhog-banner-info">');
                     h.push('<span class="asm-icon asm-icon-info hhog-banner-icon"></span>');
-                    h.push('<div><div class="hhog-banner-title">' + _("Last observation") + '</div>');
-                    h.push('<div class="hhog-banner-note">' + common.substitute(_("Recorded at {0} with: {1}"), { "0": html.title(d), "1": html.title(parts.join(' | ')) }) + '</div></div></div>');
+                    h.push('<div><div class="hhog-banner-title">' + translate("Last observation") + '</div>');
+                    h.push('<div class="hhog-banner-note">' + common.substitute(translate("Recorded at {0} with: {1}"), { "0": html.title(d), "1": html.title(parts.join(' | ')) }) + '</div></div></div>');
                 }
             }
 
@@ -178,19 +245,47 @@ $(function() {
                 }
             }
 
+            const ensureBinaryField = function(label) {
+                const lower = (label || "").toLowerCase();
+                const exists = meta.some(function(m){ return (m.name || m.label || "").toLowerCase() === lower; });
+                if (exists) { return; }
+                const idx = "extra-" + lower.replace(/[^a-z0-9]+/g, "-");
+                const labelMarkup = '<label class="hhog-field-label">' + html.title(label) + '</label>';
+                const options = [
+                    '<option value=""></option>',
+                    '<option value="Yes">' + translate("Yes") + '</option>',
+                    '<option value="No">' + translate("No") + '</option>'
+                ].join("");
+                fields.push('<div class="hhog-field">' + labelMarkup + '<select class="asm-selectbox widget" data-index="' + idx + '" data-name="' + html.title(label) + '">' + options + '</select></div>');
+                meta.push({ idx: idx, name: label, required: false, range: "" });
+            };
+
+            ensureBinaryField("Poo Sample Taken?");
+            ensureBinaryField("Clinician Alerted?");
+
             h.push('<div class="asm-main-section asm-hhog-observation">');
+            if (this.allow_custom_date) {
+                const datetimeDefaults = this.default_datetime_values();
+                const dateDefault = datetimeDefaults.date || "";
+                const timeDefault = datetimeDefaults.time || "";
+                h.push('<div class="hhog-schedule-note">' + translate("Choose the observation date and optional time before entering values below.") + '</div>');
+                h.push('<div class="hhog-schedule">');
+                h.push('<div class="hhog-field"><label class="hhog-field-label" for="log-date">' + translate("Observation date") + '</label><input id="log-date" type="text" class="asm-textbox asm-datebox hhog-store" data-name="__logdate__" value="' + html.title(dateDefault) + '" /></div>');
+                h.push('<div class="hhog-field"><label class="hhog-field-label" for="log-time">' + translate("Observation time") + '</label><input id="log-time" type="text" class="asm-textbox asm-timebox hhog-store" data-name="__logtime__" value="' + html.title(timeDefault) + '" placeholder="' + html.title(translate("Optional")) + '" /></div>');
+                h.push('</div>');
+            }
             h.push('<div class="hhog-grid">' + fields.join("\n") + '</div>');
             h.push('<div id="poo-confirm" class="hhog-confirm"></div>');
             h.push('<div id="clinician-confirm" class="hhog-confirm"></div>');
             h.push('<div class="hhog-actions">');
-            h.push('<button id="button-save" class="asm-mobile-full">' + _("Save") + '</button>');
+            h.push('<button id="button-save" class="asm-mobile-full">' + translate("Save") + '</button>');
             if (a) {
-                h.push('<button id="button-photo" class="asm-mobile-full">' + _("Attach Photo") + '</button>');
+                h.push('<button id="button-photo" class="asm-mobile-full">' + translate("Attach Photo") + '</button>');
             }
             h.push('</div></div>');
 
             if (a) {
-                h.push('<div id="dialog-photo" style="display:none" title="' + html.title(_("Attach Photo")) + '">');
+                h.push('<div id="dialog-photo" style="display:none" title="' + html.title(translate("Attach Photo")) + '">');
                 h.push('<form id="photoform" method="post" enctype="multipart/form-data" action="media">');
                 h.push('<input type="hidden" name="mode" value="create" />');
                 h.push('<input type="hidden" name="linkid" value="' + a.ID + '" />');
@@ -198,6 +293,64 @@ $(function() {
                 h.push('<input type="hidden" name="controller" value="hedgehog_observation" />');
                 h.push('<p><input type="file" name="filechooser" accept="image/*" class="asm-textbox" /></p>');
                 h.push('</form></div>');
+            }
+
+            if (this.allow_custom_date && a) {
+                h.push('<div class="hhog-card hhog-history">');
+                h.push('<div class="hhog-history-header">');
+                h.push('<div class="hhog-history-title">' + translate("Historical observations") + '</div>');
+                if (historyRows.length) {
+                    h.push('<button id="hhog-history-reset" type="button" class="hhog-history-reset"><span class="asm-icon asm-icon-refresh"></span>' + translate("Start new entry") + '</button>');
+                }
+                h.push('</div>');
+                const metaOrder = (meta || []).map(function(m){ return html.title(m.name); });
+                if (historyRows.length) {
+                    h.push('<ul class="hhog-history-list" id="hhog-history-list">');
+                    $.each(historyRows, function(_, rec) {
+                        if (!rec) { return; }
+                        let map = ho.parse_observation_map(rec.COMMENTS);
+                        ho.history_map[String(rec.ID)] = { record: rec, map: map };
+                        let when = format.date(rec.DATE);
+                        let whenTime = format.time(rec.DATE);
+                        let identifier = html.title(String(rec.ID));
+                        h.push('<li class="hhog-history-item" data-logid="' + identifier + '">');
+                        let heading = when ? when : translate("Unknown date");
+                        if (whenTime) {
+                            heading += ' ' + translate("at") + ' ' + whenTime;
+                        }
+                        h.push('<div class="hhog-history-item-title">' + html.title(heading) + '</div>');
+                        let rendered = [];
+                        const renderedKeys = {};
+                        $.each(metaOrder, function(_, label){
+                            const matchKey = Object.keys(map).find(function(k){ return (k || "").toLowerCase() === label.toLowerCase(); });
+                            if (matchKey && map[matchKey]) {
+                                rendered.push({ key: matchKey, value: map[matchKey] });
+                                renderedKeys[matchKey.toLowerCase()] = true;
+                            }
+                        });
+                        $.each(map, function(key, value){
+                            if (!value) { return; }
+                            if (renderedKeys[key.toLowerCase()]) { return; }
+                            rendered.push({ key: key, value: value });
+                        });
+                        if (rendered.length) {
+                            h.push('<div class="hhog-history-item-meta">');
+                            $.each(rendered, function(ix, entry){
+                                h.push('<span>' + html.title(entry.key) + ': ' + html.title(entry.value) + '</span>');
+                            });
+                            h.push('</div>');
+                        }
+                        else {
+                            h.push('<div class="hhog-history-item-meta">' + translate("No details recorded.") + '</div>');
+                        }
+                        h.push('</li>');
+                    });
+                    h.push('</ul>');
+                }
+                else {
+                    h.push('<div class="hhog-history-empty">' + translate("No historical observations recorded yet.") + '</div>');
+                }
+                h.push('</div>');
             }
 
             h.push(html.content_footer());
@@ -230,10 +383,10 @@ $(function() {
                     return '<span class="hhog-pill">' + html.title(f) + '</span>';
                 }).join("");
                 const markup = [
-                    '<div class="hhog-alert-heading">' + _("No faeces or no sign of animal recorded") + '</div>',
-                    '<p class="hhog-alert-copy">' + _("Please notify the clinician and confirm before saving.") + '</p>',
+                    '<div class="hhog-alert-heading">' + translate("No faeces or no sign of animal recorded") + '</div>',
+                    '<p class="hhog-alert-copy">' + translate("Please notify the clinician and confirm before saving.") + '</p>',
                     '<div class="hhog-pill-row">' + chips + '</div>',
-                    '<label class="hhog-checkbox"><input type="checkbox" id="clinician-notify" /> ' + _("I have notified the clinician") + '</label>'
+                    '<label class="hhog-checkbox"><input type="checkbox" id="clinician-notify" /> ' + translate("I have notified the clinician") + '</label>'
                 ];
                 container.html(markup.join(""));
                 container.data("reason-key", key);
@@ -247,26 +400,111 @@ $(function() {
             container.hide().removeData("reason-key").empty();
         },
 
+        reset_history_selection: function(showMessage) {
+            const ho = this;
+            ho.history_selected_id = null;
+            ho.today_log_id = null;
+            ho.today_map = null;
+            ho.today_extras = {};
+            $(".hhog-history-item").removeClass("active");
+            $(".widget").each(function() {
+                $(this).val("").trigger("change");
+            });
+            if (ho.allow_custom_date) {
+                const defaults = ho.default_datetime_values();
+                $("#log-date").val(defaults.date || "");
+                $("#log-time").val(defaults.time || "");
+            }
+            if (ho.history_mode) {
+                $("#button-save").button("option", "label", translate("Save Historical Observation"));
+            }
+            if (showMessage !== false && ho.history_mode && controller.animal && controller.animal.ANIMALNAME) {
+                header.show_info(translate("Entering a new historical observation for {0}.").replace("{0}", html.title(controller.animal.ANIMALNAME)));
+            }
+        },
+
+        load_history_entry: function(logid) {
+            const ho = this;
+            if (!logid || !ho.history_map || !ho.history_map.hasOwnProperty(logid)) { return; }
+            const entry = ho.history_map[logid];
+            const rec = entry && entry.record ? entry.record : entry;
+            if (!rec) { return; }
+            const map = entry && entry.map ? entry.map : ho.parse_observation_map(rec.COMMENTS);
+            ho.today_log_id = rec.ID;
+            ho.today_map = map;
+            ho.today_extras = {};
+            ho.history_selected_id = logid;
+            $(".hhog-history-item").removeClass("active");
+            $(".hhog-history-item[data-logid='" + logid + "']").addClass("active");
+            const extras = {};
+            $(".widget").each(function() {
+                const widget = $(this);
+                const nm = widget.attr("data-name");
+                let applied = false;
+                $.each(map, function(key, value) {
+                    if (!key || applied) { return; }
+                    if (key === nm) {
+                        widget.val(value).trigger("change");
+                        applied = true;
+                    }
+                });
+                if (!applied && nm) {
+                    widget.val("").trigger("change");
+                }
+            });
+            $.each(map, function(key, value) {
+                if (!key) { return; }
+                const widgets = $(".widget").filter(function(){ return $(this).attr("data-name") === key; });
+                if (!widgets.length) {
+                    extras[key] = value;
+                }
+            });
+            ho.today_extras = extras;
+            if (ho.allow_custom_date && rec.DATE) {
+                $("#log-date").val(format.date(rec.DATE) || "");
+                $("#log-time").val(format.time(rec.DATE) || "");
+            }
+            if (ho.history_mode) {
+                $("#button-save").button("option", "label", translate("Update Historical Observation"));
+            }
+            if (controller.animal && controller.animal.ANIMALNAME) {
+                const ts = format.date(rec.DATE) + (format.time(rec.DATE) ? " " + format.time(rec.DATE) : "");
+                header.show_info(translate("Editing observation from {0} for {1}.").replace("{0}", html.title(ts)).replace("{1}", html.title(controller.animal.ANIMALNAME)));
+            }
+        },
+
         bind: function() {
             const ho = hedgehog_observation;
+            const endpointUrl = controller.endpoint || "hedgehog_observation";
+            if (ho.allow_custom_date) {
+                $("#log-date").date();
+                $("#log-time").time();
+            }
             const chooser = $("#animal");
             chooser.animalchooser();
             chooser.off("animalchooserchange").on("animalchooserchange", function(event, rec) {
                 if (rec && rec.ID) {
                     if (controller.animal && String(controller.animal.ID) === String(rec.ID)) { return; }
-                    common.route("hedgehog_observation?animalid=" + rec.ID);
+                    const target = ho.history_mode ? "hedgehog_observation_history" : "hedgehog_observation";
+                    common.route(target + "?animalid=" + rec.ID);
                 }
             });
 
             if (!controller.animal) {
                 $(".widget").prop("disabled", true);
+                if (ho.allow_custom_date) {
+                    $("#log-date, #log-time").prop("disabled", true);
+                }
             }
             else {
                 chooser.val(controller.animal.ID || "");
+                if (ho.allow_custom_date) {
+                    $("#log-date, #log-time").prop("disabled", false);
+                }
                 ho.restore_state();
                 if (!ho.state_restored && ho.today_map) {
                     const extras = {};
-                    const skipExtras = ["take poo sample", "notify clinician"];
+                    const skipExtras = ["take poo sample", "notify clinician", "poo sample taken?", "clinician alerted?"];
                     $.each(ho.today_map, function(key, value) {
                         const widgets = $(".widget").filter(function(){ return $(this).attr("data-name") === key; });
                         if (widgets.length) {
@@ -281,8 +519,29 @@ $(function() {
             }
 
             $("#button-save").button();
-            if (ho.today_log_id) {
-                $("#button-save").button("option", "label", _("Update Observation"));
+                if (ho.history_mode) {
+                    $("#button-save").button("option", "label", translate("Save Historical Observation"));
+                }
+                if (!ho.history_mode && ho.today_log_id) {
+                    $("#button-save").button("option", "label", translate("Update Observation"));
+                }
+            if (ho.allow_custom_date) {
+                $("#hhog-history-reset").off("click").on("click", function() {
+                    ho.reset_history_selection();
+                });
+                $("#hhog-history-list").off("click", ".hhog-history-item").on("click", ".hhog-history-item", function() {
+                    const logId = String($(this).attr("data-logid"));
+                    ho.load_history_entry(logId);
+                });
+                if (ho.history_mode && !ho.state_restored && controller.animal) {
+                    ho.reset_history_selection(false);
+                }
+            }
+            if (!ho.history_mode) {
+                $("#hhog-history-launch .hhog-history-reset").off("click").on("click", function() {
+                    const url = $(this).attr("data-history-url") || "hedgehog_observation_history";
+                    common.route(url);
+                });
             }
 
             $("#button-save").off("click").on("click", async function() {
@@ -300,6 +559,37 @@ $(function() {
                         return key !== lower;
                     });
                 };
+                const removeMany = function(list, labels) {
+                    let updated = list;
+                    $.each(labels || [], function(_, label) {
+                        updated = removeKey(updated, label);
+                    });
+                    return updated;
+                };
+                const findMapKey = function(labels) {
+                    const items = Array.isArray(labels) ? labels : [labels];
+                    let found = null;
+                    $.each(items, function(_, label) {
+                        if (found) { return false; }
+                        const key = Object.keys(map).find(function(k){ return (k || "").toLowerCase() === String(label).toLowerCase(); });
+                        if (key) { found = key; }
+                    });
+                    return found;
+                };
+                const findWidgetForLabels = function(labels) {
+                    const items = Array.isArray(labels) ? labels : [labels];
+                    let found = $();
+                    $.each(items, function(_, label) {
+                        const candidate = $(".widget").filter(function(){ return ($(this).attr("data-name") || "").toLowerCase() === String(label).toLowerCase(); }).first();
+                        if (candidate && candidate.length) {
+                            found = candidate;
+                            return false;
+                        }
+                    });
+                    return found;
+                };
+                const sampleFieldLabels = ["Poo Sample Taken?", "Take poo sample"];
+                const clinicianFieldLabels = ["Clinician Alerted?", "Notify clinician"];
 
                 $(".hhog-field").removeClass("hhog-field-error hhog-field-alert");
 
@@ -326,10 +616,10 @@ $(function() {
                     if (config.bool("SuppressBlankObservations") && !val) { return; }
                     avs.push(nm + "=" + val);
                 });
-                if (!valid) { header.show_error(_("Please fix highlighted fields.")); return; }
+                if (!valid) { header.show_error(translate("Please fix highlighted fields.")); return; }
 
                 // Poo sample rule checks
-                const f = function(label){ return Object.keys(map).find(k => k.toLowerCase() === label.toLowerCase()); };
+                const f = function(label){ return findMapKey(label); };
                 let triggers = [];
                 let weightField = f("Weight");
                 let drankField = f("Drunk");
@@ -361,89 +651,127 @@ $(function() {
                     }
                 }
 
-                if (!triggers.length && $("#poo-confirm").is(":visible")) {
+                if (ho.history_mode) {
                     $("#poo-confirm").hide().empty();
-                }
-
-                const valueIndicatesNone = function(value) {
-                    if (value === null || value === undefined) { return true; }
-                    const v = String(value).trim().toLowerCase();
-                    if (v === "") { return true; }
-                    if (["none", "no", "absent", "missing", "n/a", "na", "nil", "zero", "0"].indexOf(v) !== -1) { return true; }
-                    if (v.startsWith("no ") || v.startsWith("none ") || v.indexOf("no sign") !== -1 || v.indexOf("not seen") !== -1 || v.indexOf("no poo") !== -1 || v.indexOf("no faec") !== -1 || v.indexOf("no fec") !== -1) { return true; }
-                    return false;
-                };
-
-                let clinicianTriggers = [];
-                $.each(map, function(key, value) {
-                    const lk = (key || "").toLowerCase();
-                    if (!lk) { return; }
-                    if ((lk.indexOf("faec") !== -1 || lk.indexOf("feces") !== -1 || lk.indexOf("faeces") !== -1 || lk.indexOf("poo") !== -1) && valueIndicatesNone(value)) {
-                        clinicianTriggers.push(key);
-                        return;
-                    }
-                    if (lk.indexOf("sign") !== -1 && lk.indexOf("animal") !== -1 && valueIndicatesNone(value)) {
-                        clinicianTriggers.push(key);
-                        return;
-                    }
-                    if ((lk.indexOf("seen") !== -1 || lk.indexOf("sighting") !== -1) && valueIndicatesNone(value)) {
-                        clinicianTriggers.push(key);
-                    }
-                });
-                const uniqueClinicianTriggers = [...new Set(clinicianTriggers)];
-                if (uniqueClinicianTriggers.length) {
-                    $(".widget").each(function(){
-                        if (uniqueClinicianTriggers.indexOf($(this).attr("data-name")) !== -1) {
-                            $(this).closest(".hhog-field").addClass("hhog-field-alert");
-                        }
-                    });
-                    const wasVisible = $("#clinician-confirm").is(":visible");
-                    ho.ensure_clinician_confirm(uniqueClinicianTriggers);
-                    if (!wasVisible) {
-                        header.show_info(_("Please confirm clinician notification before saving."));
-                        return;
-                    }
-                    if (!$("#clinician-notify").is(":checked")) {
-                        header.show_error(_("Please confirm clinician notification before saving."));
-                        return;
-                    }
-                    clinicianConfirmed = true;
-                }
-                else {
                     ho.clear_clinician_confirm();
                 }
+                else {
+                    if (!triggers.length && $("#poo-confirm").is(":visible")) {
+                        $("#poo-confirm").hide().empty();
+                    }
 
-                if (triggers.length && $("#poo-confirm").is(":hidden")) {
-                    $(".widget").each(function(){
-                        if (triggers.indexOf($(this).attr("data-name")) !== -1) {
-                            $(this).closest(".hhog-field").addClass("hhog-field-alert");
+                    const valueIndicatesNone = function(value) {
+                        if (value === null || value === undefined) { return true; }
+                        const v = String(value).trim().toLowerCase();
+                        if (v === "") { return true; }
+                        if (["none", "no", "absent", "missing", "n/a", "na", "nil", "zero", "0"].indexOf(v) !== -1) { return true; }
+                        if (v.startsWith("no ") || v.startsWith("none ") || v.indexOf("no sign") !== -1 || v.indexOf("not seen") !== -1 || v.indexOf("no poo") !== -1 || v.indexOf("no faec") !== -1 || v.indexOf("no fec") !== -1) { return true; }
+                        return false;
+                    };
+
+                    let clinicianTriggers = [];
+                    $.each(map, function(key, value) {
+                        const lk = (key || "").toLowerCase();
+                        if (!lk) { return; }
+                        if ((lk.indexOf("faec") !== -1 || lk.indexOf("feces") !== -1 || lk.indexOf("faeces") !== -1 || lk.indexOf("poo") !== -1) && valueIndicatesNone(value)) {
+                            clinicianTriggers.push(key);
+                            return;
+                        }
+                        if (lk.indexOf("sign") !== -1 && lk.indexOf("animal") !== -1 && valueIndicatesNone(value)) {
+                            clinicianTriggers.push(key);
+                            return;
+                        }
+                        if ((lk.indexOf("seen") !== -1 || lk.indexOf("sighting") !== -1) && valueIndicatesNone(value)) {
+                            clinicianTriggers.push(key);
                         }
                     });
-                    const chips = triggers.map(function(t){ return '<span class="hhog-pill">' + html.title(t) + '</span>'; }).join("");
-                    const pc = [
-                        '<div class="hhog-alert-heading">' + _("Poo sample requested") + '</div>',
-                        '<p class="hhog-alert-copy">' + _("The following fields triggered a poo sample check:") + '</p>',
-                        '<div class="hhog-pill-row">' + chips + '</div>',
-                        '<div class="hhog-checkbox-group">',
-                        '<label class="hhog-checkbox"><input type="radio" name="poosample" value="Yes" /> ' + _("Take poo sample now") + '</label>',
-                        '<label class="hhog-checkbox"><input type="radio" name="poosample" value="No" /> ' + _("Do not take a poo sample") + '</label>',
-                        '</div>'
-                    ];
-                    $("#poo-confirm").html(pc.join("")).show();
-                    header.show_info(_("Please confirm poo sample before saving."));
-                    return; // Block this save; user must confirm Yes/No
-                }
+                    const uniqueClinicianTriggers = [...new Set(clinicianTriggers)];
+                    if (uniqueClinicianTriggers.length) {
+                        $(".widget").each(function(){
+                            if (uniqueClinicianTriggers.indexOf($(this).attr("data-name")) !== -1) {
+                                $(this).closest(".hhog-field").addClass("hhog-field-alert");
+                            }
+                        });
+                        const wasVisible = $("#clinician-confirm").is(":visible");
+                        ho.ensure_clinician_confirm(uniqueClinicianTriggers);
+                        if (!wasVisible) {
+                            header.show_info(translate("Please confirm clinician notification before saving."));
+                            return;
+                        }
+                        if (!$("#clinician-notify").is(":checked")) {
+                            header.show_error(translate("Please confirm clinician notification before saving."));
+                            return;
+                        }
+                        clinicianConfirmed = true;
+                    }
+                    else {
+                        ho.clear_clinician_confirm();
+                    }
 
-                if ($("#poo-confirm").is(":visible")) {
-                    let v = $("input[name=poosample]:checked").val();
-                    if (!v) { header.show_error(_("Please select Yes or No for poo sample.")); return; }
-                    avs = removeKey(avs, "Take poo sample");
-                    avs.push("Take poo sample=" + v);
-                }
+                    if (triggers.length && $("#poo-confirm").is(":hidden")) {
+                        $(".widget").each(function(){
+                            if (triggers.indexOf($(this).attr("data-name")) !== -1) {
+                                $(this).closest(".hhog-field").addClass("hhog-field-alert");
+                            }
+                        });
+                        const chips = triggers.map(function(t){ return '<span class="hhog-pill">' + html.title(t) + '</span>'; }).join("");
+                        const pc = [
+                            '<div class="hhog-alert-heading">' + translate("Poo sample requested") + '</div>',
+                            '<p class="hhog-alert-copy">' + translate("The following fields triggered a poo sample check:") + '</p>',
+                            '<div class="hhog-pill-row">' + chips + '</div>',
+                            '<div class="hhog-checkbox-group">',
+                            '<label class="hhog-checkbox"><input type="radio" name="poosample" value="Yes" /> ' + translate("Take poo sample now") + '</label>',
+                            '<label class="hhog-checkbox"><input type="radio" name="poosample" value="No" /> ' + translate("Do not take a poo sample") + '</label>',
+                            '</div>'
+                        ];
+                        $("#poo-confirm").html(pc.join("")).show();
+                        header.show_info(translate("Please confirm poo sample before saving."));
+                        return; // Block this save; user must confirm Yes/No
+                    }
 
-                avs = removeKey(avs, "Notify clinician");
-                if (clinicianConfirmed) {
-                    avs.push("Notify clinician=Yes");
+                    if ($("#poo-confirm").is(":visible")) {
+                        let v = $("input[name=poosample]:checked").val();
+                        if (!v) { header.show_error(translate("Please select Yes or No for poo sample.")); return; }
+                        const sampleWidget = findWidgetForLabels(sampleFieldLabels);
+                        if (sampleWidget && sampleWidget.length) {
+                            sampleWidget.val(v).trigger("change");
+                            const label = sampleWidget.attr("data-name");
+                            map[label] = v;
+                            avs = removeMany(avs, sampleFieldLabels.concat([label]));
+                            avs.push(label + "=" + v);
+                        }
+                        else {
+                            avs = removeMany(avs, sampleFieldLabels);
+                            const label = sampleFieldLabels[0];
+                            map[label] = v;
+                            avs.push(label + "=" + v);
+                        }
+                    }
+
+                    const clinicianWidget = findWidgetForLabels(clinicianFieldLabels);
+                    if (!clinicianConfirmed && clinicianWidget && clinicianWidget.length) {
+                        clinicianWidget.val("").trigger("change");
+                        const label = clinicianWidget.attr("data-name");
+                        avs = removeMany(avs, clinicianFieldLabels.concat([label]));
+                    }
+                    else if (!clinicianConfirmed) {
+                        avs = removeMany(avs, clinicianFieldLabels);
+                    }
+                    if (clinicianConfirmed) {
+                        if (clinicianWidget && clinicianWidget.length) {
+                            clinicianWidget.val("Yes").trigger("change");
+                            const label = clinicianWidget.attr("data-name");
+                            map[label] = "Yes";
+                            avs = removeMany(avs, clinicianFieldLabels.concat([label]));
+                            avs.push(label + "=Yes");
+                        }
+                        else {
+                            avs = removeMany(avs, clinicianFieldLabels);
+                            const label = clinicianFieldLabels[0];
+                            map[label] = "Yes";
+                            avs.push(label + "=Yes");
+                        }
+                    }
                 }
 
                 if (ho.today_extras && Object.keys(ho.today_extras).length) {
@@ -454,19 +782,43 @@ $(function() {
                 }
 
                 if (avs.length === 0) {
-                    header.show_error(_("Please enter at least one observation value."));
+                    header.show_error(translate("Please enter at least one observation value."));
                     return;
+                }
+
+                let logIso = null;
+                if (ho.allow_custom_date) {
+                    const dateVal = $("#log-date").val();
+                    if (!dateVal) {
+                        header.show_error(translate("Please choose an observation date."));
+                        $("#log-date").closest(".hhog-field").addClass("hhog-field-error");
+                        return;
+                    }
+                    logIso = format.date_iso(dateVal);
+                    if (!logIso) {
+                        header.show_error(translate("Observation date format is invalid."));
+                        $("#log-date").closest(".hhog-field").addClass("hhog-field-error");
+                        return;
+                    }
+                    const timeVal = $("#log-time").val();
+                    if (timeVal) {
+                        logIso = format.date_iso_settime(logIso, timeVal);
+                    }
+                    else {
+                        logIso = format.date_iso_settime(logIso, "12:00:00");
+                    }
                 }
 
                 let packed = controller.animal.ID + "==" + avs.join(", ");
                 // Use the configured log type from Options -> Daily Observations
                 let formdata = { "mode": "save", "logtype": config.str("BehaveLogType"), "logs": packed };
                 if (ho.today_log_id) { formdata.updatelogid = ho.today_log_id; }
+                if (logIso) { formdata.logdatetime = logIso; }
                 $(".asm-content button").button("disable");
-                header.show_loading(_("Saving..."));
+                header.show_loading(translate("Saving..."));
                 let response;
                 try {
-                    response = await common.ajax_post("hedgehog_observation", formdata);
+                    response = await common.ajax_post(endpointUrl, formdata);
                 }
                 finally {
                     header.hide_loading();
@@ -474,13 +826,25 @@ $(function() {
                 }
                 let msg;
                 if (controller.animal && controller.animal.ANIMALNAME) {
-                    msg = (ho.today_log_id ? _("Observation updated for {0}.") : _("Observation saved for {0}."));
-                    msg = msg.replace("{0}", html.title(controller.animal.ANIMALNAME));
+                    if (ho.history_mode) {
+                        let tmpl = ho.today_log_id ? translate("Historical observation updated for {0}.") : translate("Historical observation saved for {0}.");
+                        msg = tmpl.replace("{0}", html.title(controller.animal.ANIMALNAME));
+                    }
+                    else {
+                        let tmpl = ho.today_log_id ? translate("Observation updated for {0}.") : translate("Observation saved for {0}.");
+                        msg = tmpl.replace("{0}", html.title(controller.animal.ANIMALNAME));
+                    }
                 }
                 else {
-                    msg = _("{0} observation logs successfully written.").replace("{0}", response);
+                    msg = translate("{0} observation logs successfully written.").replace("{0}", response);
                 }
                 header.show_info(msg, 5000);
+                if (ho.history_mode) {
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 900);
+                    return;
+                }
                 setTimeout(function(){
                     try { if (!ho.is_mobile) { window.close(); } } catch(e) {}
                     if (window.history.length > 1) {
@@ -494,7 +858,7 @@ $(function() {
             // Photo upload
             if (controller.animal) {
                 $("#dialog-photo").dialog({ autoOpen: false, modal: true, width: 420,
-                    buttons: (function(){ let b={}; b[_("Upload")] = function(){ $("#photoform").submit(); }; b[_("Cancel")] = function(){ $(this).dialog("close"); }; return b; })(),
+                    buttons: (function(){ let b={}; b[translate("Upload")] = function(){ $("#photoform").submit(); }; b[translate("Cancel")] = function(){ $(this).dialog("close"); }; return b; })(),
                     show: dlgfx.add_show, hide: dlgfx.add_hide
                 });
                 $("#button-photo").button().off("click").on("click", () => { ho.save_state(); $("#dialog-photo").dialog("open"); });
@@ -505,9 +869,10 @@ $(function() {
         destroy: function() {},
         name: "hedgehog_observation",
         animation: "book",
-        title: function() { return _("Daily Observation"); },
+        title: function() { return translate("Daily Observation"); },
         routes: {
-            "hedgehog_observation": function() { common.module_loadandstart("hedgehog_observation", "hedgehog_observation?" + this.rawqs); }
+            "hedgehog_observation": function() { common.module_loadandstart("hedgehog_observation", "hedgehog_observation?" + this.rawqs); },
+            "hedgehog_observation_history": function() { common.module_loadandstart("hedgehog_observation", "hedgehog_observation_history?" + this.rawqs); }
         }
     };
 
