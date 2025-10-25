@@ -135,6 +135,16 @@ DEFAULTS = {
     "Behave8Required": "No",
     "Behave9Required": "No",
     "Behave10Required": "No",
+    "Behave1WeightGainer": "No",
+    "Behave2WeightGainer": "No",
+    "Behave3WeightGainer": "No",
+    "Behave4WeightGainer": "No",
+    "Behave5WeightGainer": "No",
+    "Behave6WeightGainer": "No",
+    "Behave7WeightGainer": "No",
+    "Behave8WeightGainer": "No",
+    "Behave9WeightGainer": "No",
+    "Behave10WeightGainer": "No",
     "Behave1Range": "",
     "Behave2Range": "",
     "Behave3Range": "",
@@ -1891,3 +1901,17 @@ def weight_change_log(dbo: Database) -> bool:
 
 def weight_change_log_type(dbo: Database) -> int:
     return cint(dbo, "WeightChangeLogType", DEFAULTS["WeightChangeLogType"])
+
+def weight_gainer_fields(dbo: Database) -> List[str]:
+    """
+    Returns a list of observation field names that should be shown to users
+    assigned the Weight Gainer role.
+    """
+    fields: List[str] = []
+    for i in range(0, 50):
+        name = cstring(dbo, f"Behave{i}Name", "")
+        if not name:
+            continue
+        if cboolean(dbo, f"Behave{i}WeightGainer", False):
+            fields.append(name)
+    return fields
