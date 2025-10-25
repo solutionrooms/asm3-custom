@@ -39,6 +39,13 @@ $(function() {
             $.each(names, function(i, n) {
                 columns.push({ field: "OBS_" + i, display: n });
             });
+            const extraFieldDefs = [
+                { field: "POO_SAMPLE_TAKEN", label: _("Poo Sample Taken?") },
+                { field: "CLINICIAN_ALERTED", label: _("Clinician Alerted?") }
+            ];
+            $.each(extraFieldDefs, function(_, def) {
+                columns.push({ field: def.field, display: def.label });
+            });
             // Always include a column for poo sample results captured in comments
             columns.push({ field: "POO_SAMPLE_RESULT", display: _("Poo Sample Result") });
             // Map rows to include OBS_i fields from comments
@@ -52,6 +59,16 @@ $(function() {
                     let v = m[n] || "";
                     row["OBS_" + ix] = v; 
                     if (v) { hasAny = true; }
+                });
+                $.each(extraFieldDefs, function(_, def) {
+                    let targetKey = "";
+                    try {
+                        targetKey = Object.keys(m).find(function(k) { return (k || "").toLowerCase() === def.label.toLowerCase(); }) || "";
+                    }
+                    catch (e) {}
+                    let extraVal = targetKey ? (m[targetKey] || "") : "";
+                    row[def.field] = extraVal;
+                    if (extraVal) { hasAny = true; }
                 });
                 // Also surface poo sample results if present (case-insensitive key)
                 let pooKey = "";
@@ -79,6 +96,12 @@ $(function() {
                         // Route by animalname for QR-friendly URL
                         let nm = encodeURIComponent(controller.animal.ANIMALNAME || "");
                         common.route("hedgehog_observation?animalname=" + nm);
+                    } },
+                { id: "enterhistory", text: _("Enter historical observations"), icon: "clock", enabled: "always",
+                    click: function() {
+                        const aid = controller.animal && controller.animal.ID ? controller.animal.ID : 0;
+                        const target = aid ? ("hedgehog_observation_history?animalid=" + aid) : "hedgehog_observation_history";
+                        common.route(target);
                     } }
             ];
             h.push(tableform.buttons_render(this.buttons));
