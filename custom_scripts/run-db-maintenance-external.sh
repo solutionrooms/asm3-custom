@@ -150,7 +150,7 @@ for entry in "${DATABASE_ENTRIES[@]}"; do
         psql -c "
 SELECT 
     schemaname,
-    tablename,
+    relname AS tablename,
     n_tup_ins as inserts,
     n_tup_upd as updates,
     n_tup_del as deletes,

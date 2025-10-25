@@ -527,51 +527,61 @@ $(function() {
                             tableform.render_text({xattr: 'data="Behave1Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave1Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave1Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave1WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave1Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup: 
                             tableform.render_text({xattr: 'data="Behave2Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave2Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave2Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave2WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave2Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave3Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave3Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave3Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave3WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave3Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave4Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave4Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave4Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave4WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave4Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave5Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave5Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave5Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave5WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave5Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave6Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave6Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave6Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave6WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave6Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave7Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave7Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave7Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave7WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave7Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave8Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave8Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave8Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave8WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave8Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave9Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave9Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave9Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave9WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave9Range"', justwidget: true, placeholder: _("min-max")}) },
                         { type: "raw", fullrow: true, markup:
                             tableform.render_text({xattr: 'data="Behave10Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave10Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +
                             ' ' + tableform.render_check({xattr: 'data="Behave10Required"', justwidget: true, label: _("Required?")}) +
+                            ' ' + tableform.render_check({xattr: 'data="Behave10WeightGainer"', justwidget: true, label: _("Weight Gainer Entry?")}) +
                             ' ' + tableform.render_text({xattr: 'data="Behave10Range"', justwidget: true, placeholder: _("min-max")}) }
                     ]},
                     { id: "tab-data-protection", title: _("Data Protection"), fields: [

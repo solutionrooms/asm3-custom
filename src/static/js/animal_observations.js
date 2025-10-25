@@ -36,30 +36,59 @@ $(function() {
             }
 
             // Record metadata about configured behaviour fields
-            let colnames = [], colwidgets = [], meta = [];
+            const weightFieldNames = Array.isArray(controller.weight_gainer_fields) ? controller.weight_gainer_fields : [];
+            const weightLookup = {};
+            $.each(weightFieldNames, function(_, nm) {
+                if (!nm) { return; }
+                weightLookup[$.trim(String(nm)).toLowerCase()] = true;
+            });
+            let weightFilterActive = !!controller.weight_gainer_mode && Object.keys(weightLookup).length > 0;
+
+            const rawFieldDefs = [];
             for (let i = 0; i < 50; i++) {
                 let name = config.str("Behave" + i + "Name"),
                     values = config.str("Behave" + i + "Values"),
                     required = config.str("Behave" + i + "Required"),
                     range = config.str("Behave" + i + "Range");
                 if (!name) { continue; }
-                let dataName = html.title(name);
-                meta.push({
+                rawFieldDefs.push({
                     idx: i,
                     label: name,
-                    dataName: dataName,
+                    values: values,
                     required: (required || "").toLowerCase() === "yes",
                     range: range || ""
                 });
-                colnames.push(name);
-                if (values) {
-                    colwidgets.push('<select class="asm-selectbox asm-halfselectbox widget" data-name="' + dataName + '" data-index="' + i + '">' +
-                        '<option value=""></option>' + html.list_to_options(values.split("|")) + '</select>');
-                }
-                else {
-                    colwidgets.push('<input type="text" class="asm-textbox widget" data-name="' + dataName + '" data-index="' + i + '" />');
+            }
+            let fieldDefs = rawFieldDefs;
+            if (weightFilterActive) {
+                fieldDefs = rawFieldDefs.filter(function(def) {
+                    return weightLookup[$.trim(String(def.label)).toLowerCase()];
+                });
+                if (!fieldDefs.length) {
+                    weightFilterActive = false;
+                    fieldDefs = rawFieldDefs;
                 }
             }
+
+            let colnames = [], colwidgets = [], meta = [];
+            $.each(fieldDefs, function(_, def) {
+                const dataName = html.title(def.label);
+                meta.push({
+                    idx: def.idx,
+                    label: def.label,
+                    dataName: dataName,
+                    required: def.required,
+                    range: def.range
+                });
+                colnames.push(def.label);
+                if (def.values) {
+                    colwidgets.push('<select class="asm-selectbox asm-halfselectbox widget" data-name="' + dataName + '" data-index="' + def.idx + '">' +
+                        '<option value=""></option>' + html.list_to_options(def.values.split("|")) + '</select>');
+                }
+                else {
+                    colwidgets.push('<input type="text" class="asm-textbox widget" data-name="' + dataName + '" data-index="' + def.idx + '" />');
+                }
+            });
             const ensureBinaryField = function(label) {
                 const lower = (label || "").toLowerCase();
                 const exists = meta.some(function(entry){ return (entry.label || "").toLowerCase() === lower; });
@@ -78,8 +107,10 @@ $(function() {
                 colwidgets.push('<select class="asm-selectbox asm-halfselectbox widget" data-name="' + dataName + '" data-index="' + idx + '">' + yesNoOptions + '</select>');
             };
 
-            ensureBinaryField("Poo Sample Taken?");
-            ensureBinaryField("Clinician Alerted?");
+            if (!weightFilterActive) {
+                ensureBinaryField("Poo Sample Taken?");
+                ensureBinaryField("Clinician Alerted?");
+            }
             animal_observations.behave_meta = meta;
 
             // Map animal ids for quick lookup later
@@ -94,9 +125,10 @@ $(function() {
                     { type: "raw", markup: '<button id="button-history">' + _("Enter historical observations") + '</button>' },
                     { id: "save", icon: "save", tooltip: _("Write observation logs for all selected rows") },
                     { id: "location", type: "dropdownfilter", options: html.list_to_options(controller.internallocations, "ID", "DISPLAY") }
-                ]),
-                '<table class="asm-daily-observations">'
+                ])
             ];
+
+            h.push('<table class="asm-daily-observations">');
 
             // Table headings
             h.push('<thead><tr><th>' + _("Animal") + '</th><th>' + _("Unit") + '</th>');
@@ -434,67 +466,70 @@ $(function() {
             // Determine triggers for poo sample confirmation
             const findField = function(label) { return ao.find_map_key(map, label); };
             const triggers = [];
+            if (!controller.weight_gainer_mode) {
+                const unusualField = findField("Unusual Symptoms");
+                const drankField = findField("Drunk");
+                const eatenField = findField("Eaten");
+                const pooInspectField = findField("Poo Inspection");
+                if (unusualField && map[unusualField]) { triggers.push(unusualField); }
+                if (drankField && (map[drankField] || "").toLowerCase() === "none") { triggers.push(drankField); }
+                if (eatenField && (map[eatenField] || "").toLowerCase() === "none") { triggers.push(eatenField); }
+                if (pooInspectField && (map[pooInspectField] === "7" || map[pooInspectField] === "8")) { triggers.push(pooInspectField); }
 
-            const unusualField = findField("Unusual Symptoms");
-            const drankField = findField("Drunk");
-            const eatenField = findField("Eaten");
-            const pooInspectField = findField("Poo Inspection");
-            if (unusualField && map[unusualField]) { triggers.push(unusualField); }
-            if (drankField && (map[drankField] || "").toLowerCase() === "none") { triggers.push(drankField); }
-            if (eatenField && (map[eatenField] || "").toLowerCase() === "none") { triggers.push(eatenField); }
-            if (pooInspectField && (map[pooInspectField] === "7" || map[pooInspectField] === "8")) { triggers.push(pooInspectField); }
-
-            const weightFieldKey = findField("Weight");
-            if (weightFieldKey && map[weightFieldKey]) {
-                const parseWeight = function(s) {
-                    const w = parseFloat(String(s).replace(/[^0-9.\-]/g, ''));
-                    return isNaN(w) ? null : w;
-                };
-                const currentWeight = parseWeight(map[weightFieldKey]);
-                if (currentWeight !== null && state.history && state.history.length) {
-                    let within1d = null, within7d = null;
-                    const now = new Date();
-                    $.each(state.history, function(_, entry) {
-                        if (!entry || !entry.DATE || !entry.COMMENTS) { return; }
-                        const histMap = ao.parse_observation_map(entry.COMMENTS);
-                        const histKey = ao.find_map_key(histMap, weightFieldKey) || ao.find_map_key(histMap, "Weight");
-                        if (!histKey) { return; }
-                        const previous = parseWeight(histMap[histKey]);
-                        if (previous === null) { return; }
-                        const dt = new Date(entry.DATE);
-                        const hours = Math.abs((now - dt) / 36e5);
-                        if (hours <= 24 && within1d === null) { within1d = previous; }
-                        if (hours <= 24 * 7 && within7d === null) { within7d = previous; }
-                    });
-                    if (within1d !== null && currentWeight <= within1d * 0.98) {
-                        triggers.push(weightFieldKey);
-                    }
-                    else if (within7d !== null && currentWeight <= within7d * 0.95) {
-                        triggers.push(weightFieldKey);
+                const weightFieldKey = findField("Weight");
+                if (weightFieldKey && map[weightFieldKey]) {
+                    const parseWeight = function(s) {
+                        const w = parseFloat(String(s).replace(/[^0-9.\-]/g, ''));
+                        return isNaN(w) ? null : w;
+                    };
+                    const currentWeight = parseWeight(map[weightFieldKey]);
+                    if (currentWeight !== null && state.history && state.history.length) {
+                        let within1d = null, within7d = null;
+                        const now = new Date();
+                        $.each(state.history, function(_, entry) {
+                            if (!entry || !entry.DATE || !entry.COMMENTS) { return; }
+                            const histMap = ao.parse_observation_map(entry.COMMENTS);
+                            const histKey = ao.find_map_key(histMap, weightFieldKey) || ao.find_map_key(histMap, "Weight");
+                            if (!histKey) { return; }
+                            const previous = parseWeight(histMap[histKey]);
+                            if (previous === null) { return; }
+                            const dt = new Date(entry.DATE);
+                            const hours = Math.abs((now - dt) / 36e5);
+                            if (hours <= 24 && within1d === null) { within1d = previous; }
+                            if (hours <= 24 * 7 && within7d === null) { within7d = previous; }
+                        });
+                        if (within1d !== null && currentWeight <= within1d * 0.98) {
+                            triggers.push(weightFieldKey);
+                        }
+                        else if (within7d !== null && currentWeight <= within7d * 0.95) {
+                            triggers.push(weightFieldKey);
+                        }
                     }
                 }
             }
 
             // Clinician notification triggers
             let clinicianTriggers = [];
-            $.each(map, function(key, value) {
-                const lk = (key || "").toLowerCase();
-                if (!lk) { return; }
-                if ((lk.indexOf("faec") !== -1 || lk.indexOf("feces") !== -1 || lk.indexOf("faeces") !== -1 || lk.indexOf("poo") !== -1) && ao.value_indicates_none(value)) {
-                    clinicianTriggers.push(key);
-                    return;
-                }
-                if (lk.indexOf("sign") !== -1 && lk.indexOf("animal") !== -1 && ao.value_indicates_none(value)) {
-                    clinicianTriggers.push(key);
-                    return;
-                }
-                if ((lk.indexOf("seen") !== -1 || lk.indexOf("sighting") !== -1) && ao.value_indicates_none(value)) {
-                    clinicianTriggers.push(key);
-                }
-            });
-            clinicianTriggers = [...new Set(clinicianTriggers)];
+            if (!controller.weight_gainer_mode) {
+                $.each(map, function(key, value) {
+                    const lk = (key || "").toLowerCase();
+                    if (!lk) { return; }
+                    if ((lk.indexOf("faec") !== -1 || lk.indexOf("feces") !== -1 || lk.indexOf("faeces") !== -1 || lk.indexOf("poo") !== -1) && ao.value_indicates_none(value)) {
+                        clinicianTriggers.push(key);
+                        return;
+                    }
+                    if (lk.indexOf("sign") !== -1 && lk.indexOf("animal") !== -1 && ao.value_indicates_none(value)) {
+                        clinicianTriggers.push(key);
+                        return;
+                    }
+                    if ((lk.indexOf("seen") !== -1 || lk.indexOf("sighting") !== -1) && ao.value_indicates_none(value)) {
+                        clinicianTriggers.push(key);
+                    }
+                });
+                clinicianTriggers = [...new Set(clinicianTriggers)];
+            }
 
-            if (clinicianTriggers.length) {
+            if (!controller.weight_gainer_mode && clinicianTriggers.length) {
                 const confirmed = await ao.request_clinician_confirm(ao.row_name(row), clinicianTriggers);
                 if (!confirmed) {
                     header.show_info(_("Save cancelled."));
@@ -503,7 +538,7 @@ $(function() {
                 extras["Notify clinician"] = "Yes";
             }
 
-            if (triggers.length) {
+            if (!controller.weight_gainer_mode && triggers.length) {
                 const choice = await ao.request_poo_choice(ao.row_name(row), triggers);
                 if (choice === null) {
                     header.show_info(_("Save cancelled."));

@@ -179,31 +179,17 @@ $(function() {
                 h.push('</div></div></div>');
             }
 
-            if (!this.history_mode && a) {
-                const historyUrl = 'hedgehog_observation_history?animalid=' + a.ID;
-                h.push('<div class="hhog-card" id="hhog-history-launch">');
-                h.push('<div class="hhog-history-header">');
-                h.push('<div class="hhog-history-title">' + translate("Need to back-fill past observations?") + '</div>');
-                h.push('<button type="button" class="hhog-history-reset" data-history-url="' + historyUrl + '"><span class="asm-icon asm-icon-clock"></span>' + translate("Enter historical observations") + '</button>');
-                h.push('</div>');
-                h.push('<div class="hhog-history-empty">' + translate("Open a dedicated screen to record or edit older logs with custom dates.") + '</div>');
-                h.push('</div>');
-            }
-
             const chooserValueAttr = a ? ' value="' + a.ID + '"' : '';
-            h.push('<div class="hhog-card asm-main-section">');
-            let introText;
-            if (this.history_mode) {
-                introText = a ? translate("Switch to another animal to record historical observations.") : translate("Select an animal to back-fill historical observations.");
+            if (!controller.animal) {
+                h.push('<div class="hhog-card asm-main-section">');
+                h.push('<div class="asm-field">');
+                h.push('<label class="asm-label" for="animal">' + translate("Animal") + '</label>');
+                h.push('<input id="animal" type="hidden" class="asm-animalchooser"' + chooserValueAttr + ' />');
+                h.push('</div></div>');
             }
             else {
-                introText = a ? translate("Switch to another animal to record their observations.") : translate("Select an animal to start a new observation.");
+                h.push('<input id="animal" type="hidden" class="asm-animalchooser"' + chooserValueAttr + ' />');
             }
-            h.push('<div class="hhog-intro">' + introText + '</div>');
-            h.push('<div class="asm-field">');
-            h.push('<label class="asm-label" for="animal">' + translate("Animal") + '</label>');
-            h.push('<input id="animal" type="hidden" class="asm-animalchooser"' + chooserValueAttr + ' />');
-            h.push('</div></div>');
 
             if (!this.history_mode && controller.today && a) {
                 let stamp = format.date(controller.today.DATE) + ' ' + format.time(controller.today.DATE);
@@ -228,22 +214,49 @@ $(function() {
                 }
             }
 
-            let fields = [], meta = [];
+            const weightGainerFieldNames = Array.isArray(controller.weight_gainer_fields) ? controller.weight_gainer_fields : [];
+            const weightLookup = {};
+            $.each(weightGainerFieldNames, function(_, nm) {
+                if (!nm) { return; }
+                weightLookup[$.trim(String(nm)).toLowerCase()] = true;
+            });
+            let weightFilterActive = !!controller.weight_gainer_mode && Object.keys(weightLookup).length > 0;
+
+            const rawFieldDefs = [];
             for (let i = 0; i < 50; i++) {
                 let name = config.str("Behave" + i + "Name");
-                let value = config.str("Behave" + i + "Values");
                 if (!name) { continue; }
-                let req = config.str("Behave" + i + "Required").toLowerCase() === "yes";
-                let range = config.str("Behave" + i + "Range");
-                meta.push({ idx: i, name: name, required: req, range: range });
-                let label = '<label class="hhog-field-label">' + html.title(name) + '</label>';
-                if (value) {
-                    fields.push('<div class="hhog-field">' + label + '<select class="asm-selectbox widget" data-index="' + i + '" data-name="' + html.title(name) + '"><option value=""></option>' + html.list_to_options(value.split("|")) + '</select></div>');
-                }
-                else {
-                    fields.push('<div class="hhog-field">' + label + '<input type="text" class="asm-textbox widget" data-index="' + i + '" data-name="' + html.title(name) + '" /></div>');
+                rawFieldDefs.push({
+                    idx: i,
+                    name: name,
+                    values: config.str("Behave" + i + "Values"),
+                    required: config.str("Behave" + i + "Required").toLowerCase() === "yes",
+                    range: config.str("Behave" + i + "Range")
+                });
+            }
+
+            let fieldDefs = rawFieldDefs;
+            if (weightFilterActive) {
+                fieldDefs = rawFieldDefs.filter(function(def) {
+                    return weightLookup[$.trim(String(def.name)).toLowerCase()];
+                });
+                if (fieldDefs.length === 0) {
+                    weightFilterActive = false;
+                    fieldDefs = rawFieldDefs;
                 }
             }
+
+            let fields = [], meta = [];
+            $.each(fieldDefs, function(_, def) {
+                meta.push({ idx: def.idx, name: def.name, required: def.required, range: def.range });
+                const label = '<label class="hhog-field-label">' + html.title(def.name) + '</label>';
+                if (def.values) {
+                    fields.push('<div class="hhog-field">' + label + '<select class="asm-selectbox widget" data-index="' + def.idx + '" data-name="' + html.title(def.name) + '"><option value=""></option>' + html.list_to_options(def.values.split("|")) + '</select></div>');
+                }
+                else {
+                    fields.push('<div class="hhog-field">' + label + '<input type="text" class="asm-textbox widget" data-index="' + def.idx + '" data-name="' + html.title(def.name) + '" /></div>');
+                }
+            });
 
             const ensureBinaryField = function(label) {
                 const lower = (label || "").toLowerCase();
@@ -260,8 +273,10 @@ $(function() {
                 meta.push({ idx: idx, name: label, required: false, range: "" });
             };
 
-            ensureBinaryField("Poo Sample Taken?");
-            ensureBinaryField("Clinician Alerted?");
+            if (!weightFilterActive) {
+                ensureBinaryField("Poo Sample Taken?");
+                ensureBinaryField("Clinician Alerted?");
+            }
 
             h.push('<div class="asm-main-section asm-hhog-observation">');
             if (this.allow_custom_date) {
@@ -537,13 +552,6 @@ $(function() {
                     ho.reset_history_selection(false);
                 }
             }
-            if (!ho.history_mode) {
-                $("#hhog-history-launch .hhog-history-reset").off("click").on("click", function() {
-                    const url = $(this).attr("data-history-url") || "hedgehog_observation_history";
-                    common.route(url);
-                });
-            }
-
             $("#button-save").off("click").on("click", async function() {
                 if (!controller.animal) { return; }
                 let avs = [], map = {};
@@ -618,46 +626,58 @@ $(function() {
                 });
                 if (!valid) { header.show_error(translate("Please fix highlighted fields.")); return; }
 
-                // Poo sample rule checks
-                const f = function(label){ return findMapKey(label); };
                 let triggers = [];
-                let weightField = f("Weight");
-                let drankField = f("Drunk");
-                let eatenField = f("Eaten");
-                let unusualField = f("Unusual Symptoms");
-                let pooInspectField = f("Poo Inspection");
-                if (unusualField && map[unusualField]) { triggers.push(unusualField); }
-                if (drankField && (map[drankField] || "").toLowerCase() === "none") { triggers.push(drankField); }
-                if (eatenField && (map[eatenField] || "").toLowerCase() === "none") { triggers.push(eatenField); }
-                if (pooInspectField && (map[pooInspectField] === "7" || map[pooInspectField] === "8")) { triggers.push(pooInspectField); }
-                // weight delta
-                const parseWeight = function(s) { let v = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return isNaN(v) ? null : v; };
-                if (weightField && map[weightField]) {
-                    let currentW = parseWeight(map[weightField]);
-                    if (currentW !== null && controller.history7 && controller.history7.length) {
-                        let within1d = null, within7d = null;
-                        let now = new Date();
-                        $.each(controller.history7, function(i, r){
-                            let m = ho.parse_observation_map(r.COMMENTS);
-                            let prev = parseWeight(m[weightField]);
-                            if (prev === null) { return; }
-                            let dt = new Date(r.DATE);
-                            let hours = Math.abs((now - dt) / 36e5);
-                            if (hours <= 24 && within1d === null) { within1d = prev; }
-                            if (hours <= 24*7 && within7d === null) { within7d = prev; }
-                        });
-                        if (within1d !== null && currentW <= within1d * 0.98) { triggers.push(weightField); }
-                        else if (within7d !== null && currentW <= within7d * 0.95) { triggers.push(weightField); }
+                if (!controller.weight_gainer_mode) {
+                    const f = function(label){ return findMapKey(label); };
+                    let weightField = f("Weight");
+                    let drankField = f("Drunk");
+                    let eatenField = f("Eaten");
+                    let unusualField = f("Unusual Symptoms");
+                    let pooInspectField = f("Poo Inspection");
+                    if (unusualField && map[unusualField]) { triggers.push(unusualField); }
+                    if (drankField && (map[drankField] || "").toLowerCase() === "none") { triggers.push(drankField); }
+                    if (eatenField && (map[eatenField] || "").toLowerCase() === "none") { triggers.push(eatenField); }
+                    if (pooInspectField && (map[pooInspectField] === "7" || map[pooInspectField] === "8")) { triggers.push(pooInspectField); }
+                    // weight delta
+                    const parseWeight = function(s) { let v = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return isNaN(v) ? null : v; };
+                    if (weightField && map[weightField]) {
+                        let currentW = parseWeight(map[weightField]);
+                        if (currentW !== null && controller.history7 && controller.history7.length) {
+                            let within1d = null, within7d = null;
+                            let now = new Date();
+                            $.each(controller.history7, function(i, r){
+                                let m = ho.parse_observation_map(r.COMMENTS);
+                                let prev = parseWeight(m[weightField]);
+                                if (prev === null) { return; }
+                                let dt = new Date(r.DATE);
+                                let hours = Math.abs((now - dt) / 36e5);
+                                if (hours <= 24 && within1d === null) { within1d = prev; }
+                                if (hours <= 24*7 && within7d === null) { within7d = prev; }
+                            });
+                            if (within1d !== null && currentW <= within1d * 0.98) { triggers.push(weightField); }
+                            else if (within7d !== null && currentW <= within7d * 0.95) { triggers.push(weightField); }
+                        }
                     }
                 }
 
-                if (ho.history_mode) {
+                if (controller.weight_gainer_mode) {
+                    $("#poo-confirm").hide().empty();
+                    ho.clear_clinician_confirm();
+                }
+                else if (ho.history_mode) {
                     $("#poo-confirm").hide().empty();
                     ho.clear_clinician_confirm();
                 }
                 else {
                     if (!triggers.length && $("#poo-confirm").is(":visible")) {
                         $("#poo-confirm").hide().empty();
+                    }
+                    else if (triggers.length) {
+                        $(".widget").each(function(){
+                            if (triggers.indexOf($(this).attr("data-name")) !== -1) {
+                                $(this).closest(".hhog-field").addClass("hhog-field-alert");
+                            }
+                        });
                     }
 
                     const valueIndicatesNone = function(value) {

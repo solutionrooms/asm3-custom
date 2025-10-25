@@ -76,7 +76,7 @@ from asm3.sitedefs import AUTORELOAD, BASE_URL, CONTENT_SECURITY_POLICY, DEBUG_M
     SAVOURLIFE_URL, SERVICE_URL, SESSION_SECURE_COOKIE, SESSION_DEBUG, SHARE_BUTTON, SMARTTAG_HOST, \
     SMCOM_LOGIN_URL, SMCOM_PAYMENT_LINK, PAYPAL_VALIDATE_IPN_URL, SQUARE_PAYMENT_ENVIRONMENT, cfg_file
 
-from asm3.typehints import Any, Dict, Generator, List, ResultRow, Session
+from asm3.typehints import Any, Dict, Generator, List, ResultRow, Session, Tuple
 
 from asm3.__version__ import BUILD
 
@@ -128,6 +128,22 @@ BARCODE_TEMPLATE_CONTENT = """
   <div class=\"hedgehog-qr-footer\">&lt;&lt;ANIMALNAME&gt;&gt;</div>
 </div>
 """
+
+def resolve_weight_gainer_state(dbo, session) -> Tuple[bool, List[str]]:
+    """
+    Determines whether the current session belongs to a Weight Gainer role
+    and returns the configured set of observation fields that should be
+    available to that role.
+    """
+    roles_raw = asm3.utils.nulltostr(getattr(session, "roles", ""))
+    is_weight_gainer = False
+    if roles_raw:
+        for role_name in roles_raw.split("|"):
+            if role_name.strip().lower() == "weight gainer":
+                is_weight_gainer = True
+                break
+    fields = asm3.configuration.weight_gainer_fields(dbo)
+    return is_weight_gainer, fields
 
 def session_manager():
     """
@@ -2490,12 +2506,15 @@ class animal_observations_history(JSONEndpoint):
         behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
         logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, o.post.integer("id"), behave_logtype)
         asm3.al.debug("got %d observation logs for animal %s %s" % (len(logs), a["CODE"], a["ANIMALNAME"]), "main.animal_observations_history", dbo)
+        weight_gainer_mode, weight_gainer_fields = resolve_weight_gainer_state(dbo, o.session)
         return {
             "name": "animal_observations_history",
             "animal": a,
             "rows": logs,
             "tabcounts": asm3.animal.get_satellite_counts(dbo, a["ID"])[0],
-            "logtypes": asm3.lookups.get_log_types(dbo)
+            "logtypes": asm3.lookups.get_log_types(dbo),
+            "weight_gainer_mode": weight_gainer_mode,
+            "weight_gainer_fields": weight_gainer_fields
         }
 
 class animal_analysis(JSONEndpoint):
@@ -3033,6 +3052,7 @@ class animal_observations(JSONEndpoint):
         now = dbo.now()
         day_start = asm3.i18n.remove_time(now)
         cutoff7 = asm3.i18n.subtract_days(day_start, 7)
+        weight_gainer_mode, weight_gainer_fields = resolve_weight_gainer_state(dbo, o.session)
         today_log_list = []
         today_ids = []
         if behave_logtype > 0 and len(animals) > 0:
@@ -3091,7 +3111,9 @@ class animal_observations(JSONEndpoint):
             "todaylogs": today_log_list,
             "todayids": today_ids,
             "historylogs": history_logs,
-            "todaydate": now
+            "todaydate": now,
+            "weight_gainer_mode": weight_gainer_mode,
+            "weight_gainer_fields": weight_gainer_fields
         }
 
     def post_save(self, o):
@@ -3161,6 +3183,7 @@ class hedgehog_observation(JSONEndpoint):
         now = dbo.now()
         day_start = asm3.i18n.remove_time(now)
         is_mobile = False
+        weight_gainer_mode, weight_gainer_fields = resolve_weight_gainer_state(dbo, o.session)
         try:
             mobile_raw = o.post.data.get("mobile", "") if hasattr(o.post, "data") else ""
             is_mobile = str(mobile_raw).lower() in ("1", "true", "yes", "on")
@@ -3230,7 +3253,9 @@ class hedgehog_observation(JSONEndpoint):
             "history_mode": False,
             "allow_custom_date": False,
             "defaultlogdatetime": now,
-            "history": []
+            "history": [],
+            "weight_gainer_mode": weight_gainer_mode,
+            "weight_gainer_fields": weight_gainer_fields
         }
 
     def _resolve_logdatetime(self, o) -> Any:
