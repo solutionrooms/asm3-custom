@@ -80,6 +80,8 @@
 - Media files can be stored in S3: `asm3.conf.template`, `.env.example`, `docker-compose.yml`, and `Dockerfile` (adds `boto3`) make DBFS storage fully env-driven.
 - Make target `dbfs-migrate` runs `maint_switch_dbfs_storage` inside the container.
 - External DB maintenance script (`custom_scripts/run-db-maintenance-external.sh`) uploads PostgreSQL dumps to S3 when `BACKUP_S3_ENABLED=true`; falls back to host AWS credentials or runs dockerised `amazon/aws-cli`.
+- Automated backups prune S3 objects to the most recent 100 dumps by default (tunable via `BACKUP_S3_KEEP_REMOTE`); logic is shared between `make backup` and the cron-triggered maintenance run.
+- `custom_scripts/run-db-maintenance-external.sh` now delegates its backup phase to `backup-databases-external.sh`, so cron executes the same workflow (and retention) as `make backup` while still logging under `db-maintenance.log`.
 
 ---
 

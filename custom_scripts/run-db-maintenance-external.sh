@@ -83,7 +83,6 @@ else
 fi
 mkdir -p "$BACKUP_DIR"
 
-RUN_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OVERALL_STATUS=0
 
 for entry in "${DATABASE_ENTRIES[@]}"; do
@@ -181,80 +180,21 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
 LIMIT 5;
 " >> "$LOG_FILE" 2>&1
 
-    BACKUP_FILE="$BACKUP_DIR/backup_${safe_alias}_${RUN_TIMESTAMP}.dump"
-    log "Creating compressed backup for '${alias_label}': $BACKUP_FILE"
-    if docker exec -i "$POSTGRES_CONTAINER_ID" env \
-            PGPASSWORD="$password" PGUSER="$username" PGDATABASE="$database" \
-            PGHOST="$connect_host" PGPORT="$connect_port" \
-            pg_dump -Fc > "$BACKUP_FILE"; then
-        BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-        log "Backup created for '${alias_label}': $BACKUP_FILE (Size: $BACKUP_SIZE)"
-        if is_truthy "${BACKUP_S3_ENABLED:-}"; then
-            S3_BUCKET="${BACKUP_S3_BUCKET:-}"
-            S3_PREFIX="${BACKUP_S3_PREFIX:-db-backups}"
-            if [ -z "$S3_BUCKET" ]; then
-                log "ERROR: BACKUP_S3_ENABLED is true but BACKUP_S3_BUCKET is not set"
-            else
-                if [ -n "$S3_PREFIX" ]; then
-                    S3_KEY="${S3_PREFIX}/${safe_alias}/$(basename "$BACKUP_FILE")"
-                else
-                    S3_KEY="${safe_alias}/$(basename "$BACKUP_FILE")"
-                fi
-                S3_URI="s3://${S3_BUCKET}/${S3_KEY}"
-                log "Uploading '${alias_label}' backup to ${S3_URI}"
-                export AWS_ACCESS_KEY_ID="${BACKUP_S3_ACCESS_KEY_ID:-}"
-                export AWS_SECRET_ACCESS_KEY="${BACKUP_S3_SECRET_ACCESS_KEY:-}"
-                export AWS_DEFAULT_REGION="${BACKUP_S3_REGION:-}"
-                if [ -n "${BACKUP_S3_ENDPOINT_URL:-}" ]; then
-                    export AWS_ENDPOINT_URL_S3="${BACKUP_S3_ENDPOINT_URL}"
-                else
-                    unset AWS_ENDPOINT_URL_S3
-                fi
-                if command -v aws >/dev/null 2>&1; then
-                    if aws s3 cp "$BACKUP_FILE" "$S3_URI" --only-show-errors; then
-                        log "S3 upload successful for '${alias_label}'"
-                    else
-                        log "ERROR: S3 upload failed via local aws cli for '${alias_label}'"
-                    fi
-                else
-                    log "aws CLI not found locally, attempting dockerized aws-cli"
-                    if docker run --rm \
-                        -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL_S3 \
-                        -v "$BACKUP_DIR":/backups \
-                        amazon/aws-cli s3 cp "/backups/$(basename "$BACKUP_FILE")" "$S3_URI" --only-show-errors; then
-                        log "S3 upload successful (dockerized aws-cli) for '${alias_label}'"
-                    else
-                        log "ERROR: S3 upload failed via dockerized aws-cli for '${alias_label}'"
-                    fi
-                fi
-            fi
-            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION AWS_ENDPOINT_URL_S3
-        else
-            log "S3 mirroring disabled for '${alias_label}' (BACKUP_S3_ENABLED not true)"
-        fi
-    else
-        CODE=$?
-        log "ERROR: Backup failed for '${alias_label}' (exit $CODE)"
-        OVERALL_STATUS=1
-    fi
-
-    log "Cleaning up old backups for '${alias_label}' (keeping last 3)"
-    set +e
-    mapfile -t ALIAS_BACKUPS < <(ls -1t "$BACKUP_DIR"/backup_"${safe_alias}"_*.dump 2>/dev/null)
-    set -e
-    if [ ${#ALIAS_BACKUPS[@]} -gt 3 ]; then
-        for old_backup in "${ALIAS_BACKUPS[@]:3}"; do
-            if [ -f "$old_backup" ]; then
-                log "Removing old backup: $old_backup"
-                rm -f "$old_backup"
-            fi
-        done
-    fi
-    set +e
-    REMAINING_ALIAS_BACKUPS=$(ls -1 "$BACKUP_DIR"/backup_"${safe_alias}"_*.dump 2>/dev/null | wc -l | xargs)
-    set -e
-    log "Remaining backups for '${alias_label}': ${REMAINING_ALIAS_BACKUPS:-0}"
 done
+
+log "========================================"
+log "Starting backup run (delegated to backup-databases-external.sh)"
+log "========================================"
+set +e
+bash "$SCRIPT_DIR/backup-databases-external.sh" >> "$LOG_FILE" 2>&1
+BACKUP_STATUS=$?
+set -e
+if [ $BACKUP_STATUS -eq 0 ]; then
+    log "Backup script completed successfully"
+else
+    log "ERROR: Backup script failed with exit code $BACKUP_STATUS"
+    OVERALL_STATUS=1
+fi
 
 log "========================================"
 log "Current backup files:"

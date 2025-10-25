@@ -18,6 +18,116 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+prune_s3_backups() {
+    local runner="$1"
+    local bucket="$2"
+    local prefix="$3"
+    local safe_alias="$4"
+    local alias_label="$5"
+    local keep_raw="${BACKUP_S3_KEEP_REMOTE:-100}"
+
+    if [ -z "$bucket" ]; then
+        log "WARNING: No S3 bucket configured; skipping pruning for '${alias_label}'"
+        return
+    fi
+
+    if ! [[ "$keep_raw" =~ ^[0-9]+$ ]]; then
+        log "WARNING: Invalid BACKUP_S3_KEEP_REMOTE value '${keep_raw}' - skipping S3 pruning for '${alias_label}'"
+        return
+    fi
+
+    local keep="$keep_raw"
+    if [ "$keep" -le 0 ]; then
+        log "Skipping S3 pruning for '${alias_label}' (BACKUP_S3_KEEP_REMOTE <= 0)"
+        return
+    fi
+
+    local trimmed_prefix="${prefix%/}"
+    local alias_prefix
+    if [ -n "$trimmed_prefix" ]; then
+        alias_prefix="${trimmed_prefix}/${safe_alias}/"
+    else
+        alias_prefix="${safe_alias}/"
+    fi
+
+    local query="sort_by(Contents, &LastModified)[].Key"
+    local list_output
+    local status=0
+
+    if [ "$runner" = "local" ]; then
+        set +e
+        list_output=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix "$alias_prefix" --query "$query" --output text 2>/dev/null)
+        status=$?
+        set -e
+    else
+        local docker_cmd=(docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION)
+        if [ -n "${AWS_ENDPOINT_URL_S3:-}" ]; then
+            docker_cmd+=(-e AWS_ENDPOINT_URL_S3)
+        fi
+        docker_cmd+=(amazon/aws-cli s3api list-objects-v2 --bucket "$bucket" --prefix "$alias_prefix" --query "$query" --output text)
+        set +e
+        list_output=$("${docker_cmd[@]}" 2>/dev/null)
+        status=$?
+        set -e
+    fi
+
+    if [ $status -ne 0 ]; then
+        log "WARNING: Unable to list existing S3 backups for '${alias_label}' (runner: $runner)"
+        return
+    fi
+
+    list_output="${list_output//$'\t'/$'\n'}"
+    local remote_keys=()
+    if [ -n "$list_output" ] && [ "$list_output" != "None" ]; then
+        while IFS= read -r key; do
+            key="${key//$'\r'/}"
+            key="${key#"${key%%[![:space:]]*}"}"
+            key="${key%"${key##*[![:space:]]}"}"
+            if [ -n "$key" ]; then
+                remote_keys+=("$key")
+            fi
+        done <<<"$list_output"
+    fi
+
+    local total=${#remote_keys[@]}
+    if [ "$total" -le "$keep" ]; then
+        log "S3 backups for '${alias_label}' within retention (total: $total, keep: $keep)"
+        return
+    fi
+
+    local remove_count=$((total - keep))
+    log "Removing ${remove_count} old S3 backup(s) for '${alias_label}' (keeping latest $keep)"
+
+    local docker_env=()
+    if [ "$runner" = "docker" ]; then
+        docker_env=(docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION)
+        if [ -n "${AWS_ENDPOINT_URL_S3:-}" ]; then
+            docker_env+=(-e AWS_ENDPOINT_URL_S3)
+        fi
+    fi
+
+    local i key
+    for ((i=0; i<remove_count; i++)); do
+        key="${remote_keys[$i]}"
+        if [ -z "$key" ]; then
+            continue
+        fi
+        if [ "$runner" = "local" ]; then
+            if aws s3 rm "s3://${bucket}/${key}" --only-show-errors >/dev/null 2>&1; then
+                log "Removed S3 backup: s3://${bucket}/${key}"
+            else
+                log "WARNING: Failed to remove S3 backup: s3://${bucket}/${key}"
+            fi
+        else
+            if "${docker_env[@]}" amazon/aws-cli s3 rm "s3://${bucket}/${key}" --only-show-errors >/dev/null 2>&1; then
+                log "Removed S3 backup (docker): s3://${bucket}/${key}"
+            else
+                log "WARNING: Failed to remove S3 backup (docker): s3://${bucket}/${key}"
+            fi
+        fi
+    done
+}
+
 cleanup() {
     if [ -f "$LOCK_FILE" ]; then
         rm -f "$LOCK_FILE"
@@ -148,6 +258,7 @@ for entry in "${DATABASE_ENTRIES[@]}"; do
                 if command -v aws >/dev/null 2>&1; then
                     if aws s3 cp "$BACKUP_FILE" "$S3_URI" --only-show-errors; then
                         log "S3 upload successful for '${alias_label}'"
+                        prune_s3_backups "local" "$S3_BUCKET" "$S3_PREFIX" "$safe_alias" "$alias_label"
                     else
                         log "ERROR: S3 upload failed via local aws cli for '${alias_label}'"
                     fi
@@ -158,6 +269,7 @@ for entry in "${DATABASE_ENTRIES[@]}"; do
                         -v "$BACKUP_DIR":/backups \
                         amazon/aws-cli s3 cp "/backups/$(basename "$BACKUP_FILE")" "$S3_URI" --only-show-errors; then
                         log "S3 upload successful (dockerized aws-cli) for '${alias_label}'"
+                        prune_s3_backups "docker" "$S3_BUCKET" "$S3_PREFIX" "$safe_alias" "$alias_label"
                     else
                         log "ERROR: S3 upload failed via dockerized aws-cli for '${alias_label}'"
                     fi
