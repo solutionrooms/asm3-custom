@@ -1079,6 +1079,12 @@ select:disabled, input:disabled, textarea:disabled {
     text-decoration: none;
 }
 
+.latlong-indicator {
+    margin-top: 4px;
+    font-size: 0.85em;
+    color: #b35e00;
+}
+
 /** Tweaks for when displaying on portrait mobile devices */
 @media screen and (max-device-width:480px) {
 

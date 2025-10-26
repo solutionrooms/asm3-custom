@@ -2146,7 +2146,13 @@ def update_missing_geocodes(dbo: Database) -> None:
         "FROM owner WHERE LatLong Is Null OR LatLong = '' ORDER BY CreatedDate DESC", limit=GEO_LIMIT)
     batch = []
     for p in people:
+        asm3.al.debug("geocode attempt owner %s addr='%s' town='%s' county='%s' postcode='%s'" %
+            (p.ID, asm3.utils.nulltostr(p.OWNERADDRESS), asm3.utils.nulltostr(p.OWNERTOWN),
+             asm3.utils.nulltostr(p.OWNERCOUNTY), asm3.utils.nulltostr(p.OWNERPOSTCODE)),
+            "person.update_missing_geocodes", dbo)
         latlong = asm3.geo.get_lat_long(dbo, p.OWNERADDRESS, p.OWNERTOWN, p.OWNERCOUNTY, p.OWNERPOSTCODE)
+        asm3.al.debug("geocode result owner %s latlong='%s'" %
+            (p.ID, asm3.utils.nulltostr(latlong)), "person.update_missing_geocodes", dbo)
         batch.append((latlong, p.ID))
     dbo.execute_many("UPDATE owner SET LatLong = ? WHERE ID = ?", batch)
     asm3.al.debug("updated %d person geocodes" % len(batch), "person.update_missing_geocodes", dbo)
@@ -2245,4 +2251,3 @@ def update_anonymise_personal_data(dbo: Database, years: int = None, username: s
     dbo.execute(f"DELETE FROM log WHERE LinkType = 1 AND Comments LIKE 'AD00:%%' AND LinkID IN ({inclause})")
     asm3.al.debug("anonymised %s expired person records outside of retention period (%s years)." % (len(people), retainyears), "person.update_anonymise_personal_data", dbo)
     return "OK %d" % len(people)
-

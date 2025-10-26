@@ -1233,6 +1233,8 @@ $.widget("asm.latlong", {
         this.options.lat = this.element.parent().find(".latlong-lat");
         this.options.lng = this.element.parent().find(".latlong-long");
         this.options.hash = this.element.parent().find(".latlong-hash");
+        this.options.indicator = $("<div class=\"latlong-indicator\"></div>").hide();
+        this.element.parent().append(this.options.indicator);
         this.options.lat.blur(function() { self.save.call(self); });
         this.options.lng.blur(function() { self.save.call(self); });
     },
@@ -1242,6 +1244,7 @@ $.widget("asm.latlong", {
         if (bits.length > 0) { this.options.lat.val(bits[0]); }
         if (bits.length > 1) { this.options.lng.val(bits[1]); }
         if (bits.length > 2) { this.options.hash.val(bits[2]); }
+        this._updateIndicator();
     },
     save: function() {
         // Store the entered values back in the base element value
@@ -1249,6 +1252,18 @@ $.widget("asm.latlong", {
             this.options.lng.val() + "," +
             this.options.hash.val();
         this.element.val(v);
+        this._updateIndicator();
+    },
+    _updateIndicator: function() {
+        if (!this.options.indicator) { return; }
+        let hashvalue = this.options.hash.val();
+        if (hashvalue && hashvalue.indexOf("POSTCODEONLY|") === 0) {
+            this.options.indicator.text(_("Approximate location based on postcode only"));
+            this.options.indicator.show();
+        }
+        else {
+            this.options.indicator.hide();
+        }
     }
 });
 

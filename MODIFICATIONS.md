@@ -40,6 +40,13 @@
 - Historical mode bypasses clinician/poo confirmation prompts and the new binary flags (“Poo Sample Taken?”, “Clinician Alerted?”) display across single-entry, multi-entry, and history tables (`src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/static/js/animal_observations_history.js`).
 - Options → Daily Observations now include a “Weight Gainer Entry?” flag per field; users in the Weight Gainer role only see flagged inputs on observation screens, and poo/clinician prompts are suppressed (`src/static/js/options.js`, `src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/asm3/configuration.py`, `src/main.py`).
 
+### Geocoding Fallback & Indicators
+**When**: 2025-10-26 (branch `develop`)
+
+- `src/asm3/geo.py` retries failed geocodes using postcode-only lookups, marking the stored hash with `POSTCODEONLY|` so the system knows the coordinates are approximate. The disk cache entry now reflects the fallback result and avoids hammering the provider.
+ - `src/asm3/geo.py` retries failed geocodes using postcode-only lookups, marking the stored hash with `POSTCODEONLY|` so the system knows the coordinates are approximate. Unresolved `0,0` results are no longer cached, forcing fresh attempts whenever the record is viewed.
+- The person record lat/long widget highlights approximations with a visual warning (`src/static/js/common_widgets.js`, `src/static/css/asm.css`), so staff know when precision is limited.
+
 ### Animal Data Integrity
 **When**: 2025-08-25 (branch `develop`)
 
