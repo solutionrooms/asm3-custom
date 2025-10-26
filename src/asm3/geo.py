@@ -17,6 +17,14 @@ import json
 import threading
 import time
 
+COUNTRY_SYNONYMS = {
+    "UK": "United Kingdom",
+    "GB": "United Kingdom",
+    "GBR": "United Kingdom",
+    "US": "United States",
+    "USA": "United States"
+}
+
 GEO_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search?format=json&street={street}&city={city}&state={state}&postalcode={zipcode}&country={country}"
 GEO_GOOGLE_URL = "https://maps.googleapis.com/maps/api/geocode/json?address={q}&sensor=false&key={key}"
 
@@ -77,7 +85,9 @@ class GeoProvider(object):
     def search(self) -> None:
         """ Calls the service, retrieves the data and sets self.response / self.json_response """
         headers = { "Referer": BASE_URL, "User-Agent": "Animal Shelter Manager %s" % VERSION }
+        asm3.al.info("geo request %s" % self.url, "geo.search", self.dbo)
         self.response = asm3.utils.get_url(self.url, headers=headers, timeout=GEO_LOOKUP_TIMEOUT)["response"]
+        asm3.al.info("geo response %s" % self.response[0:300], "geo.search", self.dbo)
         self.json_response = json.loads(self.response)
 
     def parse(self) -> str:
@@ -154,6 +164,11 @@ def address_hash(address: str, town: str, county: str, postcode: str, country: s
     return addrhash
 
 def get_lat_long(dbo: Database, address: str, town: str, county: str, postcode: str, country: str = "") -> str:
+    return _get_lat_long(dbo, address, town, county, postcode, country)
+
+def _get_lat_long(dbo: Database, address: str, town: str, county: str, postcode: str,
+                  country: str = "", allow_postcode_fallback: bool = True,
+                  original_hash: str = None, skip_lock: bool = False) -> str:
     """
     Looks up a latitude and longitude from an address using the set geocoding provider 
     and returns them as a str "lat,long,hash"
@@ -161,13 +176,18 @@ def get_lat_long(dbo: Database, address: str, town: str, county: str, postcode: 
     we know not to try and look this up again until the address hash changes.
     """
 
-    if address.strip() == "":
+    addr_blank = address.strip() == ""
+    if addr_blank and postcode.strip() == "":
         return None
+
+    locked = False
 
     try:
         # Synchronise this process to a single thread to prevent
         # abusing our geo provider
-        lat_long_lock.acquire()
+        if not skip_lock:
+            lat_long_lock.acquire()
+            locked = True
 
         # Use the country passed. If no country was passed, check
         # if one has been set with the shelter details in settings,
@@ -175,6 +195,9 @@ def get_lat_long(dbo: Database, address: str, town: str, county: str, postcode: 
         if country is None or country == "": 
             country = asm3.configuration.organisation_country(dbo)
             if country == "": country = asm3.i18n.get_country(dbo.locale)
+        cname = country.strip()
+        if cname.upper() in COUNTRY_SYNONYMS:
+            country = COUNTRY_SYNONYMS[cname.upper()]
 
         g = None
         if GEO_PROVIDER == "nominatim":
@@ -191,15 +214,42 @@ def get_lat_long(dbo: Database, address: str, town: str, county: str, postcode: 
         cachekey = "nom:%s" % g.q
         v = asm3.cachedisk.get(cachekey, dbo.name())
         if v is not None:
-            asm3.al.debug("cache hit for address: %s = %s" % (cachekey, v), "geo.get_lat_long", dbo)
-            return v
+            if isinstance(v, str) and v.startswith("0,0"):
+                asm3.cachedisk.delete(cachekey, dbo.name())
+            else:
+                return v
 
         # Call the service to get the data
         g.search()
 
         # Parse the response to a lat/long value
         latlon = g.parse()
-        asm3.cachedisk.put(cachekey, dbo.name(), latlon, 86400)
+
+        # Fallback to postcode-only lookup if we couldn't resolve a full address
+        if (latlon is None or latlon.startswith("0,0")) and allow_postcode_fallback and postcode.strip() != "":
+            asm3.al.info("postcode only geo fallback for %s" % postcode, "geo.get_lat_long", dbo)
+            fallback_hash = original_hash if original_hash else g.address_hash()
+            fallback = _get_lat_long(
+                dbo,
+                "",
+                town,
+                county,
+                postcode,
+                country,
+                allow_postcode_fallback=False,
+                original_hash=fallback_hash,
+                skip_lock=True
+            )
+            if fallback and not fallback.startswith("0,0"):
+                parts = fallback.split(",", 2)
+                latlon = "%s,%s,POSTCODEONLY|%s" % (parts[0], parts[1], fallback_hash)
+        elif latlon and not latlon.startswith("0,0") and addr_blank and postcode.strip() != "":
+            parts = latlon.split(",", 2)
+            hashpart = parts[2] if len(parts) > 2 else (original_hash if original_hash else g.address_hash())
+            latlon = "%s,%s,POSTCODEONLY|%s" % (parts[0], parts[1], hashpart)
+
+        if latlon is not None and not latlon.startswith("0,0"):
+            asm3.cachedisk.put(cachekey, dbo.name(), latlon, 86400)
 
         if GEO_SLEEP_AFTER > 0:
             time.sleep(GEO_SLEEP_AFTER)
@@ -211,7 +261,8 @@ def get_lat_long(dbo: Database, address: str, town: str, county: str, postcode: 
         return None
 
     finally:
-        lat_long_lock.release()
+        if locked:
+            lat_long_lock.release()
 
 def get_address(dbo: Database, postcode: str, country: str = "") -> str:
     """
@@ -258,5 +309,3 @@ def get_postcode_lookup_available(l: str) -> bool:
         "en_IE",
         "nl"
     )
-
-

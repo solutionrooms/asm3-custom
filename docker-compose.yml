@@ -62,8 +62,8 @@ services:
       - ASM3_FROM_ADDRESS=${ASM3_FROM_ADDRESS}
       - ASM3_SMTP_SERVER=${ASM3_SMTP_SERVER}
       - ASM3_ROLLUP_JS=${ASM3_ROLLUP_JS}
-      - GEO_BATCH=${GEO_BATCH}
-      - GEO_LIMIT=${GEO_LIMIT}
+      - ASM3_GEO_BATCH=${GEO_BATCH}
+      - ASM3_GEO_LIMIT=${GEO_LIMIT}
       # Python memory optimizations
       - PYTHONOPTIMIZE=1
       - PYTHONDONTWRITEBYTECODE=1
