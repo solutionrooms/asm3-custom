@@ -585,9 +585,11 @@ install-cron:
 	@sudo cp custom_scripts/run-daily-tasks-external.sh /usr/local/bin/asm3-daily-tasks
 	@sudo cp custom_scripts/run-weight-monitor-external.sh /usr/local/bin/asm3-weight-monitor
 	@sudo cp custom_scripts/run-db-maintenance-external.sh /usr/local/bin/asm3-db-maintenance
+	@sudo cp custom_scripts/backup-databases-external.sh /usr/local/bin/backup-databases-external.sh
+	@sudo cp custom_scripts/_multi_db.sh /usr/local/bin/_multi_db.sh
 	@sudo cp custom_scripts/monitor-system.sh /usr/local/bin/asm3-monitor-system
 	@sudo cp custom_scripts/cleanup-logs.sh /usr/local/bin/asm3-cleanup-logs
-	@sudo chmod +x /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
+	@sudo chmod +x /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs /usr/local/bin/backup-databases-external.sh
 	@echo "Creating log directory..."
 	@mkdir -p $(LOCAL_LOG_DIR_ABS)
 	@echo "Installing cron jobs..."
@@ -599,7 +601,7 @@ install-cron:
 uninstall-cron:
 	@echo "Removing ASM3 cron jobs from VM host..."
 	@crontab -l 2>/dev/null | grep -v "asm3-daily-tasks\|asm3-weight-monitor\|asm3-db-maintenance\|asm3-monitor-system\|asm3-cleanup-logs" | crontab - || true
-	@sudo rm -f /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
+	@sudo rm -f /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs /usr/local/bin/backup-databases-external.sh /usr/local/bin/_multi_db.sh
 	@echo "Cron jobs removed successfully!"
 
 # Show cron job status and recent logs

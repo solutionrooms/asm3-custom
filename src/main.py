@@ -51,6 +51,7 @@ import asm3.service
 import asm3.smcom
 import asm3.stock
 import asm3.template
+import asm3.useranimalaccess
 import asm3.users
 import asm3.utils
 import asm3.waitinglist
@@ -185,7 +186,8 @@ def session_manager():
     if asm3.utils.websession is None:
         sess = web.session.Session(app, MemCacheStore(), initializer={"user" : None, "dbo" : None, "locale" : None, 
             "roles": None, "securitymap": None, "superuser": None, "searches" : [], "staffid": None, 
-            "siteid": None, "locationfilter": None,  "visibleanimalids": "", "forcechangepassword": False })
+            "siteid": None, "locationfilter": None,  "visibleanimalids": "", "forcechangepassword": False,
+            "weightgainer_activeanimalids": "", "weightgainer_readonlyanimalids": "", "customanimalaccess": {} })
         asm3.utils.websession = sess
     else:
         sess = asm3.utils.websession
@@ -3138,6 +3140,7 @@ class animal_observations(JSONEndpoint):
 
         created = []
         updated = []
+        weight_gainer_mode, _ = resolve_weight_gainer_state(o.dbo, o.session)
         for row in entries:
             if "==" not in row:
                 continue
@@ -3145,6 +3148,8 @@ class animal_observations(JSONEndpoint):
             animalid = asm3.utils.atoi(animalid_str)
             if animalid <= 0 or asm3.utils.nulltostr(msg) == "":
                 continue
+            if weight_gainer_mode and not asm3.useranimalaccess.is_write_allowed(o.session, animalid):
+                raise asm3.utils.ASMPermissionError(_("You can only update animals you are currently fostering.", o.locale))
 
             updatelogid = updates_raw.get(animalid, 0)
             if updatelogid:
@@ -3334,12 +3339,15 @@ class hedgehog_observation(JSONEndpoint):
         nocreated = 0
         updatelogid = o.post.integer("updatelogid") if o.post.has_key("updatelogid") else 0
         logdatetime = self._resolve_logdatetime(o)
+        weight_gainer_mode, _ = resolve_weight_gainer_state(o.dbo, o.session)
 
         if updatelogid and entries:
             first = entries[0]
             if "==" in first:
                 animalid_str, msg = first.split("==", 1)
                 animalid = asm3.utils.atoi(animalid_str)
+                if weight_gainer_mode and not asm3.useranimalaccess.is_write_allowed(o.session, animalid):
+                    raise asm3.utils.ASMPermissionError(_("You can only update animals you are currently fostering.", o.locale))
                 existing = o.dbo.first_row(o.dbo.query("SELECT LinkType, LinkID, Date FROM log WHERE ID=?", [updatelogid]))
                 if existing and existing.LINKTYPE == asm3.log.ANIMAL and existing.LINKID == animalid:
                     o.dbo.update("log", updatelogid, {
@@ -3353,12 +3361,17 @@ class hedgehog_observation(JSONEndpoint):
         for row in entries:
             if not row or "==" not in row:
                 continue
-            animalid, msg = row.split("==", 1)
+            animalid_raw, msg = row.split("==", 1)
+            animalid = asm3.utils.atoi(animalid_raw)
+            if animalid <= 0:
+                continue
+            if weight_gainer_mode and not asm3.useranimalaccess.is_write_allowed(o.session, animalid):
+                raise asm3.utils.ASMPermissionError(_("You can only update animals you are currently fostering.", o.locale))
             asm3.log.add_log(
                 o.dbo,
                 o.user,
                 asm3.log.ANIMAL,
-                asm3.utils.atoi(animalid),
+                animalid,
                 logtype,
                 msg,
                 logdatetime

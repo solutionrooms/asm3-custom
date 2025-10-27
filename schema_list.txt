@@ -684,3 +684,27 @@ MatchCommentsContain
     VARCHAR
 MatchFlags
     VARCHAR
+
+custom_useranimalaccess
+-----------------------
+
+Tracks explicit per-user access to animal records outside the standard location filter.
+
+ID
+    INTEGER
+    Auto-increment primary key.
+UserID
+    INTEGER
+    Link to the `users` table (the staff/portal account receiving access).
+AnimalID
+    INTEGER
+    Link to the `animal` table entry the access applies to.
+AccessType
+    VARCHAR
+    Describes the reason for access (e.g., `ex-foster`, `sponsor`); used for auditing and future business logic.
+CreatedDate
+    TIMESTAMP
+    When the access row was created (default `CURRENT_TIMESTAMP`).
+LastUpdated
+    TIMESTAMP
+    Optional timestamp to track updates (`NULL` if never modified).

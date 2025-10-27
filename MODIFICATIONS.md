@@ -11,6 +11,7 @@
 | 2025-08-30 | Storage | S3-backed media storage and S3 mirroring for DB backups | [External Storage & Backups](#external-storage--backups) |
 | 2025-09-01 | Operations | Cron hardening, single-table backup helpers, dev hot-reload mounts, weight monitor photo linking | [Operational Automation](#operational-automation) |
 | 2025-09-07 | Application | Observations history poo sample column and Analysis tab with weight graph | [Observations & Analysis Enhancements](#observations--analysis-enhancements) |
+| 2025-10-31 | Application | Custom animal access registry powering weight gainer historic visibility | [Weight Gainer Historic Access](#weight-gainer-historic-access) |
 
 ---
 
@@ -39,6 +40,14 @@
 - Historical entry workflow introduced for hedgehog observations: dedicated endpoint (`hedgehog_observation_history` in `src/main.py`) honours custom observation dates, updated single-animal UI (`src/static/js/hedgehog_observation.js`), navigation entry from the multi-animal screen (`src/static/js/animal_observations.js`), and regression coverage in `unittest/test_hedgehog.py`.
 - Historical mode bypasses clinician/poo confirmation prompts and the new binary flags (“Poo Sample Taken?”, “Clinician Alerted?”) display across single-entry, multi-entry, and history tables (`src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/static/js/animal_observations_history.js`).
 - Options → Daily Observations now include a “Weight Gainer Entry?” flag per field; users in the Weight Gainer role only see flagged inputs on observation screens, and poo/clinician prompts are suppressed (`src/static/js/options.js`, `src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/asm3/configuration.py`, `src/main.py`).
+
+### Weight Gainer Historic Access
+**When**: 2025-10-31 (branch `develop`)
+
+- New registry table `custom_useranimalaccess` tracks per-user animal access with an `AccessType` label (e.g., `ex-foster`, `sponsor`). Helper module `src/asm3/useranimalaccess.py` wraps table existence checks, cached lookups, and write-eligibility helpers.
+- `asm3/users.update_session` now merges active foster IDs with any custom access rows, populating `session.customanimalaccess` and splitting weight gainer sessions into editable (`weightgainer_activeanimalids`) vs read-only (`weightgainer_readonlyanimalids`) lists.
+- Observation save endpoints (`animal_observations.post_save`, `hedgehog_observation.post_save`) reject writes from weight gainers unless the target animal remains in their active foster list, preserving edit-only-on-current-fosters behaviour while still surfacing history via the augmented visibility filter.
+- Documented schema expectations in `schema_list.txt`; seed entries with `AccessType='ex-foster'` to allow historic view-only access, with room for future types such as “sponsor”.
 
 ### Geocoding Fallback & Indicators
 **When**: 2025-10-26 (branch `develop`)

@@ -9,6 +9,7 @@ import asm3.lookups
 import asm3.i18n
 import asm3.smcom
 import asm3.utils
+import asm3.useranimalaccess
 
 from asm3.sitedefs import BASE_URL
 from asm3.typehints import Database, PostedData, ResultRow, Results, Session
@@ -848,11 +849,18 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
     session.locationfilter = ""
     session.visibleanimalids = ""
     session.forcechangepassword = False
+    session.weightgainer_activeanimalids = ""
+    session.weightgainer_readonlyanimalids = ""
+    session.customanimalaccess = {}
     if "ROLES" in user: session.roles = user.ROLES
     if "ROLEIDS" in user: session.roleids = user.ROLEIDS
     if "SITEID" in user: session.siteid = asm3.utils.cint(user.SITEID)
     if "LOCATIONFILTER" in user: session.locationfilter = asm3.utils.nulltostr(user.LOCATIONFILTER)
     if "OWNERID" in user: session.staffid = user.OWNERID
+    roles_lower = []
+    if session.roles:
+        roles_lower = [r.strip().lower() for r in session.roles.split("|") if r.strip()]
+    is_weight_gainer = "weight gainer" in roles_lower
     # If the user has a location filter that involves a filtered list of animals linked to them, load them now.
     if (
         "LOCATIONFILTER" in user
@@ -875,6 +883,26 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
         for r in af:
             va.append(str(r.ANIMALID))
         session.visibleanimalids = ",".join(va)
+        if is_weight_gainer and va:
+            session.weightgainer_activeanimalids = ",".join(sorted({v for v in va if v}, key=asm3.utils.atoi))
+
+    # Augment visibility with any custom access records (eg, ex-fosters, sponsor lists)
+    access_map = asm3.useranimalaccess.get_user_access_ids(dbo, session.userid)
+    if access_map:
+        session.customanimalaccess = {str(k): asm3.utils.nulltostr(v) for k, v in access_map.items()}
+        extra_ids = {str(k) for k in access_map.keys() if k}
+        current_ids = {v for v in session.visibleanimalids.split(",") if v} if session.visibleanimalids else set()
+        combined_ids = current_ids | extra_ids
+        if combined_ids:
+            session.visibleanimalids = ",".join(sorted(combined_ids, key=asm3.utils.atoi))
+        else:
+            session.visibleanimalids = ""
+        if is_weight_gainer:
+            active_ids = {v for v in asm3.utils.nulltostr(session.weightgainer_activeanimalids).split(",") if v}
+            readonly_ids = extra_ids - active_ids
+            session.weightgainer_readonlyanimalids = ",".join(sorted(readonly_ids, key=asm3.utils.atoi)) if readonly_ids else ""
+    elif is_weight_gainer and not session.weightgainer_activeanimalids:
+        session.weightgainer_readonlyanimalids = ""
     session.config_ts = asm3.i18n.format_date(asm3.i18n.now(), "%Y%m%d%H%M%S")
 
 def web_login(post: PostedData, session: Session, remoteip: str, useragent: str, path: str, use2fa: bool = True) -> str:
