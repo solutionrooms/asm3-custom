@@ -95,6 +95,13 @@
 
 ## Tooling & Documentation
 
+### Hedgehog Observation Inline Help
+**When**: 2025-10-16
+
+- Hedgehog daily observation screen shows contextual help icons for each weight-gainer field; hovering/clicking reveals guidance sourced from the weight gaining guide (including the stool consistency chart).
+- Added an “Open Help Guide” action alongside the photo uploader and wired help buttons to deep-link into section 4 of `weight-gaining.html`.
+- Updated the weight gaining guide with anchored field references and clarified photo handling through the Media tab.
+
 ### Development Environment Guidance
 **When**: 2025-08-24
 
