@@ -101,8 +101,15 @@ $(function() {
             h.push('.asm-hhog-observation{background:#ffffff;border-radius:18px;padding:24px 26px 30px;box-shadow:0 22px 55px rgba(15,23,42,0.1);}');
             h.push('.hhog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px 24px;}');
             h.push('.hhog-field{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;transition:box-shadow .2s,border-color .2s,background .2s;}');
-            h.push('.hhog-field-label{display:block;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#475569;margin-bottom:8px;}');
+            h.push('.hhog-field-label{display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#475569;margin-bottom:8px;}');
             h.push('.hhog-field input,.hhog-field select{width:100%;font-size:0.95rem;}');
+            h.push('.hhog-help-icon{background:none;border:0;padding:0;margin:0 0 0 4px;cursor:pointer;}');
+            h.push('.hhog-help-icon .asm-icon{font-size:0.95rem;}');
+            h.push('.hhog-help-tooltip{max-width:280px;font-size:0.9rem;line-height:1.4;}');
+            h.push('.hhog-help-tooltip-content p{margin:0.2rem 0;}');
+            h.push('.hhog-help-tooltip-content a{color:#2563eb;font-weight:600;text-decoration:none;}');
+            h.push('.hhog-help-tooltip-content a:hover{text-decoration:underline;}');
+            h.push('.hhog-help-chart{max-width:240px;margin-top:0.5rem;border-radius:6px;box-shadow:0 6px 18px rgba(15,23,42,0.18);}');
             h.push('.hhog-field:focus-within{background:#fff;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.2);}');
             h.push('.hhog-field-error{border-color:#ef4444!important;background:#fef2f2!important;box-shadow:0 0 0 2px rgba(239,68,68,0.15)!important;}');
             h.push('.hhog-field-alert{border-color:#fb923c!important;background:#fff7ed!important;}');
@@ -124,6 +131,7 @@ $(function() {
             h.push('.hhog-checkbox input{width:auto;}');
             h.push('.hhog-actions{margin-top:30px;display:flex;flex-wrap:wrap;gap:14px;}');
             h.push('.hhog-actions button{min-width:170px;font-size:1rem;padding:11px 20px;}');
+            h.push('.hhog-doc-button{white-space:nowrap;}');
             h.push('.hhog-schedule{display:flex;flex-wrap:wrap;gap:16px;margin-top:20px;}');
             h.push('.hhog-schedule .hhog-field{flex:1 1 200px;}');
             h.push('.hhog-schedule-note{margin-top:18px;color:#475569;font-size:0.9rem;}');
@@ -143,6 +151,46 @@ $(function() {
             h.push('.hhog-history-item-meta span{display:block;}');
             h.push('@media (max-width:780px){.hhog-hero{gap:16px;}.hhog-hero-thumb img{width:96px;height:96px;}.hhog-card{padding:18px;}.asm-hhog-observation{padding:22px;}.hhog-actions{flex-direction:column;}.hhog-banner{flex-direction:column;align-items:flex-start;}.hhog-checkbox-group{flex-direction:column;}.hhog-schedule{flex-direction:column;}.hhog-history-header{flex-direction:column;align-items:flex-start;gap:8px;}.hhog-history-reset{align-self:flex-start;}}');
             h.push('</style>');
+
+            const slugify = function(value) {
+                return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            };
+            const docsBase = "static/custom/processes/weight-gaining.html";
+            const baseLinkText = translate("Open detailed guidance");
+            const pooChartImg = '<img src="static/custom/processes/images/poo_chart_wg.jpg" alt="' + html.title(translate("Poo consistency reference chart")) + '" class="hhog-help-chart" />';
+            const helpConfig = {
+                "weight": { summary: translate("Enter today's weight in grams only (numbers). Pair the reading with a photo."), anchor: "#field-weight" },
+                "eaten": { summary: translate("Use the dropdown to record how much was eaten."), anchor: "#field-eaten" },
+                "poo-inspection": { summary: translate("Rate the stool consistency from 1 (hard pellets) to 7 (fully liquid)."), anchor: "#field-poo", extra: pooChartImg },
+                "unusual-symptoms": { summary: translate("Log anything that looks out of the ordinary. Leave blank if nothing to report."), anchor: "#field-unusual" },
+                "medication": { summary: translate("Record the medication name and dose if anything was given; leave blank otherwise."), anchor: "#field-medication" },
+                "drunk": { summary: translate("Use the dropdown to show how much water the animal drank."), anchor: "#field-drunk" },
+                "toilet": { summary: translate("Record whether urine, faeces, or both were observed."), anchor: "#field-toilet" }
+            };
+            const buildFieldLabel = function(fieldName) {
+                const label = html.title(fieldName);
+                const slug = slugify(fieldName);
+                const info = helpConfig[slug];
+                if (!info) {
+                    return '<label class="hhog-field-label">' + label + '</label>';
+                }
+                const summary = info.summary;
+                const url = docsBase + info.anchor;
+                info.url = url;
+                const tooltipParts = [
+                    '<div class="hhog-help-tooltip-content">',
+                    '<p>' + html.title(summary) + '</p>'
+                ];
+                if (info.extra) {
+                    tooltipParts.push(info.extra);
+                }
+                tooltipParts.push('<p><a href="' + url + '" target="_blank" rel="noopener">' + html.title(baseLinkText) + '</a></p>');
+                tooltipParts.push('</div>');
+                info.tooltip = tooltipParts.join("");
+                const aria = translate("View help for {0}").replace("{0}", fieldName);
+                const icon = '<button type="button" class="hhog-help-icon" data-help-key="' + slug + '" aria-label="' + html.title(aria) + '" title="' + html.title(summary) + '">' + html.icon("help") + '</button>';
+                return '<label class="hhog-field-label">' + label + icon + '</label>';
+            };
 
             if (a) {
                 h.push('<div class="hhog-hero-card">');
@@ -249,7 +297,7 @@ $(function() {
             let fields = [], meta = [];
             $.each(fieldDefs, function(_, def) {
                 meta.push({ idx: def.idx, name: def.name, required: def.required, range: def.range });
-                const label = '<label class="hhog-field-label">' + html.title(def.name) + '</label>';
+                const label = buildFieldLabel(def.name);
                 if (def.values) {
                     fields.push('<div class="hhog-field">' + label + '<select class="asm-selectbox widget" data-index="' + def.idx + '" data-name="' + html.title(def.name) + '"><option value=""></option>' + html.list_to_options(def.values.split("|")) + '</select></div>');
                 }
@@ -263,7 +311,7 @@ $(function() {
                 const exists = meta.some(function(m){ return (m.name || m.label || "").toLowerCase() === lower; });
                 if (exists) { return; }
                 const idx = "extra-" + lower.replace(/[^a-z0-9]+/g, "-");
-                const labelMarkup = '<label class="hhog-field-label">' + html.title(label) + '</label>';
+                const labelMarkup = buildFieldLabel(label);
                 const options = [
                     '<option value=""></option>',
                     '<option value="Yes">' + translate("Yes") + '</option>',
@@ -296,6 +344,7 @@ $(function() {
             h.push('<button id="button-save" class="asm-mobile-full">' + translate("Save") + '</button>');
             if (a) {
                 h.push('<button id="button-photo" class="asm-mobile-full">' + translate("Attach Photo") + '</button>');
+                h.push('<button id="button-docs" class="asm-mobile-full hhog-doc-button">' + translate("Open Help Guide") + '</button>');
             }
             h.push('</div></div>');
 
@@ -369,6 +418,8 @@ $(function() {
             }
 
             h.push(html.content_footer());
+            this.help_config = helpConfig;
+            this.help_docs_base = docsBase;
             this.behave_meta = meta;
             return h.join("\n");
         },
@@ -540,6 +591,36 @@ $(function() {
                 if (!ho.history_mode && ho.today_log_id) {
                     $("#button-save").button("option", "label", translate("Update Observation"));
                 }
+            const helpInfoMap = ho.help_config || {};
+            if ($.fn.tooltip) {
+                $(".hhog-help-icon").tooltip({
+                    items: ".hhog-help-icon",
+                    content: function() {
+                        const slug = $(this).data("help-key");
+                        const info = helpInfoMap[slug];
+                        return info && info.tooltip ? info.tooltip : "";
+                    },
+                    tooltipClass: "hhog-help-tooltip",
+                    track: true,
+                    position: { my: "left+10 top+10", at: "right top" }
+                });
+            }
+            $(".hhog-help-icon").attr("tabindex", "0").off("click").on("click", function(event) {
+                event.preventDefault();
+                const slug = $(this).data("help-key");
+                if ($.fn.tooltip) {
+                    try { $(this).tooltip("close"); } catch (e) {}
+                }
+                const info = helpInfoMap[slug];
+                if (info && info.url) {
+                    window.open(info.url, "_blank", "noopener");
+                }
+            }).off("keydown").on("keydown", function(event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    $(this).trigger("click");
+                }
+            });
             if (ho.allow_custom_date) {
                 $("#hhog-history-reset").off("click").on("click", function() {
                     ho.reset_history_selection();
@@ -882,6 +963,10 @@ $(function() {
                     show: dlgfx.add_show, hide: dlgfx.add_hide
                 });
                 $("#button-photo").button().off("click").on("click", () => { ho.save_state(); $("#dialog-photo").dialog("open"); });
+                $("#button-docs").button().off("click").on("click", () => {
+                    const url = (ho.help_docs_base || "static/custom/processes/weight-gaining.html") + "#field-guidance";
+                    window.open(url, "_blank", "noopener");
+                });
             }
         },
 

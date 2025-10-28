@@ -2,10 +2,228 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Weight Gaining Process</title>
+    <title>Weight Gaining Process Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0 auto;
+            padding: 2.5rem 2rem 4rem;
+            max-width: 960px;
+            line-height: 1.6;
+            color: #222;
+        }
+        header h1 {
+            margin-bottom: 0.25rem;
+        }
+        header p {
+            margin-top: 0;
+            color: #444;
+        }
+        nav {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f5f7fa;
+            border: 1px solid #d8dee9;
+            border-radius: 6px;
+        }
+        nav h2 {
+            margin-top: 0;
+        }
+        main section {
+            margin-bottom: 3rem;
+        }
+        main h2 {
+            margin-bottom: 0.75rem;
+            border-bottom: 2px solid #d8dee9;
+            padding-bottom: 0.25rem;
+        }
+        main h3 {
+            margin-top: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+        .return {
+            margin-top: 1rem;
+        }
+        .return a {
+            color: #1a2b6d;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .return a:hover,
+        .return a:focus {
+            text-decoration: underline;
+        }
+        .callout {
+            margin: 1rem 0;
+            padding: 1rem 1.25rem;
+            border-left: 4px solid #4c78dd;
+            background: #eef3ff;
+            color: #1a2b6d;
+        }
+        .screenshot {
+            margin: 1.25rem auto;
+            text-align: center;
+        }
+        .screenshot img {
+            max-width: 420px;
+            width: 100%;
+            height: auto;
+            border: 1px solid #d8dee9;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        ul {
+            margin: 0.5rem 0 1.5rem;
+        }
+        ul li {
+            margin: 0.4rem 0;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #d8dee9;
+            color: #555;
+            font-size: 0.95rem;
+        }
+    </style>
 </head>
-<body>
-    <h1>Weight Gaining Process</h1>
-    <p>This page is a placeholder for detailed guidance on managing animals that need to gain weight. Content coming soon.</p>
+<body id="top">
+    <header>
+        <h1>Welcome to the BGHRC Weight-Gainers Help Guide</h1>
+        <div class="screenshot" style="max-width:320px; margin: 0 auto 1.5rem auto;">
+            <img src="images/cropped-baddeley-green-hedgehog-rescue-centre-logo.jpg" alt="Baddeley Green Hedgehog Rescue Centre logo" loading="lazy">
+        </div>
+        <p>This guide is written for weight-gainers and explains how to use Animal Shelter Manager to record and manage your daily observations.</p>
+        <p>You have full visibility of the animal&rsquo;s record so you can explore history, media, tests and more. Feel free to click around &ndash; your account is restricted to observation entry so you cannot accidentally change anything else.</p>
+    </header>
+
+    <nav aria-label="Table of contents" id="menu">
+        <h2>Quick Jump</h2>
+        <ol>
+            <li><a href="#navigation-basics">How to Navigate the System</a></li>
+            <li><a href="#enter-observations">Entering Weight Observations</a></li>
+            <li><a href="#advanced-tools">Advanced Observation Actions</a></li>
+            <li><a href="#field-guidance">Field-by-Field Guidance</a></li>
+        </ol>
+    </nav>
+
+    <main>
+        <section id="navigation-basics">
+            <h2>1. How to Navigate the System</h2>
+            <p class="callout">Start here to get logged in and reach the animals assigned to your weight-gaining caseload.</p>
+            <h3>Getting signed in</h3>
+            <ol>
+                <li>Open <a href="https://asmdo22.fridaydigital.co.uk/login?smaccount=bghrc" target="_blank" rel="noopener">https://asmdo22.fridaydigital.co.uk/login?smaccount=bghrc</a>.</li>
+                <li>Enter your email address as the username and the initial password <code>changemenow</code>.</li>
+                <li>On first sign-in you will be prompted to choose a new password. Pick something memorable that meets your security rules.</li>
+                <li>If you ever mistype your password, a reset option appears beneath the login form. Use it if you are locked out.</li>
+            </ol>
+            <div class="screenshot">
+                <img src="images/logon_screen.jpg" alt="ASM login screen showing database, username, password fields and Login button" loading="lazy">
+            </div>
+            <h3>Finding your animals</h3>
+            <p>After successful login the system opens Shelter View filtered to the animals assigned to your weight gaining caseload. You can also return to this list any time via the quick links in the top banner.</p>
+            <div class="screenshot">
+                <img src="images/animal_list_wg.jpg" alt="Shelter view showing animals available for weight gaining observations" loading="lazy">
+            </div>
+            <h3>Next steps</h3>
+            <p>Select an animal tile to view its profile, review prior observations, or enter new notes. Continue to <a href="#enter-observations">Section 2 &ndash; Entering Observations</a> for the workflow.</p>
+            <p class="return"><a href="#menu">Return to menu</a></p>
+        </section>
+
+        <section id="enter-observations">
+            <h2>2. How to Enter Observations</h2>
+            <p class="callout">Follow these steps to capture today&rsquo;s weight and wellbeing notes quickly and accurately.</p>
+            <h3>Open the animal profile</h3>
+            <ol>
+                <li>From Shelter View, click the animal that you are updating.</li>
+                <li>You will land on the full profile with tabs across the top for Animal, Test, Diet, Media, Observations and more.</li>
+            </ol>
+            <div class="screenshot">
+                <img src="images/animal_menu.jpg" alt="Animal profile showing tab row with Observations tab highlighted" loading="lazy">
+            </div>
+            <h3>Review existing observations</h3>
+            <p>Select the <strong>Observations</strong> tab to see all previous entries. The table shows who logged the note, the recorded weight, feeding notes and other indicators.</p>
+            <div class="screenshot">
+                <img src="images/animal_obervations_wg.jpg" alt="Observations tab listing previous weight gaining entries" loading="lazy">
+            </div>
+            <h3>Add today&rsquo;s observation</h3>
+            <ol>
+                <li>Click <strong>New Observation</strong>.</li>
+                <li>A fresh daily observation form opens with weight, eaten, toilet and other key fields.</li>
+                <li>Complete each field following the guidance in <a href="#field-guidance">Section 4 &ndash; Field-Level Advice</a>.</li>
+                <li>Press <strong>Save</strong> to commit the entry. Use <em>Attach Photo</em> if you need to add supporting media.</li>
+            </ol>
+            <div class="screenshot">
+                <img src="images/enter_observation_wg.jpg" alt="Daily observation entry screen for weight gaining workflow" loading="lazy">
+            </div>
+            <p>Need to correct an earlier entry or record data for a past date? Continue to <a href="#advanced-tools">Section 3 &ndash; Advanced Options</a> for editing and backfilling guidance.</p>
+            <p class="return"><a href="#menu">Return to menu</a></p>
+        </section>
+
+        <section id="advanced-tools">
+            <h2>3. Advanced &mdash; Adjusting or Backfilling Observations</h2>
+            <p class="callout">Need to fix an error or add a missed day? Use the options below to keep the record accurate.</p>
+            <h3>Update today&rsquo;s observation</h3>
+            <p>If you notice a typo immediately, reopen the <strong>New Observation</strong> screen. The current values are pre-filled &mdash; simply overtype the corrections and press <strong>Save</strong>.</p>
+
+            <h3>Add a missed day</h3>
+            <p>Need to enter data for yesterday or another past date?</p>
+            <ol>
+                <li>From the Observations tab click <strong>Enter historical observations</strong>.</li>
+                <li>Select the correct date (and optional time) before filling out the fields.</li>
+                <li>Enter the information as usual and choose <strong>Save Historical Observation</strong>.</li>
+            </ol>
+            <div class="screenshot">
+                <img src="images/historical_observations_wg.jpg" alt="Historical observation entry screen with date selector" loading="lazy">
+            </div>
+
+            <h3>Edit an older entry</h3>
+            <p>Occasionally you may need to correct something in a historical observation. Use the <strong>Log</strong> tab to locate and edit the entry.</p>
+            <ol>
+                <li>Open the <strong>Log</strong> tab on the animal record.</li>
+                <li>Locate the relevant <em>Daily Observations</em> row and click it.</li>
+                <li>In the edit window, adjust the details and press <strong>Change</strong> to save.</li>
+            </ol>
+            <div class="screenshot">
+                <img src="images/see_log_wg.jpg" alt="Log tab showing daily observation entries" loading="lazy">
+            </div>
+            <div class="screenshot">
+                <img src="images/edit_log_wg.jpg" alt="Edit log dialog for daily observation note" loading="lazy">
+            </div>
+
+            <p>Editing the log keeps a complete audit trail of who made the change and when. See <a href="#field-guidance">Section 4</a> for help filling in each field consistently.</p>
+            <p>The photos you upload sit in the <strong>Media</strong> tab. If you need to replace or delete one, open that tab, make the change, and optionally set your favourite image as the profile photo.</p>
+            <p class="return"><a href="#menu">Return to menu</a></p>
+        </section>
+
+        <section id="field-guidance">
+            <h2>4. Field-Level Advice</h2>
+            <p class="callout">Use this checklist each time you complete an observation so we collect consistent, high-quality data.</p>
+            <ul class="field-guidance-list">
+                <li id="field-weight"><strong>Weight</strong>: Enter today&rsquo;s weight in grams only (numbers, no units). Example: type <code>443</code>, not <code>443g</code>. Pair the reading with a photo (see below).</li>
+                <li id="field-eaten"><strong>Eaten</strong>: Choose the dropdown option that best reflects how much was consumed.</li>
+                <li id="field-poo"><strong>Poo Inspection</strong>: Select a number from <strong>1</strong> (hard pellets) to <strong>7</strong> (fully liquid). Use the chart below as a guide.</li>
+            </ul>
+            <div class="screenshot">
+                <img src="images/poo_chart_wg.jpg" alt="Scale of stool consistency from type 1 to type 7" loading="lazy">
+            </div>
+            <ul class="field-guidance-list">
+                <li id="field-unusual"><strong>Unusual symptoms</strong>: Describe anything that looks out of the ordinary &mdash; behaviour, breathing, injuries, etc. Leave blank if nothing to report.</li>
+                <li id="field-medication"><strong>Medication</strong>: Record the name and dose of medication administered. If none, leave blank.</li>
+                <li id="field-drunk"><strong>Drunk</strong>: Use the dropdown to note how much water the animal has taken.</li>
+                <li id="field-toilet"><strong>Toilet</strong>: Indicate whether urine, faeces, or both were observed. Use the dropdown options provided.</li>
+                <li id="field-photo"><strong>Photo</strong>: Attach an up-to-date photo. On mobile/tablet, tap <em>Attach Photo</em> and choose the quickest option (take a new photo or upload from your library). You can review, replace, or set a favourite image later from the <strong>Media</strong> tab.</li>
+            </ul>
+            <div class="screenshot">
+                <img src="images/Daily_Observation_photo_wg.png" alt="Mobile upload options when attaching a photo" loading="lazy">
+            </div>
+            <p class="return"><a href="#menu">Return to menu</a></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>Last updated: <span id="last-updated">2025-10-16</span> &mdash; Maintainer: BGHRC Shelter Admin.</p>
+    </footer>
 </body>
 </html>
