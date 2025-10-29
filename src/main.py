@@ -434,13 +434,15 @@ class ASMEndpoint(object):
         continuing. We allow access to the change password and logout
         endpoints to avoid redirect loops.
         """
-        if (
-            "forcechangepassword" in session
-            and session.forcechangepassword
-            and web.ctx.path.find("/change_password") == -1
-            and web.ctx.path.find("/logout") == -1
-        ):
-            raise web.seeother("%s/change_password?forcechangepassword=1" % BASE_URL)
+        if "forcechangepassword" in session and session.forcechangepassword:
+            if session.dbo and not asm3.users.user_requires_password_change(session.dbo, session.user):
+                session.forcechangepassword = False
+                return
+            if (
+                web.ctx.path.find("/change_password") == -1
+                and web.ctx.path.find("/logout") == -1
+            ):
+                raise web.seeother("%s/change_password?forcechangepassword=1" % BASE_URL)
 
     def check_mode(self, mode: str) -> bool:
         """
