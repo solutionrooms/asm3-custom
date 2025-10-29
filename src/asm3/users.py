@@ -394,6 +394,28 @@ def change_password(dbo: Database, username: str, oldpassword: str, newpassword:
         raise asm3.utils.ASMValidationError(asm3.i18n._("Password is incorrect.", l))
     dbo.execute("UPDATE users SET Password = ? WHERE UserName LIKE ?", (hash_password(newpassword), username))
 
+def password_matches_force_change_token(dbo: Database, passwordhash: str) -> bool:
+    """
+    Returns True when passwordhash still matches the configured
+    ForcePasswordChangeToken value.
+    """
+    token = asm3.configuration.cstring(dbo, "ForcePasswordChangeToken", "changemenow").strip()
+    if token == "" or not passwordhash:
+        return False
+    return verify_password(token, passwordhash)
+
+def user_requires_password_change(dbo: Database, username: str) -> bool:
+    """
+    Returns True if the given user still needs to change their password
+    because it matches the configured ForcePasswordChangeToken.
+    """
+    if dbo is None or not username:
+        return False
+    user = get_user(dbo, username)
+    if not user or "PASSWORD" not in user:
+        return False
+    return password_matches_force_change_token(dbo, user.PASSWORD)
+
 def get_default_stock_location_id(dbo: Database, username: str) -> str:
     """
     Returns a user's default stock location ID
@@ -951,8 +973,7 @@ def web_login(post: PostedData, session: Session, remoteip: str, useragent: str,
         if use2fa:
             session.force2fa = not asm3.smcom.is_master_user(user.USERNAME, dbo.name()) and asm3.configuration.force_2fa(dbo) and onetimepass == ""
         update_session(dbo, session, user.USERNAME)
-        token = asm3.configuration.cstring(dbo, "ForcePasswordChangeToken", "changemenow").strip()
-        if token != "" and verify_password(token, user.PASSWORD):
+        if password_matches_force_change_token(dbo, user.PASSWORD):
             session.forcechangepassword = True
     except:
         asm3.al.error("failed setting up session: %s" % str(sys.exc_info()[0]), "users.web_login", dbo, sys.exc_info())
