@@ -76,7 +76,9 @@ $(function() {
                     if (controller.forcechangepassword || common.querystring_param("forcechangepassword") == "1") {
                         controller.forcechangepassword = false;
                         setTimeout(function() {
-                            common.route("main");
+                            // Force a full reload for users without home permission so the server can pick the correct landing page.
+                            const requireServerNav = !common.has_permission("vhme");
+                            common.route("main", requireServerNav);
                         }, 500);
                     }
                 }
