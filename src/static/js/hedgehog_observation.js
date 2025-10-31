@@ -349,12 +349,13 @@ $(function() {
             h.push('</div></div>');
 
             if (a) {
+                const photoController = this.history_mode ? "hedgehog_observation_history" : "hedgehog_observation";
                 h.push('<div id="dialog-photo" style="display:none" title="' + html.title(translate("Attach Photo")) + '">');
                 h.push('<form id="photoform" method="post" enctype="multipart/form-data" action="media">');
                 h.push('<input type="hidden" name="mode" value="create" />');
                 h.push('<input type="hidden" name="linkid" value="' + a.ID + '" />');
                 h.push('<input type="hidden" name="linktypeid" value="0" />');
-                h.push('<input type="hidden" name="controller" value="hedgehog_observation" />');
+                h.push('<input type="hidden" name="controller" value="' + photoController + '" />');
                 h.push('<p><input type="file" name="filechooser" accept="image/*" class="asm-textbox" /></p>');
                 h.push('</form></div>');
             }
