@@ -241,10 +241,19 @@ edit_header = {
                 '</div>'
             ].join("\n");
         }
+        let historicalNoticeText = common.nulltostr(a.HISTORICALFOSTERNOTICE);
+        if (historicalNoticeText === "" && typeof controller !== "undefined") {
+            historicalNoticeText = common.nulltostr(controller.historical_foster_notice);
+        }
+        let historicalNotice = "";
+        if (historicalNoticeText !== "") {
+            historicalNotice = html.warn(html.title(historicalNoticeText), "historical-foster-notice");
+        }
         var third_column = [
             '<div class="col-sm">',
             edit_header.audit_banner(a),
             available,
+            historicalNotice,
             '</div>',
             '</div>'
         ].join("\n");

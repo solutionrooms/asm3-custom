@@ -41,6 +41,9 @@ MEDIATYPE_VIDEO_LINK = 2
 DEFAULT_RESIZE_SPEC = "1024x1024" # If no valid resize spec is configured, the default to use
 MAX_PDF_PAGES = 50 # Do not scale PDFs with more than this many pages
 
+# Observation log media flag prefix
+OBSERVATION_LOG_FLAG_PREFIX = "OBSLOG:"
+
 def mime_type(filename: str) -> str:
     """
     Returns the mime type for a file with the given name
@@ -72,6 +75,33 @@ def mime_type(filename: str) -> str:
     if ext in types:
         return types[ext]
     return "application/octet-stream"
+
+
+def observation_log_id_from_flags(flags: str) -> int:
+    """Extracts the observation log id from a media flags string, or 0 if not present."""
+    flags = asm3.utils.nulltostr(flags)
+    if flags == "":
+        return 0
+    parts = flags.split("|")
+    for flag in parts:
+        if flag.startswith(OBSERVATION_LOG_FLAG_PREFIX):
+            return asm3.utils.cint(flag[len(OBSERVATION_LOG_FLAG_PREFIX):])
+    return 0
+
+
+def get_observation_media_map(dbo: Database, animal_id: int) -> Dict[int, Results]:
+    """Returns a map of observation log id -> list of media rows for the given animal."""
+    rows = dbo.query(
+        "SELECT * FROM media WHERE LinkTypeID = ? AND LinkID = ? "
+        "AND MediaFlags LIKE ? ORDER BY Date ASC",
+        (ANIMAL, animal_id, f"%{OBSERVATION_LOG_FLAG_PREFIX}%")
+    )
+    result: Dict[int, Results] = {}
+    for row in rows:
+        log_id = observation_log_id_from_flags(getattr(row, "MEDIAFLAGS", ""))
+        if log_id > 0:
+            result.setdefault(log_id, []).append(row)
+    return result
 
 def get_web_preferred_name(dbo: Database, linktype: int, linkid: int) -> str:
     return dbo.query_string("SELECT MediaName FROM media " \
@@ -388,6 +418,8 @@ def attach_file_from_form(dbo: Database, username: str, linktype: int, linkid: i
     medianame = "%d%s" % ( mediaid, ext )
     ispicture = ext == ".jpg" or ext == ".jpeg"
     ispdf = ext == ".pdf"
+    observation_log_id = observation_log_id_from_flags(flags)
+    is_observation_photo = ispicture and observation_log_id > 0
     excludefrompublish = 0
     if "excludefrompublish" in post: 
         excludefrompublish = post.integer("excludefrompublish")
@@ -467,7 +499,7 @@ def attach_file_from_form(dbo: Database, username: str, linktype: int, linkid: i
     }, username, generateID=False)
 
     # Verify this record has a web/doc default if we aren't excluding it from publishing
-    if ispicture and excludefrompublish == 0:
+    if ispicture and excludefrompublish == 0 and not is_observation_photo:
         check_default_web_doc_pic(dbo, mediaid, linkid, linktype)
 
     return mediaid
@@ -1463,5 +1495,3 @@ def watermark_with_transparency(dbo: Database, imagedata: bytes, animalname: str
     except Exception as err:
         asm3.al.error("failed watermarking image: %s" % str(err), "media.watermark_with_transparency")
         return imagedata
-
-

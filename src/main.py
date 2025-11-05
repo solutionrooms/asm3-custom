@@ -282,6 +282,134 @@ def ensure_barcode_template(dbo, username: str) -> int:
                 return tpl.ID
         raise
 
+def mark_historical_foster_readonly(session: Session, animal_record: ResultRow) -> bool:
+    """
+    Annotates the given animal record with a HISTORICALFOSTERREADONLY flag and
+    returns True if the session treats the animal as a historical foster.
+    """
+    if session is None or animal_record is None:
+        return False
+    def _resolve_animal_id(record):
+        if record is None:
+            return 0
+
+        def _cast(value):
+            if value in (None, "", 0):
+                return 0
+            try:
+                return asm3.utils.cint(value)
+            except Exception:
+                try:
+                    return asm3.utils.cint(str(value))
+                except Exception:
+                    return 0
+
+        if isinstance(record, dict):
+            value = record.get("ID")
+            if value in (None, ""):
+                value = record.get("id")
+            return _cast(value)
+        try:
+            value = getattr(record, "ID", None)
+            if value in (None, "") and hasattr(record, "id"):
+                value = getattr(record, "id")
+            return _cast(value)
+        except Exception:
+            pass
+        if hasattr(record, "get"):
+            try:
+                value = record.get("ID")
+                if value in (None, ""):
+                    value = record.get("id")
+                return _cast(value)
+            except Exception:
+                pass
+        return 0
+
+    animal_id = _resolve_animal_id(animal_record)
+    is_read_only = asm3.users.session_has_historical_foster(session, animal_id)
+    if not is_read_only:
+        try:
+            owner_id = getattr(session, "staffid", 0)
+            if owner_id in (None, 0):
+                user_row = asm3.users.get_user(session.dbo, session.user)
+                if user_row and getattr(user_row, "OWNERID", 0):
+                    owner_id = asm3.utils.cint(user_row.OWNERID)
+            if owner_id not in (None, 0):
+                is_read_only = asm3.users.owner_has_historical_foster(session.dbo, owner_id, animal_id)
+        except Exception:
+            is_read_only = False
+    value = 1 if is_read_only else 0
+    try:
+        animal_record["HISTORICALFOSTERREADONLY"] = value
+    except Exception:
+        try:
+            setattr(animal_record, "HISTORICALFOSTERREADONLY", value)
+        except Exception:
+            pass
+    return is_read_only
+
+def resolve_historical_foster_notice(o, animal_record: ResultRow) -> str:
+    """
+    Builds a historical foster notice string for the supplied animal if the current
+    session represents a fosterer who previously cared for the animal.
+    """
+    if animal_record is None:
+        return ""
+    def _cast_int(value, default=0):
+        if value in (None, "", 0):
+            return default
+        try:
+            return asm3.utils.cint(value)
+        except Exception:
+            try:
+                return asm3.utils.cint(str(value))
+            except Exception:
+                return default
+
+    def _resolve(record, key, default=""):
+        if record is None:
+            return default
+        if isinstance(record, dict):
+            return record.get(key, default)
+        if hasattr(record, key):
+            try:
+                return getattr(record, key)
+            except Exception:
+                pass
+        if hasattr(record, "get"):
+            try:
+                return record.get(key, default)
+            except Exception:
+                pass
+        return default
+
+    animal_id = _cast_int(_resolve(animal_record, "ID", 0))
+    animal_name = asm3.utils.nulltostr(_resolve(animal_record, "ANIMALNAME", ""))
+    if animal_id <= 0:
+        return ""
+    if not asm3.users.session_has_historical_foster(o.session, animal_id):
+        return ""
+    owner_id = getattr(o.session, "staffid", 0)
+    if owner_id in (None, 0):
+        try:
+            user_row = asm3.users.get_user(o.dbo, o.session.user)
+            if user_row and getattr(user_row, "OWNERID", 0):
+                owner_id = asm3.utils.cint(user_row.OWNERID)
+        except Exception:
+            owner_id = 0
+    start_dt, end_dt = asm3.users.get_latest_foster_period(o.dbo, owner_id, animal_id)
+    if start_dt is None and end_dt is None:
+        return ""
+    l = o.locale
+    start_txt = python2display(l, start_dt) if start_dt is not None else _("Unknown", l)
+    if end_dt is None:
+        end_txt = python2display(l, o.dbo.today())
+    else:
+        end_txt = python2display(l, end_dt)
+    notice_template = _("You fostered {0} between {1} and {2}. You can view details however all editing is disabled.", l)
+    return notice_template.format(animal_name, start_txt, end_txt)
+
 def asm_500() -> Any:
     """
     Custom 500 error page that outputs the stack trace
@@ -945,7 +1073,11 @@ class media(ASMEndpoint):
         linkid = o.post.integer("linkid")
         linktypeid = o.post.integer("linktypeid")
         sourceid = o.post.integer("sourceid")
-        asm3.media.attach_file_from_form(o.dbo, o.user, linktypeid, linkid, sourceid, o.post)
+        mediaid = asm3.media.attach_file_from_form(o.dbo, o.user, linktypeid, linkid, sourceid, o.post)
+        if o.post.has_key("ajax") and o.post["ajax"] == "1":
+            self.content_type("application/json")
+            self.cache_control(0)
+            return asm3.utils.json({ "mediaid": mediaid })
         self.redirect("%s?id=%d" % (o.post["controller"], linkid))
 
     def post_createdoc(self, o):
@@ -968,8 +1100,14 @@ class media(ASMEndpoint):
 
     def post_delete(self, o):
         self.check(asm3.users.DELETE_MEDIA)
+        deleted = []
         for mid in o.post.integer_list("ids"):
             asm3.media.delete_media(o.dbo, o.user, mid)
+            deleted.append(mid)
+        if o.post.has_key("ajax") and o.post["ajax"] == "1":
+            self.content_type("application/json")
+            self.cache_control(0)
+            return asm3.utils.json({ "deleted": deleted })
 
     def post_email(self, o):
         self.check(asm3.users.EMAIL_PERSON)
@@ -1946,6 +2084,16 @@ class animal(JSONEndpoint):
         if asm3.configuration.audit_on_view_record(dbo): asm3.audit.view_record(dbo, o.user, "animal", a["ID"], recname)
         asm3.al.debug("opened animal %s" % recname, "main.animal", dbo)
         ensure_barcode_template(dbo, o.user)
+        historical_read_only = mark_historical_foster_readonly(o.session, a)
+        historical_notice = resolve_historical_foster_notice(o, a) if historical_read_only else ""
+        if historical_notice:
+            try:
+                a["HISTORICALFOSTERNOTICE"] = historical_notice
+            except Exception:
+                try:
+                    setattr(a, "HISTORICALFOSTERNOTICE", historical_notice)
+                except Exception:
+                    pass
         return {
             "animal": a,
             "activelitters": asm3.animal.get_active_litters_brief(dbo),
@@ -1979,7 +2127,9 @@ class animal(JSONEndpoint):
             "templatesemail": asm3.template.get_document_templates(dbo, "email"),
             "view": o.post["view"],
             "ynun": asm3.lookups.get_ynun(dbo),
-            "ynunk": asm3.lookups.get_ynunk(dbo)
+            "ynunk": asm3.lookups.get_ynunk(dbo),
+            "historical_foster_read_only": historical_read_only,
+            "historical_foster_notice": historical_notice
         }
 
     def post_save(self, o):
@@ -2189,13 +2339,22 @@ class animal_diet(JSONEndpoint):
         a = asm3.animal.get_animal(dbo, animalid)
         if a is None: self.notfound()
         self.check_animal(a)
+        historical_read_only = mark_historical_foster_readonly(o.session, a)
+        historical_notice = resolve_historical_foster_notice(o, a) if historical_read_only else ""
+        if historical_notice:
+            try:
+                a["HISTORICALFOSTERNOTICE"] = historical_notice
+            except Exception:
+                pass
         diet = asm3.animal.get_diets(dbo, animalid)
         asm3.al.debug("got %d diets for animal %s %s" % (len(diet), a["CODE"], a["ANIMALNAME"]), "main.animal_diet", dbo)
         return {
             "rows": diet,
             "animal": a,
             "tabcounts": asm3.animal.get_satellite_counts(dbo, animalid)[0],
-            "diettypes": asm3.lookups.get_diets(dbo)
+            "diettypes": asm3.lookups.get_diets(dbo),
+            "historical_foster_read_only": historical_read_only,
+            "historical_foster_notice": historical_notice
         }
 
     def post_create(self, o):
@@ -2482,6 +2641,13 @@ class animal_log(JSONEndpoint):
         a = asm3.animal.get_animal(dbo, o.post.integer("id"))
         if a is None: self.notfound()
         self.check_animal(a)
+        historical_read_only = mark_historical_foster_readonly(o.session, a)
+        historical_notice = resolve_historical_foster_notice(o, a) if historical_read_only else ""
+        if historical_notice:
+            try:
+                a["HISTORICALFOSTERNOTICE"] = historical_notice
+            except Exception:
+                pass
         logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, o.post.integer("id"), logfilter)
         asm3.al.debug("got %d logs for animal %s %s" % (len(logs), a["CODE"], a["ANIMALNAME"]), "main.animal_log", dbo)
         return {
@@ -2492,7 +2658,9 @@ class animal_log(JSONEndpoint):
             "rows": logs,
             "animal": a,
             "tabcounts": asm3.animal.get_satellite_counts(dbo, a["ID"])[0],
-            "logtypes": asm3.lookups.get_log_types(dbo)
+            "logtypes": asm3.lookups.get_log_types(dbo),
+            "historical_foster_read_only": historical_read_only,
+            "historical_foster_notice": historical_notice
         }
 
 class animal_observations_history(JSONEndpoint):
@@ -2504,11 +2672,35 @@ class animal_observations_history(JSONEndpoint):
         a = asm3.animal.get_animal(dbo, o.post.integer("id"))
         if a is None: self.notfound()
         self.check_animal(a)
+        historical_read_only = mark_historical_foster_readonly(o.session, a)
+        historical_notice = resolve_historical_foster_notice(o, a) if historical_read_only else ""
+        if historical_notice:
+            try:
+                a["HISTORICALFOSTERNOTICE"] = historical_notice
+            except Exception:
+                pass
         # Filter logs on the configured daily observations log type
         behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 3)
         logs = asm3.log.get_logs(dbo, asm3.log.ANIMAL, o.post.integer("id"), behave_logtype)
         asm3.al.debug("got %d observation logs for animal %s %s" % (len(logs), a["CODE"], a["ANIMALNAME"]), "main.animal_observations_history", dbo)
         weight_gainer_mode, weight_gainer_fields = resolve_weight_gainer_state(dbo, o.session)
+        observation_photos_rows = {}
+        if a:
+            try:
+                observation_photos_rows = asm3.media.get_observation_media_map(dbo, a["ID"])
+            except Exception:
+                observation_photos_rows = {}
+        photo_payload = {}
+        for log_id, rows in observation_photos_rows.items():
+            key = str(log_id)
+            photo_payload[key] = [
+                {
+                    "id": r.ID,
+                    "date": r.DATE,
+                    "notes": asm3.utils.nulltostr(getattr(r, "MEDIANOTES", ""))
+                }
+                for r in rows
+            ]
         return {
             "name": "animal_observations_history",
             "animal": a,
@@ -2516,7 +2708,10 @@ class animal_observations_history(JSONEndpoint):
             "tabcounts": asm3.animal.get_satellite_counts(dbo, a["ID"])[0],
             "logtypes": asm3.lookups.get_log_types(dbo),
             "weight_gainer_mode": weight_gainer_mode,
-            "weight_gainer_fields": weight_gainer_fields
+            "weight_gainer_fields": weight_gainer_fields,
+            "historical_foster_read_only": historical_read_only,
+            "historical_foster_notice": historical_notice,
+            "observation_photos": photo_payload
         }
 
 class animal_analysis(JSONEndpoint):
@@ -3047,6 +3242,15 @@ class animal_observations(JSONEndpoint):
     def controller(self, o):
         dbo = o.dbo
         animals = asm3.animal.get_shelterview_animals(dbo, o.lf)
+        historical_ids: List[int] = []
+        try:
+            for a in animals:
+                if mark_historical_foster_readonly(o.session, a):
+                    aid = asm3.utils.atoi(a.get("ID", 0))
+                    if aid > 0:
+                        historical_ids.append(aid)
+        except Exception:
+            historical_ids = []
         asm3.al.debug("got %d shelter animals" % len(animals), "main.animal_observations", dbo)
         behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 0)
         today_logs = {}
@@ -3115,7 +3319,8 @@ class animal_observations(JSONEndpoint):
             "historylogs": history_logs,
             "todaydate": now,
             "weight_gainer_mode": weight_gainer_mode,
-            "weight_gainer_fields": weight_gainer_fields
+            "weight_gainer_fields": weight_gainer_fields,
+            "historical_foster_ids": historical_ids
         }
 
     def post_save(self, o):
@@ -3152,6 +3357,7 @@ class animal_observations(JSONEndpoint):
             if updatelogid:
                 existing = o.dbo.first_row(o.dbo.query("SELECT LinkType, LinkID, Date FROM log WHERE ID=?", [updatelogid]))
                 if existing and existing.LINKTYPE == asm3.log.ANIMAL and existing.LINKID == animalid:
+                    asm3.users.ensure_can_edit_historical_foster(o.dbo, o.user, animalid, o.locale)
                     o.dbo.update("log", updatelogid, {
                         "LogTypeID": logtype,
                         "Comments": msg,
@@ -3241,8 +3447,34 @@ class hedgehog_observation(JSONEndpoint):
             asm3.al.warn(f"hedgehog_observation controller lookup failed: {e}", "main.hedgehog_observation", dbo)
 
         asm3.al.debug(f"hedgehog_observation resolved animal: {animal and animal['ID']}", "main.hedgehog_observation", dbo)
+        observation_photos_rows = {}
         if animal:
             ensure_barcode_template(dbo, o.user)
+            try:
+                observation_photos_rows = asm3.media.get_observation_media_map(dbo, animal["ID"])
+            except Exception:
+                observation_photos_rows = {}
+        historical_read_only = mark_historical_foster_readonly(o.session, animal)
+        historical_notice = resolve_historical_foster_notice(o, animal) if historical_read_only else ""
+        if animal and historical_notice:
+            try:
+                animal["HISTORICALFOSTERNOTICE"] = historical_notice
+            except Exception:
+                pass
+
+        photo_payload = {}
+        for log_id, rows in observation_photos_rows.items():
+            key = str(log_id)
+            photo_payload[key] = [
+                {
+                    "id": r.ID,
+                    "date": r.DATE,
+                    "notes": asm3.utils.nulltostr(getattr(r, "MEDIANOTES", ""))
+                }
+                for r in rows
+            ]
+        can_manage_photos = asm3.users.check_permission_bool(o.session, asm3.users.DELETE_MEDIA)
+
         return {
             "animal": animal,
             "endpoint": self.url,
@@ -3257,7 +3489,11 @@ class hedgehog_observation(JSONEndpoint):
             "defaultlogdatetime": now,
             "history": [],
             "weight_gainer_mode": weight_gainer_mode,
-            "weight_gainer_fields": weight_gainer_fields
+            "weight_gainer_fields": weight_gainer_fields,
+            "historical_foster_read_only": historical_read_only,
+            "historical_foster_notice": historical_notice,
+            "observation_photos": photo_payload,
+            "can_manage_photos": can_manage_photos
         }
 
     def _resolve_logdatetime(self, o) -> Any:
@@ -3334,6 +3570,8 @@ class hedgehog_observation(JSONEndpoint):
 
         logtype = o.post.integer("logtype")
         nocreated = 0
+        created_ids: List[int] = []
+        updated_id = 0
         updatelogid = o.post.integer("updatelogid") if o.post.has_key("updatelogid") else 0
         logdatetime = self._resolve_logdatetime(o)
 
@@ -3344,19 +3582,21 @@ class hedgehog_observation(JSONEndpoint):
                 animalid = asm3.utils.atoi(animalid_str)
                 existing = o.dbo.first_row(o.dbo.query("SELECT LinkType, LinkID, Date FROM log WHERE ID=?", [updatelogid]))
                 if existing and existing.LINKTYPE == asm3.log.ANIMAL and existing.LINKID == animalid:
+                    asm3.users.ensure_can_edit_historical_foster(o.dbo, o.user, animalid, o.locale)
                     o.dbo.update("log", updatelogid, {
                         "LogTypeID": logtype,
                         "Comments": msg,
                         "Date": logdatetime or existing.DATE or o.dbo.now()
                     }, o.user)
                     nocreated += 1
+                    updated_id = updatelogid
                     entries = entries[1:]
 
         for row in entries:
             if not row or "==" not in row:
                 continue
             animalid, msg = row.split("==", 1)
-            asm3.log.add_log(
+            new_id = asm3.log.add_log(
                 o.dbo,
                 o.user,
                 asm3.log.ANIMAL,
@@ -3366,6 +3606,23 @@ class hedgehog_observation(JSONEndpoint):
                 logdatetime
             )
             nocreated += 1
+            if new_id:
+                created_ids.append(new_id)
+
+        wants_json = o.post.has_key("ajax") and str(o.post["ajax"]).lower() in ("1", "true", "yes")
+        if wants_json:
+            self.content_type("application/json")
+            self.cache_control(0)
+            log_ids: List[int] = []
+            if updated_id:
+                log_ids.append(updated_id)
+            log_ids.extend(created_ids)
+            return asm3.utils.json({
+                "saved": nocreated,
+                "logIds": log_ids,
+                "updatedId": updated_id,
+                "createdIds": created_ids
+            })
 
         return str(nocreated)
 

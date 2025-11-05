@@ -27,6 +27,11 @@ $(function() {
         history_selected_id: null,
         is_mobile: false,
         state_restored: false,
+        observation_photo_map: {},
+        pending_photos: [],
+        current_log_id: null,
+        can_manage_photos: false,
+        read_only: false,
 
         storage_key: function() {
             let aid = controller.animal ? controller.animal.ID : "unknown";
@@ -79,13 +84,26 @@ $(function() {
             this.history_map = {};
             this.history_selected_id = null;
             const effectiveToday = this.history_mode ? null : controller.today;
+            this.read_only = !!controller.historical_foster_read_only ||
+                (controller.animal && controller.animal.HISTORICALFOSTERREADONLY === 1);
             this.today_map = effectiveToday ? this.parse_observation_map(effectiveToday.COMMENTS) : null;
             this.today_log_id = effectiveToday ? effectiveToday.LOGID : null;
             this.today_extras = {};
             this.is_mobile = !!controller.is_mobile;
             this.state_restored = false;
+            this.observation_photo_map = controller.observation_photos || {};
+            this.pending_photos = [];
+            this.current_log_id = this.today_log_id || null;
+            this.can_manage_photos = !!controller.can_manage_photos;
 
             let h = [ html.content_header(translate("Daily Observation")) ];
+            if (this.read_only) {
+                const message = controller.historical_foster_notice ||
+                    translate("Historical foster records are read-only. You can review previous observations, but updates are disabled because this foster placement has ended.");
+                h.push('<div class="asm-banner ui-helper-reset ui-widget-content ui-corner-all asm-readonly-banner">');
+                h.push('<h3>' + html.icon("info") + ' ' + html.title(message) + '</h3>');
+                h.push('</div>');
+            }
 
             h.push('<style>');
             h.push('.hhog-hero-card{background:linear-gradient(135deg,#f8fafc,#ffffff);border-radius:18px;padding:22px;box-shadow:0 18px 45px rgba(15,23,42,0.12);margin-bottom:20px;}');
@@ -113,6 +131,17 @@ $(function() {
             h.push('.hhog-field:focus-within{background:#fff;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.2);}');
             h.push('.hhog-field-error{border-color:#ef4444!important;background:#fef2f2!important;box-shadow:0 0 0 2px rgba(239,68,68,0.15)!important;}');
             h.push('.hhog-field-alert{border-color:#fb923c!important;background:#fff7ed!important;}');
+            h.push('.hhog-photo-field .hhog-photo-actions{display:flex;flex-direction:column;gap:8px;}');
+            h.push('.hhog-photo-field .hhog-photo-buttons{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}');
+            h.push('.hhog-photo-field .hhog-photo-buttons button{flex:0 0 auto;}');
+            h.push('.hhog-photo-gallery{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;}');
+            h.push('.hhog-photo-tile{position:relative;width:96px;height:96px;border-radius:12px;overflow:hidden;background:#f1f5f9;border:1px solid #dbeafe;display:flex;align-items:center;justify-content:center;}');
+            h.push('.hhog-photo-tile img{width:100%;height:100%;object-fit:cover;}');
+            h.push('.hhog-photo-remove{position:absolute;top:4px;right:4px;}');
+            h.push('.hhog-photo-empty{font-size:0.85rem;color:#6b7280;}');
+            h.push('.hhog-photo-dialog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;}');
+            h.push('.hhog-photo-dialog-item img{width:100%;border-radius:12px;object-fit:cover;}');
+            h.push('.hhog-photo-dialog-empty{font-size:0.95rem;color:#475569;margin:0;}');
             h.push('.hhog-banner{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;border-radius:14px;margin-bottom:20px;}');
             h.push('.hhog-banner-icon{font-size:22px;}');
             h.push('.hhog-banner-title{font-weight:700;font-size:1rem;margin-bottom:4px;}');
@@ -158,6 +187,7 @@ $(function() {
             const docsBase = "static/custom/processes/weight-gaining.html";
             const baseLinkText = translate("Open detailed guidance");
             const pooChartImg = '<img src="static/custom/processes/images/poo_chart_wg.jpg" alt="' + html.title(translate("Poo consistency reference chart")) + '" class="hhog-help-chart" />';
+            const photoHelpSlug = slugify(translate("Observation photo"));
             const helpConfig = {
                 "weight": { summary: translate("Enter today's weight in grams only (numbers). Pair the reading with a photo."), anchor: "#field-weight" },
                 "eaten": { summary: translate("Use the dropdown to record how much was eaten."), anchor: "#field-eaten" },
@@ -166,6 +196,10 @@ $(function() {
                 "medication": { summary: translate("Record the medication name and dose if anything was given; leave blank otherwise."), anchor: "#field-medication" },
                 "drunk": { summary: translate("Use the dropdown to show how much water the animal drank."), anchor: "#field-drunk" },
                 "toilet": { summary: translate("Record whether urine, faeces, or both were observed."), anchor: "#field-toilet" }
+            };
+            helpConfig[photoHelpSlug] = {
+                summary: translate("Tap to attach a photo. On phones you can take one instantly or pick from your gallery."),
+                anchor: "#field-photo"
             };
             const buildFieldLabel = function(fieldName) {
                 const label = html.title(fieldName);
@@ -337,27 +371,37 @@ $(function() {
                 h.push('<div class="hhog-field"><label class="hhog-field-label" for="log-time">' + translate("Observation time") + '</label><input id="log-time" type="text" class="asm-textbox asm-timebox hhog-store" data-name="__logtime__" value="' + html.title(timeDefault) + '" placeholder="' + html.title(translate("Optional")) + '" /></div>');
                 h.push('</div>');
             }
+            if (a) {
+                const photoLabel = buildFieldLabel(translate("Observation photo"));
+                fields.push([
+                    '<div class="hhog-field hhog-photo-field">',
+                    photoLabel,
+                    '<div class="hhog-photo-actions">',
+                    '<div class="hhog-photo-buttons">',
+                    '<button id="button-photo" type="button">' + translate("Attach Photo") + '</button>',
+                    '<button id="button-view-photos" type="button" class="hhog-photo-view" disabled="disabled">' + translate("View Photos") + '</button>',
+                    '<input id="observation-photo-input" type="file" accept="image/*" capture="environment" multiple style="display:none" />',
+                    '</div>',
+                    '<div class="hhog-photo-gallery" id="hhog-photo-gallery"></div>',
+                    '</div>',
+                    '</div>'
+                ].join(""));
+            }
+
             h.push('<div class="hhog-grid">' + fields.join("\n") + '</div>');
             h.push('<div id="poo-confirm" class="hhog-confirm"></div>');
             h.push('<div id="clinician-confirm" class="hhog-confirm"></div>');
             h.push('<div class="hhog-actions">');
             h.push('<button id="button-save" class="asm-mobile-full">' + translate("Save") + '</button>');
             if (a) {
-                h.push('<button id="button-photo" class="asm-mobile-full">' + translate("Attach Photo") + '</button>');
                 h.push('<button id="button-docs" class="asm-mobile-full hhog-doc-button">' + translate("Open Help Guide") + '</button>');
             }
             h.push('</div></div>');
 
             if (a) {
-                const photoController = this.history_mode ? "hedgehog_observation_history" : "hedgehog_observation";
-                h.push('<div id="dialog-photo" style="display:none" title="' + html.title(translate("Attach Photo")) + '">');
-                h.push('<form id="photoform" method="post" enctype="multipart/form-data" action="media">');
-                h.push('<input type="hidden" name="mode" value="create" />');
-                h.push('<input type="hidden" name="linkid" value="' + a.ID + '" />');
-                h.push('<input type="hidden" name="linktypeid" value="0" />');
-                h.push('<input type="hidden" name="controller" value="' + photoController + '" />');
-                h.push('<p><input type="file" name="filechooser" accept="image/*" class="asm-textbox" /></p>');
-                h.push('</form></div>');
+                h.push('<div id="dialog-view-photos" style="display:none" title="' + html.title(translate("Observation Photos")) + '">');
+                h.push('<p class="hhog-photo-dialog-empty">' + translate("No photos are attached to this observation.") + '</p>');
+                h.push('</div>');
             }
 
             if (this.allow_custom_date && a) {
@@ -467,12 +511,210 @@ $(function() {
             container.hide().removeData("reason-key").empty();
         },
 
+        photo_entries_for_log: function(logId) {
+            if (!logId) { return []; }
+            const key = String(logId);
+            const entries = this.observation_photo_map[key] || [];
+            return entries.slice();
+        },
+
+        add_photo_entry: function(logId, entry) {
+            if (!logId || !entry) { return; }
+            const key = String(logId);
+            if (!this.observation_photo_map[key]) {
+                this.observation_photo_map[key] = [];
+            }
+            this.observation_photo_map[key].push(entry);
+        },
+
+        refresh_photo_gallery: function(logId) {
+            const container = $("#hhog-photo-gallery");
+            if (!container.length) { return; }
+            const current = logId !== undefined && logId !== null ? logId : this.current_log_id;
+            this.current_log_id = current;
+            container.empty();
+            const existing = current ? this.photo_entries_for_log(current) : [];
+            const pending = this.pending_photos.slice();
+
+            if (pending.length === 0 && existing.length === 0) {
+                container.append('<div class="hhog-photo-empty">' + translate("No photos attached yet.") + '</div>');
+            }
+
+            pending.forEach(function(entry) {
+                const tile = $('<div class="hhog-photo-tile" data-pending="' + entry.token + '"></div>');
+                tile.append('<img src="' + entry.preview + '" alt="">');
+                if (!hedgehog_observation.read_only) {
+                    tile.append('<button type="button" class="hhog-photo-remove" data-token="' + entry.token + '">' + html.icon("delete") + '</button>');
+                }
+                container.append(tile);
+            });
+
+            existing.forEach(function(entry) {
+                const dateParam = entry.date ? '&date=' + encodeURIComponent(entry.date) : '';
+                const tile = $('<div class="hhog-photo-tile" data-media="' + entry.id + '"></div>');
+                tile.append('<img src="image?mode=media&id=' + entry.id + dateParam + '" alt="">');
+                if (!hedgehog_observation.read_only && hedgehog_observation.can_manage_photos) {
+                    tile.append('<button type="button" class="hhog-photo-remove" data-media="' + entry.id + '">' + html.icon("delete") + '</button>');
+                }
+                container.append(tile);
+            });
+
+            const viewButton = $("#button-view-photos");
+            if (viewButton.length) {
+                const hasPhotos = existing.length > 0;
+                if (viewButton.data("uiButton")) {
+                    viewButton.button("option", "disabled", !hasPhotos);
+                } else {
+                    viewButton.prop("disabled", !hasPhotos);
+                }
+            }
+        },
+
+        handle_photo_selection: function(fileList) {
+            if (!fileList || !fileList.length) { return; }
+            const ho = this;
+            Array.from(fileList).forEach(function(file) {
+                if (!file || !file.type || file.type.indexOf("image") !== 0) { return; }
+                const token = "pending_" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+                const preview = URL.createObjectURL(file);
+                ho.pending_photos.push({ token: token, file: file, preview: preview });
+            });
+            this.refresh_photo_gallery(this.current_log_id);
+        },
+
+        remove_pending_photo: function(token) {
+            const next = [];
+            this.pending_photos.forEach(function(entry) {
+                if (entry.token === token && entry.preview) {
+                    URL.revokeObjectURL(entry.preview);
+                }
+                if (entry.token !== token) {
+                    next.push(entry);
+                }
+            });
+            this.pending_photos = next;
+            this.refresh_photo_gallery(this.current_log_id);
+        },
+
+        upload_pending_photos: async function(logId) {
+            if (!logId || this.pending_photos.length === 0) { return; }
+            const ho = this;
+            const controllerName = this.history_mode ? "hedgehog_observation_history" : "hedgehog_observation";
+            const uploads = this.pending_photos.map(function(entry) {
+                const formData = new FormData();
+                formData.append("ajax", "1");
+                formData.append("mode", "create");
+                formData.append("linkid", controller.animal.ID);
+                formData.append("linktypeid", "0");
+                formData.append("sourceid", "7");
+                formData.append("controller", controllerName);
+                formData.append("flags", "" + "OBSLOG:" + logId);
+                formData.append("comments", "");
+                formData.append("excludefrompublish", "1");
+                formData.append("retainfor", "0");
+                const filename = entry.file.name || ("observation-photo-" + Date.now() + ".jpg");
+                formData.append("filechooser", entry.file, filename);
+                return $.ajax({
+                    type: "POST",
+                    url: "media",
+                    data: formData,
+                    processData: false,
+                    contentType: false
+                }).then(function(result) {
+                    try {
+                        const parsed = JSON.parse(result || "{}");
+                        return parsed.mediaid;
+                    }
+                    catch (ex) {
+                        throw ex;
+                    }
+                });
+            });
+            try {
+                const ids = await Promise.all(uploads);
+                ids.forEach(function(mid) {
+                    if (!mid) { return; }
+                    ho.add_photo_entry(logId, {
+                        id: mid,
+                        date: new Date().toISOString(),
+                        notes: ""
+                    });
+                });
+            }
+            catch (err) {
+                header.show_error(err || translate("Unable to upload photo."));
+            }
+            finally {
+                this.pending_photos.forEach(function(entry) {
+                    if (entry.preview) { URL.revokeObjectURL(entry.preview); }
+                });
+                this.pending_photos = [];
+                this.refresh_photo_gallery(logId);
+            }
+        },
+
+        delete_existing_photo: async function(mediaId, logId) {
+            if (!mediaId) { return; }
+            if (this.read_only || !this.can_manage_photos) { return; }
+            try {
+                await $.ajax({
+                    type: "POST",
+                    url: "media",
+                    data: {
+                        mode: "delete",
+                        ids: mediaId,
+                        ajax: "1",
+                        controller: this.history_mode ? "hedgehog_observation_history" : "hedgehog_observation",
+                        linkid: controller.animal.ID
+                    }
+                });
+                const key = String(logId);
+                if (this.observation_photo_map[key]) {
+                    this.observation_photo_map[key] = this.observation_photo_map[key].filter(function(entry){ return entry.id !== mediaId; });
+                }
+                this.refresh_photo_gallery(logId);
+            }
+            catch (err) {
+                header.show_error(err);
+            }
+        },
+
+        open_photo_dialog: function(logId) {
+            logId = logId || this.current_log_id;
+            if (!logId) { return; }
+            const photos = this.photo_entries_for_log(logId);
+            const dialog = $("#dialog-view-photos");
+            if (!dialog.length) { return; }
+            if (!photos.length) {
+                dialog.html('<p>' + translate("No photos are attached to this observation.") + '</p>');
+            }
+            else {
+                const parts = ['<div class="hhog-photo-dialog-grid">'];
+                photos.forEach(function(entry){
+                    const dateParam = entry.date ? '&date=' + encodeURIComponent(entry.date) : '';
+                    parts.push('<div class="hhog-photo-dialog-item"><img src="image?mode=media&id=' + entry.id + dateParam + '" alt="" /></div>');
+                });
+                parts.push('</div>');
+                dialog.html(parts.join(""));
+            }
+            dialog.dialog("open");
+        },
+
         reset_history_selection: function(showMessage) {
             const ho = this;
             ho.history_selected_id = null;
             ho.today_log_id = null;
             ho.today_map = null;
             ho.today_extras = {};
+            if (Array.isArray(ho.pending_photos) && ho.pending_photos.length) {
+                ho.pending_photos.forEach(function(entry) {
+                    if (entry && entry.preview) {
+                        try { URL.revokeObjectURL(entry.preview); } catch (ignore) {}
+                    }
+                });
+            }
+            ho.pending_photos = [];
+            ho.current_log_id = null;
             $(".hhog-history-item").removeClass("active");
             $(".widget").each(function() {
                 $(this).val("").trigger("change");
@@ -488,6 +730,7 @@ $(function() {
             if (showMessage !== false && ho.history_mode && controller.animal && controller.animal.ANIMALNAME) {
                 header.show_info(translate("Entering a new historical observation for {0}.").replace("{0}", html.title(controller.animal.ANIMALNAME)));
             }
+            ho.refresh_photo_gallery(null);
         },
 
         load_history_entry: function(logid) {
@@ -538,6 +781,16 @@ $(function() {
                 const ts = format.date(rec.DATE) + (format.time(rec.DATE) ? " " + format.time(rec.DATE) : "");
                 header.show_info(translate("Editing observation from {0} for {1}.").replace("{0}", html.title(ts)).replace("{1}", html.title(controller.animal.ANIMALNAME)));
             }
+            if (Array.isArray(ho.pending_photos) && ho.pending_photos.length) {
+                ho.pending_photos.forEach(function(entry) {
+                    if (entry && entry.preview) {
+                        try { URL.revokeObjectURL(entry.preview); } catch (ignore) {}
+                    }
+                });
+            }
+            ho.pending_photos = [];
+            ho.current_log_id = rec.ID;
+            ho.refresh_photo_gallery(logid);
         },
 
         bind: function() {
@@ -586,12 +839,12 @@ $(function() {
             }
 
             $("#button-save").button();
-                if (ho.history_mode) {
-                    $("#button-save").button("option", "label", translate("Save Historical Observation"));
-                }
-                if (!ho.history_mode && ho.today_log_id) {
-                    $("#button-save").button("option", "label", translate("Update Observation"));
-                }
+            if (ho.history_mode) {
+                $("#button-save").button("option", "label", translate("Save Historical Observation"));
+            }
+            if (!ho.history_mode && ho.today_log_id) {
+                $("#button-save").button("option", "label", translate("Update Observation"));
+            }
             const helpInfoMap = ho.help_config || {};
             if ($.fn.tooltip) {
                 $(".hhog-help-icon").tooltip({
@@ -634,7 +887,80 @@ $(function() {
                     ho.reset_history_selection(false);
                 }
             }
-            $("#button-save").off("click").on("click", async function() {
+
+            if (controller.animal) {
+                const photoButton = $("#button-photo");
+                const viewButton = $("#button-view-photos");
+                const docsButton = $("#button-docs");
+                const photoInput = $("#observation-photo-input");
+                const gallery = $("#hhog-photo-gallery");
+                const dialogView = $("#dialog-view-photos");
+
+                if (photoButton.length) { photoButton.button(); }
+                if (viewButton.length) { viewButton.button(); }
+                if (docsButton.length) {
+                    docsButton.button().off("click").on("click", () => {
+                        const url = (ho.help_docs_base || "static/custom/processes/weight-gaining.html") + "#field-guidance";
+                        window.open(url, "_blank", "noopener");
+                    });
+                }
+
+                viewButton.off("click").on("click", function(event) {
+                    event.preventDefault();
+                    ho.open_photo_dialog(ho.current_log_id);
+                });
+
+                photoInput.prop("disabled", ho.read_only);
+                photoInput.off("change").on("change", function() {
+                    if (ho.read_only) {
+                        $(this).val("");
+                        return;
+                    }
+                    ho.handle_photo_selection(this.files);
+                    $(this).val("");
+                });
+
+                gallery.off("click", ".hhog-photo-remove").on("click", ".hhog-photo-remove", function(event) {
+                    event.preventDefault();
+                    const token = $(this).attr("data-token");
+                    if (token) {
+                        ho.remove_pending_photo(token);
+                        return;
+                    }
+                    const mediaId = $(this).attr("data-media");
+                    if (mediaId) {
+                        const logId = ho.current_log_id;
+                        ho.delete_existing_photo(parseInt(mediaId, 10), logId);
+                    }
+                });
+
+                if (dialogView.length && !dialogView.data("hhogDialogInit")) {
+                    dialogView.dialog({
+                        autoOpen: false,
+                        modal: true,
+                        width: 560,
+                        buttons: (function(){ let b={}; b[translate("Close")] = function(){ $(this).dialog("close"); }; return b; })(),
+                        show: dlgfx.add_show,
+                        hide: dlgfx.add_hide
+                    });
+                    dialogView.data("hhogDialogInit", true);
+                }
+
+                ho.refresh_photo_gallery(ho.today_log_id);
+            }
+            if (ho.read_only) {
+                $("#button-save").button("disable").off("click");
+                if (controller.animal) {
+                    $("#button-photo").button("disable").off("click");
+                    $("#observation-photo-input").prop("disabled", true);
+                }
+                $(".widget, .hhog-store").prop("disabled", true);
+                if (ho.allow_custom_date) {
+                    $("#log-date, #log-time").prop("disabled", true);
+                }
+            }
+            else {
+                $("#button-save").off("click").on("click", async function() {
                 if (!controller.animal) { return; }
                 let avs = [], map = {};
                 let valid = true;
@@ -916,6 +1242,8 @@ $(function() {
                 let formdata = { "mode": "save", "logtype": config.str("BehaveLogType"), "logs": packed };
                 if (ho.today_log_id) { formdata.updatelogid = ho.today_log_id; }
                 if (logIso) { formdata.logdatetime = logIso; }
+                formdata.ajax = "1";
+                const wasUpdate = !!formdata.updatelogid;
                 $(".asm-content button").button("disable");
                 header.show_loading(translate("Saving..."));
                 let response;
@@ -926,19 +1254,86 @@ $(function() {
                     header.hide_loading();
                     $(".asm-content button").button("enable");
                 }
+
+                let payload = null;
+                if (response && typeof response === "string") {
+                    try {
+                        payload = JSON.parse(response);
+                    }
+                    catch (err) {
+                        payload = null;
+                    }
+                }
+                else if (response && typeof response === "object") {
+                    payload = response;
+                }
+
+                let savedCount = 0;
+                let logIds = [];
+                if (payload && typeof payload === "object") {
+                    savedCount = parseInt(payload.saved, 10);
+                    if (isNaN(savedCount)) { savedCount = 0; }
+                    if (Array.isArray(payload.logIds)) {
+                        logIds = payload.logIds.map(function(id){ return parseInt(id, 10); }).filter(Boolean);
+                    }
+                    if (!logIds.length && payload.updatedId) {
+                        const maybeId = parseInt(payload.updatedId, 10);
+                        if (maybeId) { logIds.push(maybeId); }
+                    }
+                    if (!logIds.length && Array.isArray(payload.createdIds)) {
+                        payload.createdIds.forEach(function(id){
+                            const val = parseInt(id, 10);
+                            if (val) { logIds.push(val); }
+                        });
+                    }
+                }
+                else {
+                    savedCount = parseInt(response, 10);
+                    if (isNaN(savedCount)) { savedCount = 0; }
+                }
+
+                if (!ho.history_mode && logIds.length) {
+                    ho.today_log_id = logIds[0];
+                    ho.current_log_id = logIds[0];
+                }
+                if (!logIds.length && ho.today_log_id) {
+                    logIds = [ho.today_log_id];
+                }
+
+                if (ho.pending_photos.length && !logIds.length) {
+                    header.show_error(translate("Observation saved but photo upload could not start because no log identifier was returned."));
+                }
+                else if (ho.pending_photos.length && logIds.length) {
+                    try {
+                        $(".asm-content button").button("disable");
+                        header.show_loading(translate("Uploading photos..."));
+                        for (let i = 0; i < logIds.length; i++) {
+                            await ho.upload_pending_photos(logIds[i]);
+                        }
+                    }
+                    finally {
+                        header.hide_loading();
+                        $(".asm-content button").button("enable");
+                    }
+                }
+                else if (logIds.length) {
+                    ho.refresh_photo_gallery(logIds[0]);
+                }
+
                 let msg;
                 if (controller.animal && controller.animal.ANIMALNAME) {
                     if (ho.history_mode) {
-                        let tmpl = ho.today_log_id ? translate("Historical observation updated for {0}.") : translate("Historical observation saved for {0}.");
+                        let tmpl = wasUpdate ? translate("Historical observation updated for {0}.") : translate("Historical observation saved for {0}.");
                         msg = tmpl.replace("{0}", html.title(controller.animal.ANIMALNAME));
                     }
                     else {
-                        let tmpl = ho.today_log_id ? translate("Observation updated for {0}.") : translate("Observation saved for {0}.");
+                        let tmpl = wasUpdate ? translate("Observation updated for {0}.") : translate("Observation saved for {0}.");
                         msg = tmpl.replace("{0}", html.title(controller.animal.ANIMALNAME));
                     }
                 }
                 else {
-                    msg = translate("{0} observation logs successfully written.").replace("{0}", response);
+                    const countForMsg = savedCount > 0 ? savedCount : logIds.length;
+                    msg = translate("{0} observation logs successfully written.").replace("{0}", countForMsg);
                 }
                 header.show_info(msg, 5000);
                 if (ho.history_mode) {
@@ -948,25 +1343,30 @@ $(function() {
                     return;
                 }
                 setTimeout(function(){
-                    try { if (!ho.is_mobile) { window.close(); } } catch(e) {}
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        document.location.href = ho.is_mobile ? "mobile" : "main";
+                    try {
+                        if (window.history.length > 1) {
+                            window.history.back();
+                            return;
+                        }
+                    } catch (ignore) {}
+                    if (controller && controller.animal && controller.animal.ID) {
+                        const target = "animal_observations_history?id=" + encodeURIComponent(controller.animal.ID);
+                        if (typeof common !== "undefined" && common.route) {
+                            common.route(target);
+                        } else {
+                            document.location.href = target;
+                        }
+                        return;
                     }
+                    document.location.href = ho.is_mobile ? "mobile" : "main";
                 }, 1200);
             });
+            }
 
-            // Photo upload
-            if (controller.animal) {
-                $("#dialog-photo").dialog({ autoOpen: false, modal: true, width: 420,
-                    buttons: (function(){ let b={}; b[translate("Upload")] = function(){ $("#photoform").submit(); }; b[translate("Cancel")] = function(){ $(this).dialog("close"); }; return b; })(),
-                    show: dlgfx.add_show, hide: dlgfx.add_hide
-                });
-                $("#button-photo").button().off("click").on("click", () => { ho.save_state(); $("#dialog-photo").dialog("open"); });
-                $("#button-docs").button().off("click").on("click", () => {
-                    const url = (ho.help_docs_base || "static/custom/processes/weight-gaining.html") + "#field-guidance";
-                    window.open(url, "_blank", "noopener");
+            if (!ho.read_only && controller.animal) {
+                $("#button-photo").off("click").on("click", function(event) {
+                    event.preventDefault();
+                    $("#observation-photo-input").trigger("click");
                 });
             }
         },
