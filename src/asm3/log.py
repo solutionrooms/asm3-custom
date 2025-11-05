@@ -1,6 +1,7 @@
 
 import asm3.i18n
 import asm3.utils
+import asm3.users
 from asm3.typehints import datetime, Database, PostedData, Results
 
 # Log links
@@ -19,6 +20,8 @@ def add_log(dbo: Database, username: str, linktype: int, linkid: int, logtypeid:
     """
     Adds a log entry. If logdatetime is blank, the date/time now is used.
     """
+    if linktype == ANIMAL:
+        asm3.users.ensure_can_edit_historical_foster(dbo, username, linkid)
     if logdatetime is None: logdatetime = dbo.now()
     return dbo.insert("log", {
         "LogTypeID":        logtypeid,
@@ -102,6 +105,8 @@ def insert_log_from_form(dbo: Database, username: str, linktype: int, linkid: in
     l = dbo.locale
     if post.date("logdate") is None:
         raise asm3.utils.ASMValidationError(asm3.i18n._("Log date must be a valid date", l))
+    if linktype == ANIMAL:
+        asm3.users.ensure_can_edit_historical_foster(dbo, username, linkid, l)
 
     return dbo.insert("log", {
         "LogTypeID":        post.integer("type"),
@@ -122,6 +127,8 @@ def update_log_from_form(dbo: Database, username: str, post: PostedData) -> None
     # Set the linktype/id again so that it appears on the audit trail of the parent record
     logid = post.integer("logid") 
     r = dbo.first_row(dbo.query("SELECT LinkType, LinkID FROM log WHERE ID=?", [logid]))
+    if r and r.LINKTYPE == ANIMAL:
+        asm3.users.ensure_can_edit_historical_foster(dbo, username, r.LINKID, l)
 
     dbo.update("log", logid, {
         "LogTypeID":    post.integer("type"),
@@ -135,5 +142,7 @@ def delete_log(dbo: Database, username: str, logid: int) -> None:
     """
     Deletes a log
     """
+    r = dbo.first_row(dbo.query("SELECT LinkType, LinkID FROM log WHERE ID=?", [logid]))
+    if r and r.LINKTYPE == ANIMAL:
+        asm3.users.ensure_can_edit_historical_foster(dbo, username, r.LINKID)
     dbo.delete("log", logid, username)
-

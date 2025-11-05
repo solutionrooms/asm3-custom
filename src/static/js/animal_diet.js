@@ -7,6 +7,9 @@ $(function() {
     const animal_diet = {
 
         model: function() {
+            const readOnly = !!controller.historical_foster_read_only ||
+                (controller.animal && controller.animal.HISTORICALFOSTERREADONLY === 1);
+            animal_diet.readOnly = readOnly;
             const dialog = {
                 add_title: _("Add diet"),
                 edit_title: _("Edit diet"),
@@ -25,6 +28,7 @@ $(function() {
                 rows: controller.rows,
                 idcolumn: "ID",
                 edit: async function(row) {
+                    if (animal_diet.readOnly) { return; }
                     await tableform.dialog_show_edit(dialog, row);
                     tableform.fields_update_row(dialog.fields, row);
                     row.DIETNAME = common.get_field(controller.diettypes, row.DIETID, "DIETNAME");
@@ -54,6 +58,7 @@ $(function() {
             const buttons = [
                 { id: "new", text: _("New Diet"), icon: "new", enabled: "always", perm: "daad",
                     click: async function() { 
+                        if (animal_diet.readOnly) { return; }
                         await tableform.dialog_show_add(dialog);
                         let response = await tableform.fields_post(dialog.fields, "mode=create&animalid="  + controller.animal.ID, "animal_diet");
                         let row = {};
@@ -68,6 +73,7 @@ $(function() {
                 },
                 { id: "delete", text: _("Delete"), icon: "delete", enabled: "multi", perm: "ddad",
                     click: async function() { 
+                        if (animal_diet.readOnly) { return; }
                         await tableform.delete_dialog();
                         tableform.buttons_default_state(buttons);
                         let ids = tableform.table_ids(table);
@@ -78,7 +84,11 @@ $(function() {
                 }
             ];
             this.dialog = dialog;
-            this.buttons = buttons;
+            this.readOnly = readOnly;
+            this.buttons = readOnly ? [] : buttons;
+            if (readOnly) {
+                table.edit = function() { return; };
+            }
             this.table = table;
         },
 
@@ -87,6 +97,13 @@ $(function() {
             let s = "";
             s += tableform.dialog_render(this.dialog);
             s += edit_header.animal_edit_header(controller.animal, "diet", controller.tabcounts);
+            if (this.readOnly) {
+                const message = controller.historical_foster_notice ||
+                    _("Historical foster records are read-only. You can review existing diets, but updates are disabled because this foster placement has ended.");
+                s += '<div class="asm-banner ui-helper-reset ui-widget-content ui-corner-all asm-readonly-banner">';
+                s += '<h3>' + html.icon("info") + ' ' + html.title(message) + '</h3>';
+                s += '</div>';
+            }
             s += tableform.buttons_render(this.buttons);
             s += tableform.table_render(this.table);
             s += html.content_footer();
@@ -98,6 +115,10 @@ $(function() {
             tableform.dialog_bind(this.dialog);
             tableform.buttons_bind(this.buttons);
             tableform.table_bind(this.table, this.buttons);
+            if (this.readOnly) {
+                $(".asm-tabbar").addClass("asm-readonly");
+                $(".asm-dialog").find("input, select, textarea, button").prop("disabled", true);
+            }
         },
 
         destroy: function() {

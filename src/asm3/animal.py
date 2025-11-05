@@ -4707,8 +4707,10 @@ def insert_diet_from_form(dbo: Database, username: str, post: PostedData) -> int
     """
     Creates a diet record from posted form data
     """
+    animalid = post.integer("animalid")
+    asm3.users.ensure_can_edit_historical_foster(dbo, username, animalid)
     return dbo.insert("animaldiet", {
-        "AnimalID":     post.integer("animalid"),
+        "AnimalID":     animalid,
         "DietID":       post.integer("type"),
         "DateStarted":  post.date("startdate"),
         "Comments":     post["comments"]
@@ -4718,7 +4720,11 @@ def update_diet_from_form(dbo: Database, username: str, post: PostedData) -> Non
     """
     Updates a diet record from posted form data
     """
-    dbo.update("animaldiet", post.integer("dietid"), {
+    dietid = post.integer("dietid")
+    existing = dbo.first_row(dbo.query("SELECT AnimalID FROM animaldiet WHERE ID=?", [dietid]))
+    if existing:
+        asm3.users.ensure_can_edit_historical_foster(dbo, username, existing.ANIMALID)
+    dbo.update("animaldiet", dietid, {
         "DietID":       post.integer("type"),
         "DateStarted":  post.date("startdate"),
         "Comments":     post["comments"]
@@ -4728,6 +4734,9 @@ def delete_diet(dbo: Database, username: str, did: int) -> None:
     """
     Deletes the selected diet
     """
+    existing = dbo.first_row(dbo.query("SELECT AnimalID FROM animaldiet WHERE ID=?", [did]))
+    if existing:
+        asm3.users.ensure_can_edit_historical_foster(dbo, username, existing.ANIMALID)
     dbo.delete("animaldiet", did, username)
 
 def insert_cost_from_form(dbo: Database, username: str, post: PostedData) -> int:

@@ -7,6 +7,11 @@ $(function() {
     const log = {
 
         model: function() {
+            const readOnly = controller.name === "animal_log" && (
+                !!controller.historical_foster_read_only ||
+                (controller.animal && controller.animal.HISTORICALFOSTERREADONLY === 1)
+            );
+            log.readOnly = readOnly;
             const dialog = {
                 add_title: _("Add log"),
                 edit_title: _("Edit log"),
@@ -27,6 +32,7 @@ $(function() {
                 rows: controller.rows,
                 idcolumn: "ID",
                 edit: async function(row) {
+                    if (log.readOnly) { return; }
                     if (log.is_system_message(row)) { return; } // Don't allow editing of system log messages
                     tableform.fields_populate_from_json(dialog.fields, row);
                     await tableform.dialog_show_edit(dialog, row);
@@ -55,6 +61,7 @@ $(function() {
             const buttons = [
                 { id: "new", text: _("New Log"), icon: "new", enabled: "always", perm: "ale", 
                     click: async function() { 
+                        if (log.readOnly) { return; }
                         await tableform.dialog_show_add(dialog, {
                             onload: function() {
                                 $("#type").select("value", config.integer("AFDefaultLogType"));    
@@ -80,6 +87,7 @@ $(function() {
                 }},
                 { id: "delete", text: _("Delete"), icon: "delete", enabled: "multi", perm: "dle",
                     click: async function() { 
+                        if (log.readOnly) { return; }
                         await tableform.delete_dialog();
                         tableform.buttons_default_state(buttons);
                         let ids = tableform.table_ids(table);
@@ -96,8 +104,15 @@ $(function() {
                 }
             ];
             this.dialog = dialog;
-            this.buttons = buttons;
+            if (readOnly) {
+                this.buttons = buttons.filter(function(btn){ return btn.id === "filter"; });
+                table.edit = function() { return; };
+            }
+            else {
+                this.buttons = buttons;
+            }
             this.table = table;
+            this.readOnly = readOnly;
         },
 
         /** Returns true if this is a system log message */
@@ -123,6 +138,13 @@ $(function() {
             h.push(tableform.dialog_render(this.dialog));
             if (controller.name == "animal_log") {
                 h.push(edit_header.animal_edit_header(controller.animal, "logs", controller.tabcounts));
+                if (this.readOnly) {
+                    const message = controller.historical_foster_notice ||
+                        _("Historical foster records are read-only. You can review existing logs, but updates are disabled because this foster placement has ended.");
+                    h.push('<div class="asm-banner ui-helper-reset ui-widget-content ui-corner-all asm-readonly-banner">');
+                    h.push('<h3>' + html.icon("info") + ' ' + html.title(message) + '</h3>');
+                    h.push('</div>');
+                }
             }
             else if (controller.name == "person_log") {
                 h.push(edit_header.person_edit_header(controller.person, "logs", controller.tabcounts));
@@ -151,6 +173,9 @@ $(function() {
             tableform.dialog_bind(this.dialog);
             tableform.buttons_bind(this.buttons);
             tableform.table_bind(this.table, this.buttons);
+            if (this.readOnly) {
+                $(".asm-dialog").find("input, select, textarea, button").prop("disabled", true);
+            }
         },
 
         sync: function() {

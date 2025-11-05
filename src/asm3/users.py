@@ -11,7 +11,8 @@ import asm3.smcom
 import asm3.utils
 
 from asm3.sitedefs import BASE_URL
-from asm3.typehints import Database, PostedData, ResultRow, Results, Session
+from asm3.typehints import Database, PostedData, ResultRow, Results, Session, datetime
+from typing import Optional, Set, Tuple
 
 import os
 import sys
@@ -839,6 +840,104 @@ def reset_password(dbo: Database, userid: int, password: str) -> None:
     """
     dbo.update("users", userid, { "Password": hash_password(password), "EnableTOTP": 0 })
 
+def get_foster_animals_for_owner(dbo: Database, ownerid: int) -> Tuple[Set[int], Set[int]]:
+    """
+    Returns two sets containing the animal IDs currently fostered by the owner and
+    those that are historical (most recent foster record has been returned).
+    """
+    from typing import Dict  # Local import to avoid circulars at module load
+    current: Set[int] = set()
+    historical: Set[int] = set()
+    if ownerid in (None, 0):
+        return current, historical
+    rows = dbo.query(
+        "SELECT AnimalID, MovementDate, ReturnDate "
+        "FROM adoption WHERE MovementType=2 AND OwnerID=? "
+        "ORDER BY MovementDate DESC, ID DESC",
+        [ownerid]
+    )
+    latest: Dict[int, ResultRow] = {}
+    for r in rows:
+        aid = r.ANIMALID
+        if aid not in latest:
+            latest[aid] = r
+    today = dbo.today()
+    for r in latest.values():
+        if r.RETURNDATE is None or r.RETURNDATE > today:
+            current.add(r.ANIMALID)
+        else:
+            historical.add(r.ANIMALID)
+    return current, historical
+
+def get_latest_foster_period(dbo: Database, ownerid: int, animalid: int) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """
+    Returns the most recent foster movement period (MovementDate, ReturnDate) for the
+    given owner/animal combination. Returns (None, None) if no record exists.
+    """
+    if ownerid in (None, 0) or animalid in (None, 0):
+        return (None, None)
+    row = dbo.first_row(dbo.query(
+        "SELECT MovementDate, ReturnDate FROM adoption "
+        "WHERE MovementType=2 AND OwnerID=? AND AnimalID=? "
+        "ORDER BY MovementDate DESC, ID DESC",
+        (ownerid, animalid)
+    ))
+    if row is None:
+        return (None, None)
+    movement = getattr(row, "MOVEMENTDATE", None)
+    returndate = getattr(row, "RETURNDATE", None)
+    return (movement, returndate)
+
+def owner_has_historical_foster(dbo: Database, ownerid: int, animalid: int) -> bool:
+    """
+    Returns True if the most recent foster record for owner/animal has been returned.
+    """
+    if ownerid in (None, 0) or animalid in (None, 0):
+        return False
+    row = dbo.first_row(dbo.query(
+        "SELECT ReturnDate FROM adoption WHERE MovementType=2 AND OwnerID=? AND AnimalID=? "
+        "ORDER BY MovementDate DESC, ID DESC",
+        (ownerid, animalid)
+    ))
+    if row is None:
+        return False
+    if row.RETURNDATE is None:
+        return False
+    return row.RETURNDATE <= dbo.today()
+
+def ensure_can_edit_historical_foster(dbo: Database, username: str, animalid: int, locale: str = None) -> None:
+    """
+    Ensures the user is not attempting to edit data for a historical foster animal.
+    Raises an ASMPermissionError if editing should be blocked.
+    """
+    if animalid in (None, 0):
+        return
+    user = get_user(dbo, username)
+    if user is None:
+        return
+    if asm3.utils.cint(user.SUPERUSER) == 1:
+        return
+    locationfilter = asm3.utils.nulltostr(user.LOCATIONFILTER)
+    if "-12" not in locationfilter:
+        return
+    ownerid = asm3.utils.cint(user.OWNERID)
+    if ownerid == 0:
+        return
+    if owner_has_historical_foster(dbo, ownerid, animalid):
+        l = locale or dbo.locale
+        raise asm3.utils.ASMPermissionError(asm3.i18n._("Historical foster records are read-only.", l))
+
+def session_has_historical_foster(session: Session, animalid: int) -> bool:
+    """
+    Returns True if the current session marks the animal as a historical foster.
+    """
+    if session is None or animalid in (None, 0):
+        return False
+    raw = asm3.utils.nulltostr(getattr(session, "historicalfosteranimalids", ""))
+    if raw == "":
+        return False
+    return str(animalid) in raw.split(",")
+
 def update_session(dbo: Database, session: Session, username: str) -> None:
     """
     Loads the session data for the username given.
@@ -870,6 +969,7 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
     session.locationfilter = ""
     session.visibleanimalids = ""
     session.forcechangepassword = False
+    session.historicalfosteranimalids = ""
     if "ROLES" in user: session.roles = user.ROLES
     if "ROLEIDS" in user: session.roleids = user.ROLEIDS
     if "SITEID" in user: session.siteid = asm3.utils.cint(user.SITEID)
@@ -882,21 +982,26 @@ def update_session(dbo: Database, session: Session, username: str) -> None:
         and user.LOCATIONFILTER != ""
         and user.OWNERID is not None
     ):
-        af = []
+        visible_ids: Set[int] = set()
+        historical_ids: Set[int] = set()
         # My Fosters
         if user.LOCATIONFILTER.find("-12") != -1:
-            af += dbo.query("SELECT AnimalID FROM adoption WHERE MovementType=2 AND OwnerID=? AND MovementDate<=? AND (ReturnDate Is Null OR ReturnDate>?)", \
-                ( user.OWNERID, dbo.today(), dbo.today() ))
+            current_fosters, historical_fosters = get_foster_animals_for_owner(dbo, user.OWNERID)
+            visible_ids.update(current_fosters)
+            visible_ids.update(historical_fosters)
+            historical_ids.update(historical_fosters)
         # My Coordinated Animals
         if user.LOCATIONFILTER.find("-13") != -1:
-            af += dbo.query("SELECT ID AS AnimalID FROM animal WHERE Archived=0 AND AdoptionCoordinatorID=?", [user.OWNERID])
+            for r in dbo.query("SELECT ID AS AnimalID FROM animal WHERE Archived=0 AND AdoptionCoordinatorID=?", [user.OWNERID]):
+                visible_ids.add(r.ANIMALID)
         # My Vet Cases
         if user.LOCATIONFILTER.find("-14") != -1:
-            af += dbo.query("SELECT ID AS AnimalID FROM animal WHERE Archived=0 AND CurrentVetID=?", [user.OWNERID])
-        va = []
-        for r in af:
-            va.append(str(r.ANIMALID))
-        session.visibleanimalids = ",".join(va)
+            for r in dbo.query("SELECT ID AS AnimalID FROM animal WHERE Archived=0 AND CurrentVetID=?", [user.OWNERID]):
+                visible_ids.add(r.ANIMALID)
+        if visible_ids:
+            session.visibleanimalids = ",".join([str(i) for i in sorted(visible_ids)])
+        if historical_ids:
+            session.historicalfosteranimalids = ",".join([str(i) for i in sorted(historical_ids)])
     session.config_ts = asm3.i18n.format_date(asm3.i18n.now(), "%Y%m%d%H%M%S")
 
 def web_login(post: PostedData, session: Session, remoteip: str, useragent: str, path: str, use2fa: bool = True) -> str:
