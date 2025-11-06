@@ -878,6 +878,17 @@ const html = {
      * Returns the different shelter view modes as a string of HTML options.
      */
     shelter_view_options: function() {
+        let weightGainerOption = "";
+        if (asm.roles && typeof asm.roles === "string") {
+            try {
+                if (asm.roles.toLowerCase().indexOf("weight gainer") !== -1) {
+                    weightGainerOption = '<option value="weightgainers">' + _("Weight-Gainers") + '</option>';
+                }
+            }
+            catch (ex) {
+                weightGainerOption = "";
+            }
+        }
         return [
             '<option value="altered">' + _("Altered") + '</option>',
             common.has_permission("vo") ? '<option value="coordinator">' + _("Adoption Coordinator") + '</option>' : "",
@@ -892,6 +903,7 @@ const html = {
             common.has_permission("vo") ? '<option data-permission="vo" value="fosterer">' + _("Fosterer") + '</option>' : "",
             common.has_permission("vo") ? '<option data-permission="vo" value="fostereractive">' + _("Fosterer (Active Only)") + '</option>' : "",
             common.has_permission("vo") ? '<option data-permission="vo" value="fostererspace">' + _("Fosterer (Space Available)") + '</option>' : "",
+            weightGainerOption,
             '<option value="goodwith">' + _("Good with") + '</option>',
             '<option value="lastchanged">' + _("Last Change Date") + '</option>',
             '<option value="litter">' + _("Litter") + '</option>',

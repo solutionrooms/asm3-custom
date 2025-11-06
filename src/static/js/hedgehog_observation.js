@@ -380,7 +380,7 @@ $(function() {
                     '<div class="hhog-photo-buttons">',
                     '<button id="button-photo" type="button">' + translate("Attach Photo") + '</button>',
                     '<button id="button-view-photos" type="button" class="hhog-photo-view" disabled="disabled">' + translate("View Photos") + '</button>',
-                    '<input id="observation-photo-input" type="file" accept="image/*" capture="environment" multiple style="display:none" />',
+                    '<input id="observation-photo-input" type="file" accept="image/*" multiple style="display:none" />',
                     '</div>',
                     '<div class="hhog-photo-gallery" id="hhog-photo-gallery"></div>',
                     '</div>',
