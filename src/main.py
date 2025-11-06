@@ -77,6 +77,7 @@ from asm3.sitedefs import AUTORELOAD, BASE_URL, CONTENT_SECURITY_POLICY, DEBUG_M
     SMCOM_LOGIN_URL, SMCOM_PAYMENT_LINK, PAYPAL_VALIDATE_IPN_URL, SQUARE_PAYMENT_ENVIRONMENT, cfg_file
 
 from asm3.typehints import Any, Dict, Generator, List, ResultRow, Session, Tuple
+from typing import Set
 
 from asm3.__version__ import BUILD
 
@@ -8537,6 +8538,50 @@ class shelterview(JSONEndpoint):
         asm3.al.debug("got %d animals for shelterview" % (len(animals)), "main.shelterview", dbo)
         weight_gainer_mode, _ = resolve_weight_gainer_state(dbo, o.session)
         weight_gainer_current_fosters: List[int] = []
+        weight_gainer_historical_ids: List[int] = []
+        if weight_gainer_mode:
+            hist_csv = asm3.utils.nulltostr(getattr(o.session, "historicalfosteranimalids", ""))
+            if hist_csv:
+                existing_ids: Set[int] = set()
+                for row in animals:
+                    rid = getattr(row, "ID", None)
+                    if rid is None:
+                        try:
+                            rid = row["ID"]
+                        except Exception:
+                            rid = None
+                    try:
+                        rid_int = int(rid)
+                    except (TypeError, ValueError):
+                        continue
+                    existing_ids.add(rid_int)
+                extra_ids: List[int] = []
+                for part in hist_csv.split(","):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    try:
+                        aid = int(part)
+                    except ValueError:
+                        continue
+                    if aid <= 0:
+                        continue
+                    weight_gainer_historical_ids.append(aid)
+                    if aid not in existing_ids and aid not in extra_ids:
+                        extra_ids.append(aid)
+                if extra_ids:
+                    try:
+                        placeholders = dbo.sql_placeholders(extra_ids)
+                        query = asm3.animal.get_animal_brief_query(dbo) + f" WHERE a.ID IN ({placeholders}) ORDER BY a.AnimalName"
+                        extra_animals = dbo.query(query, extra_ids)
+                        extra_animals = asm3.animal.calc_age_group_rows(dbo, extra_animals)
+                        extra_animals = asm3.animal.calc_ages(dbo, extra_animals)
+                        animals.extend(extra_animals)
+                        existing_ids.update(extra_ids)
+                        asm3.al.debug("added %d historical foster animals for shelterview weight gainer mode" % len(extra_animals), "main.shelterview", dbo)
+                    except Exception as e:
+                        asm3.al.warn(f"historical foster enrichment failed for ids {extra_ids}: {e}", "main.shelterview", dbo)
+                weight_gainer_historical_ids = sorted(set(weight_gainer_historical_ids))
         staff_id = getattr(o.session, "staffid", 0) or 0
         if weight_gainer_mode and staff_id:
             try:
@@ -8554,6 +8599,7 @@ class shelterview(JSONEndpoint):
             "unitextra": asm3.configuration.unit_extra(dbo),
             "weight_gainer_mode": weight_gainer_mode,
             "weight_gainer_current_fosters": weight_gainer_current_fosters,
+            "weight_gainer_historical_ids": weight_gainer_historical_ids,
             "weight_gainer_staff_id": staff_id
         }
 
