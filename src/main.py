@@ -8535,13 +8535,26 @@ class shelterview(JSONEndpoint):
         dbo = o.dbo
         animals = asm3.animal.get_shelterview_animals(dbo, o.lf)
         asm3.al.debug("got %d animals for shelterview" % (len(animals)), "main.shelterview", dbo)
+        weight_gainer_mode, _ = resolve_weight_gainer_state(dbo, o.session)
+        weight_gainer_current_fosters: List[int] = []
+        staff_id = getattr(o.session, "staffid", 0) or 0
+        if weight_gainer_mode and staff_id:
+            try:
+                current_fosters, _ = asm3.users.get_foster_animals_for_owner(dbo, staff_id)
+                if current_fosters:
+                    weight_gainer_current_fosters = sorted(list(current_fosters))
+            except Exception as e:
+                asm3.al.warn(f"weight gainer foster lookup failed for staff {staff_id}: {e}", "main.shelterview", dbo)
         return {
             "animals": animals,
             "flags": asm3.lookups.get_animal_flags(dbo),
             "fosterers": asm3.person.get_shelterview_fosterers(dbo, o.siteid),
             "locations": asm3.lookups.get_internal_locations(dbo, o.lf),
             "perrow": asm3.configuration.main_screen_animal_link_max(dbo),
-            "unitextra": asm3.configuration.unit_extra(dbo)
+            "unitextra": asm3.configuration.unit_extra(dbo),
+            "weight_gainer_mode": weight_gainer_mode,
+            "weight_gainer_current_fosters": weight_gainer_current_fosters,
+            "weight_gainer_staff_id": staff_id
         }
 
     def post_editunit(self, o):

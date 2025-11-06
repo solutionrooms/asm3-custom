@@ -321,6 +321,49 @@ $(function() {
         },
 
         /**
+         * Renders the Weight-Gainers view for users assigned that role.
+         * Section 1: animals currently fostered by this user.
+         * Section 2: other animals visible to the user (typically historical cases).
+         */
+        render_weight_gainers: function() {
+            let h = [], 
+                current = [], 
+                other = [],
+                fosterLookup = {};
+            if (controller.weight_gainer_current_fosters && controller.weight_gainer_current_fosters.length) {
+                $.each(controller.weight_gainer_current_fosters, function(_, v) {
+                    fosterLookup[String(v)] = true;
+                });
+            }
+            $.each(controller.animals, function(_, a) {
+                if (fosterLookup[String(a.ID)]) {
+                    current.push(a);
+                }
+                else {
+                    other.push(a);
+                }
+            });
+            current.sort(common.sort_single("ANIMALNAME"));
+            other.sort(common.sort_single("ANIMALNAME"));
+
+            h.push('<p class="asm-menu-category">' + _("Currently Fostering") + ' (' + current.length + ')</p>');
+            if (current.length) {
+                $.each(current, function(_, a) {
+                    h.push(shelterview.render_animal(a, false, !a.ACTIVEMOVEMENTTYPE && a.ARCHIVED == 0));
+                });
+            }
+
+            h.push('<p class="asm-menu-category">' + _("Accessible Animals") + ' (' + other.length + ')</p>');
+            if (other.length) {
+                $.each(other, function(_, a) {
+                    h.push(shelterview.render_animal(a, false, !a.ACTIVEMOVEMENTTYPE && a.ARCHIVED == 0));
+                });
+            }
+
+            $("#viewcontainer").html(h.join("\n"));
+        },
+
+        /**
          * groupfield: The name of the field to group headings on with totals
          * sorton: Comma separated list of fields to sort on
          * dragdrop: Whether dragging and dropping is on and moves between locations
@@ -572,6 +615,9 @@ $(function() {
             }
             else if (viewmode == "fostererspace") {
                 this.render_foster_available(2);
+            }
+            else if (viewmode == "weightgainers") {
+                this.render_weight_gainers();
             }
             else if (viewmode == "goodwith") {
                 this.render_goodwith();
@@ -852,6 +898,9 @@ $(function() {
             // Switch to the default view
             let dview = config.str(asm.user + "_ShelterView");
             if (!dview) { dview = config.str("ShelterViewDefault"); }
+            if (dview == "weightgainers" && !controller.weight_gainer_mode) {
+                dview = "location";
+            }
             $("#viewmode").select("value", dview);
             $("#viewmode").change();
         },
