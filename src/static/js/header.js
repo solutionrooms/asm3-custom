@@ -449,6 +449,7 @@ header = {
                     '<li class="asm-menu-item asm-manual asm-manualvideo"><a href="#" target="_blank"><nobr><span class="asm-icon asm-icon-youtube"></span> ' + _("View Training Videos") + '</nobr></a></li>',
                     '<li class="asm-menu-item asm-manual asm-manualfaq"><a href="#" target="_blank"><nobr><span class="asm-icon asm-icon-faq"></span> ' + _("Frequently Asked Questions") + '</nobr></a></li>',
                     '<li class="asm-menu-item"><a href="static/custom/processes/weight-gaining.html" target="_blank"><nobr><span class="asm-icon asm-icon-notes"></span> ' + _("Weight Gaining Process") + '</nobr></a></li>',
+                    '<li class="asm-menu-item"><a href="http://asmdo22.fridaydigital.co.uk/service?account=bghrc&amp;method=online_form_html&amp;formid=28" target="_blank" rel="noopener"><nobr><span class="asm-icon asm-icon-log"></span> ' + _("Submit a bug report") + '</nobr></a></li>',
                 '</ul>',
             '</div>',
             '<div id="asm-topline-error" style="display: none" class="ui-widget">',
