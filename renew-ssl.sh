@@ -13,6 +13,8 @@ if [ ! -f "$RENEW_OVERRIDE" ]; then
 fi
 
 echo "🔓 Ensuring port 80 is exposed for the ACME challenge..."
+# Remove any stale nginx container metadata to avoid recreate errors on some docker-compose versions
+docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" rm -f -s nginx >/dev/null 2>&1 || true
 docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" up -d --no-deps nginx
 
 if docker-compose --profile ssl-management run --rm certbot renew --force-renewal; then
