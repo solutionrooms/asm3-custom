@@ -13,7 +13,7 @@ if [ ! -f "$RENEW_OVERRIDE" ]; then
 fi
 
 echo "🔓 Ensuring port 80 is exposed for the ACME challenge..."
-docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" up -d nginx
+docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" up -d --no-deps nginx
 
 if docker-compose --profile ssl-management run --rm certbot renew --force-renewal; then
     echo "✅ Certificate renewed successfully!"
