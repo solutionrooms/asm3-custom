@@ -1,0 +1,8 @@
+# Docker Compose override used during SSL certificate renewals.
+# Exposes port 80 so Let's Encrypt can reach the HTTP-01 challenge while keeping existing bindings.
+services:
+  nginx:
+    ports:
+      - "80:80"
+      - "8095:80"
+      - "443:443"
