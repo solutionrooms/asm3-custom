@@ -1,13 +1,21 @@
 #!/bin/bash
+set -euo pipefail
 
 # SSL Certificate Renewal Script
-# Run this manually to force certificate renewal
+# Ensures nginx is listening on port 80 so Let's Encrypt can fetch the HTTP-01 challenge.
 
 echo "🔄 Forcing SSL certificate renewal..."
 
-docker-compose --profile ssl-management run --rm certbot renew --force-renewal
+RENEW_OVERRIDE="docker-compose.ssl-renew.yml"
+if [ ! -f "$RENEW_OVERRIDE" ]; then
+    echo "❌ Missing $RENEW_OVERRIDE (ensure you pulled the latest repo files)."
+    exit 1
+fi
 
-if [ $? -eq 0 ]; then
+echo "🔓 Ensuring port 80 is exposed for the ACME challenge..."
+docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" up -d --no-deps nginx
+
+if docker-compose --profile ssl-management run --rm certbot renew --force-renewal; then
     echo "✅ Certificate renewed successfully!"
     echo "🔄 Reloading nginx..."
     docker-compose exec nginx nginx -s reload
