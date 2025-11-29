@@ -179,8 +179,9 @@ edit_header = {
         let sizeweight = "";
         if (a.WEIGHT && !config.bool("DontShowSizeWeightHeader")) {
             if (config.bool("ShowWeightInGrams")) {
-                const grams = Math.round(format.to_float(a.WEIGHT) * 1000);
-                sizeweight = a.SIZENAME + " / " + grams + " g";
+                const grams = format.to_float(a.WEIGHT);
+                const display = isNaN(grams) ? a.WEIGHT : grams;
+                sizeweight = a.SIZENAME + " / " + display + " g";
             }
             else {
                 sizeweight = a.SIZENAME + " / " + a.WEIGHT + (config.bool("ShowWeightInLbs") || config.bool("ShowWeightInLbsFraction") ? "lb" : "kg");

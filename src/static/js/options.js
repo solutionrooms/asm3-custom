@@ -651,7 +651,7 @@ $(function() {
                         { id: "usstatecodes", post_field: "USStateCodes", label: _("When entering addresses, restrict states to valid US 2 letter state codes"), type: "check", fullrow: true, hideif: function() { return asm.locale != "en"; } },
                         { id: "latlong", post_field: "ShowLatLong", label: _("Allow editing of latitude/longitude with minimaps"), type: "check", fullrow: true }, 
                         { id: "mediatablemode", post_field: "MediaTableMode", label: _("Default to table mode when viewing media tabs"), type: "check", fullrow: true }, 
-                        { id: "showgrams", post_field: "ShowWeightInGrams", label: _("Show weights as grams"), type: "check", fullrow: true }, 
+                        { id: "showgrams", post_field: "ShowWeightInGrams", label: _("Show weights as grams"), type: "check", fullrow: true, callout: _("Gram-only entry (induction weight in grams only)") }, 
                         { id: "showlbs", post_field: "ShowWeightInLbs", label: _("Show weights as lb and oz"), type: "check", fullrow: true }, 
                         { id: "showlbsf", post_field: "ShowWeightInLbsFraction", label: _("Show weights as decimal lb"), type: "check", fullrow: true }, 
                         { id: "showfullcommentstables", post_field: "ShowFullCommentsInTables", label: _("Show complete comments in table views"), type: "check", fullrow: true }, 

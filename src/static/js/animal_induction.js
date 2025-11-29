@@ -4,6 +4,9 @@ $(function() {
 
     "use strict";
 
+    // Debug marker to confirm latest grams-only induction build
+    console.info("[asm] induction grams build: 2025-02-21");
+
     const animal_induction = {
 
         /** Only attempt to set the non-shelter animal type once per reset */
@@ -13,25 +16,13 @@ $(function() {
             return config.bool("ShowWeightInGrams");
         },
 
-        kg_to_grams_string: function(value) {
-            if (value === null || value === undefined) { return ""; }
-            const trimmed = String(value).trim();
-            if (trimmed === "") { return ""; }
-            const kg = format.to_float(trimmed);
-            if (isNaN(kg)) { return trimmed; }
-            if (trimmed.indexOf(".") === -1 && Math.abs(kg) >= 100) {
-                return trimmed;
-            }
-            return Math.round(kg * 1000).toString();
-        },
-
-        grams_to_kg_string: function(value) {
+        grams_string: function(value) {
             if (value === null || value === undefined) { return ""; }
             const trimmed = String(value).trim();
             if (trimmed === "") { return ""; }
             const grams = format.to_float(trimmed);
             if (isNaN(grams)) { return trimmed; }
-            return parseFloat((grams / 1000).toFixed(3)).toString();
+            return grams.toString();
         },
 
         /**
@@ -481,11 +472,11 @@ $(function() {
                                 tableform.render_select({ post_field: "sex", justwidget: true, options: { displayfield: "SEX", rows: controller.sexes }}),
                 '            </div>',
                 '        </div>',
-                '        <div class="field-row" id="weightrow">',
+                '        <div class="field-row" id="kilosrow">',
                 '            <div class="field-label">' + _("Weight") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_number({ post_field: "weight", justwidget: true }),
-                '                <label>' + _("kg") + '</label>',
+                '                <label id="kglabel">' + _("kg") + '</label>',
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row" id="microchiprow">',
@@ -518,22 +509,6 @@ $(function() {
                 '            <div class="field-label">' + _("Coat Type") + '</div>',
                 '            <div class="field-input">',
                                 tableform.render_select({ post_field: "coattype", justwidget: true, options: { displayfield: "COATTYPE", rows: controller.coattypes }}),
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="kilosrow">',
-                '            <div class="field-label">' + _("Weight") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_number({ post_field: "weight", justwidget: true }),
-                '                <label id="kglabel">' + _("kg") + '</label>',
-                '            </div>',
-                '        </div>',
-                '        <div class="field-row" id="poundsrow">',
-                '            <div class="field-label">' + _("Weight") + '</div>',
-                '            <div class="field-input">',
-                                tableform.render_intnumber({ post_field: "weightlb", justwidget: true }),
-                '                <label id="lblabel">' + _("lb") + '</label>',
-                                tableform.render_intnumber({ post_field: "weightoz", justwidget: true }),
-                '                <label id="ozlabel">' + _("oz") + '</label>',
                 '            </div>',
                 '        </div>',
                 '        <div class="field-row" id="sizerow">',
@@ -1512,17 +1487,6 @@ $(function() {
 
             $(".asm-content button").button("disable");
             header.show_loading(controller.animal ? _("Updating...") : _("Creating..."));
-            let weightRestore = null;
-            if (animal_induction.weight_in_grams()) {
-                const rawWeight = $("#weight").val();
-                if (rawWeight !== null && rawWeight !== undefined && String(rawWeight).trim() !== "") {
-                    const converted = animal_induction.grams_to_kg_string(rawWeight);
-                    if (converted !== "") {
-                        weightRestore = rawWeight;
-                        $("#weight").val(converted);
-                    }
-                }
-            }
             let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
             
             // Add animal ID if we're editing an existing animal
@@ -1588,9 +1552,6 @@ $(function() {
                 }
             }
             finally {
-                if (weightRestore !== null) {
-                    $("#weight").val(weightRestore);
-                }
                 $(".asm-content button").button("enable");
                 header.hide_loading();
             }
@@ -1618,17 +1579,6 @@ $(function() {
 
             $(".asm-content button").button("disable");
             header.show_loading(_("Saving progress..."));
-            let weightRestore = null;
-            if (animal_induction.weight_in_grams()) {
-                const rawWeight = $("#weight").val();
-                if (rawWeight !== null && rawWeight !== undefined && String(rawWeight).trim() !== "") {
-                    const converted = animal_induction.grams_to_kg_string(rawWeight);
-                    if (converted !== "") {
-                        weightRestore = rawWeight;
-                        $("#weight").val(converted);
-                    }
-                }
-            }
             let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
             
             // Add animal ID if we're editing an existing animal
@@ -1684,9 +1634,6 @@ $(function() {
                 if (typeof validate !== 'undefined' && validate.dirty) { validate.dirty(true); }
             }
             finally {
-                if (weightRestore !== null) {
-                    $("#weight").val(weightRestore);
-                }
                 $(".asm-content button").button("enable");
                 header.hide_loading();
             }
@@ -2100,9 +2047,9 @@ $(function() {
             $groups.hide();
             const $basic = $groups.first();
             $basic.show();
-            // Hide all rows except Name and Entry Age Range
+            // Hide all rows except Name, Entry Age Range and Weight (grams-only)
             $basic.find('.field-row').hide();
-            $basic.find('#namerow, #entryagerangerow').show();
+            $basic.find('#namerow, #entryagerangerow, #kilosrow').show();
             // Hide other full-width sections
             $(".inspection-section").hide();
         },
@@ -2342,34 +2289,26 @@ $(function() {
             }
 
             // Converting between whole number for weight and pounds and ounces
-            const lboz_to_fraction = function() {
-                let lb = format.to_int($("#weightlb").val());
-                lb += format.to_int($("#weightoz").val()) / 16.0;
-                $("#weight").val(String(lb));
-            };
-
             if (animal_induction.weight_in_grams()) {
+                console.info("[asm] weight mode: grams; raw field:", $("#weight").val());
                 $("#kglabel").html(_("g"));
                 $("#kilosrow").show();
-                $("#poundsrow").hide();
-                const converted = animal_induction.kg_to_grams_string($("#weight").val());
-                if (converted !== "") { $("#weight").val(converted); }
-            }
-            else if (config.bool("ShowWeightInLbs")) {
-                $("#kilosrow").hide();
-                $("#poundsrow").show();
-                $("#weightlb, #weightoz").change(lboz_to_fraction);
-            }
-            else if (config.bool("ShowWeightInLbsFraction")) {
-                $("#kglabel").html(_("lb"));
-                $("#kilosrow").show();
-                $("#poundsrow").hide();
+                const grams = animal_induction.grams_string($("#weight").val());
+                if (grams !== "") { 
+                    console.info("[asm] weight after grams normalisation:", grams);
+                    $("#weight").val(grams); 
+                }
             }
             else {
+                console.info("[asm] weight mode: kg/other");
                 $("#kglabel").html(_("kg"));
                 $("#kilosrow").show();
-                $("#poundsrow").hide();
             }
+
+            // Debug visibility and config for weight row
+            console.info("[asm] AddAnimalsShowWeight:", config.bool("AddAnimalsShowWeight"),
+                "kilosrow exists:", $("#kilosrow").length,
+                "display:", $("#kilosrow").css("display"));
 
             // Disable rows based on config options
             if (!config.bool("AddAnimalsShowAcceptance")) { $("#litterrow").hide(); }
@@ -2392,7 +2331,9 @@ $(function() {
             if (!config.bool("AddAnimalsShowSize")) { $("#sizerow").hide(); }
             if (!config.bool("AddAnimalsShowTattoo")) { $("#tattoorow").hide(); }
             if (!config.bool("AddAnimalsShowTimeBroughtIn")) { $("#timebroughtinrow").hide(); }
-            if (!config.bool("AddAnimalsShowWeight")) { $("#kilosrow, #poundsrow").hide(); }
+            if (!config.bool("AddAnimalsShowWeight")) {
+                console.warn("[asm] AddAnimalsShowWeight is false (forced visible for grams-only induction)");
+            }
             if (config.bool("UseSingleBreedField")) {
                 $("#crossbreedcol, #secondbreedcol").hide();
             }
@@ -2671,7 +2612,7 @@ $(function() {
             }
 
             // Permanently hide unwanted rows/fields
-            $("#kilosrow, #poundsrow, #coordinatorrow, #feerow").hide();
+            $("#poundsrow, #coordinatorrow, #feerow").hide();
 
             // Minimal mode on new animals: show only Name and Entry Age Range
             animal_induction.apply_minimal_mode();

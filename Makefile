@@ -4,7 +4,7 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run db-init db-copy db-reset-password
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run db-init db-copy db-reset-password check_weights fix_weights js-clean
 
 ifeq ($(firstword $(MAKECMDGOALS)),db-init)
   DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
@@ -74,7 +74,10 @@ help:
 	@echo "  clear-cache   - Clear application cache and restart"
 	@echo "  rebuild-all   - Rebundle JS, rebuild image (no cache), restart"
 	@echo "  js-rebundle   - Rebundle JS only and restart (fast)"
+	@echo "  js-clean      - Remove generated JS bundles (rollup* and compat), no rebuild"
 	@echo "  schema-refresh - Regenerate schema.js inside Docker and rebundle"
+	@echo "  check_weights - Report weights by range (g) inside postgres (TARGET=animals|observations, default animals)"
+	@echo "  fix_weights   - Normalize weights into 50–2000g (TARGET=animals|observations, default animals)"
 	@echo "  shell         - Open shell in ASM3 container"
 	@echo "  db-shell      - Open database shell"
 	@echo "  run <task>    - Run utility tasks inside containers (see below)"
@@ -141,6 +144,56 @@ js-rebundle:
 	@echo "Restarting application..."
 	docker-compose restart asm3
 	@echo "Done. If using rollup_js, the new bundle is now active."
+
+# Remove generated JS bundles (rollup* and compat). Regenerate with make js-rebundle.
+js-clean:
+	@echo "Removing generated JS bundles..."
+	rm -f src/static/js/bundle/rollup.min.js src/static/js/bundle/rollup_compat.min.js
+	rm -rf src/static/js/compat
+	@echo "Done. Run 'make js-rebundle' to regenerate."
+
+# Report weight distribution (grams) from the selected table
+# Usage: make check_weights [DETAILS=1] [TARGET=animals|observations]
+check_weights:
+	@TARGET="$(TARGET)"; \
+	TABLE=$$( [ "$$TARGET" = "observations" ] && echo "animal_weight_history" || echo "animal" ); \
+	DETAIL_COLS=$$( [ "$$TARGET" = "observations" ] && echo "animalid, weight_date, weight, username" || echo "id, animalname, weight" ); \
+	echo "Weight counts ($$TABLE.weight):"; \
+	docker-compose exec -T postgres psql -U asm3 -d asm3 -c "SELECT \
+      COUNT(*) FILTER (WHERE weight = 0 OR weight IS NULL) AS zero_or_null, \
+      COUNT(*) FILTER (WHERE weight > 0 AND weight < 2)    AS below_2, \
+      COUNT(*) FILTER (WHERE (weight >= 0.002 AND weight <= 0.005) OR (weight >= 2 AND weight < 50) OR (weight >= 2000 AND weight <= 50000)) AS between_2_50_scaled, \
+      COUNT(*) FILTER (WHERE weight >= 50 AND weight <= 2000)   AS between_50_2000, \
+      COUNT(*) FILTER (WHERE weight > 50000)                AS above_50000 \
+    FROM $$TABLE;"; \
+	if [ "$(DETAILS)" = "1" ]; then \
+	  echo ""; \
+	  echo "Out-of-range weights (weight < 50 or > 2000, skipping zero/null) from $$TABLE:"; \
+	  docker-compose exec -T postgres psql -U asm3 -d asm3 -c "SELECT $$DETAIL_COLS FROM $$TABLE WHERE weight IS NOT NULL AND weight <> 0 AND (weight < 50 OR weight > 2000) ORDER BY weight;"; \
+	  echo ""; \
+	  echo "Error-range weights (weight >= 2 and < 50) from $$TABLE:"; \
+	  docker-compose exec -T postgres psql -U asm3 -d asm3 -c "SELECT $$DETAIL_COLS FROM $$TABLE WHERE weight IS NOT NULL AND weight <> 0 AND ((weight >= 0.002 AND weight <= 0.005) OR (weight >= 2 AND weight < 50) OR (weight >= 2000 AND weight <= 50000)) ORDER BY weight;"; \
+	fi
+
+# Normalize weights into the 50–2000g range (skip zero and error-range rows)
+# - Multiply by 1000 if weight < 50 (likely kg)
+# - Divide by 1000 if weight > 2000 (likely grams but too large)
+fix_weights:
+	@TARGET="$(TARGET)"; \
+	TABLE=$$( [ "$$TARGET" = "observations" ] && echo "animal_weight_history" || echo "animal" ); \
+	echo "Normalizing $$TABLE.weight into 50–2000g (skipping zero/null)..."; \
+	docker-compose exec -T postgres psql -U asm3 -d asm3 -c "UPDATE $$TABLE \
+    SET weight = CASE \
+                   WHEN weight > 0    AND weight < 50   THEN weight * 1000 \
+                   WHEN weight > 2000                   THEN weight / 1000 \
+                   ELSE weight \
+                 END \
+    WHERE weight IS NOT NULL \
+      AND weight <> 0 \
+      AND (weight < 50 OR weight > 2000) \
+      AND NOT (weight >= 0.002 AND weight <= 0.005) \
+      AND NOT (weight >= 2 AND weight < 50) \
+      AND NOT (weight >= 2000 AND weight <= 50000);"
 
 schema-refresh:
 	@echo "Regenerating schema metadata inside Docker..."
