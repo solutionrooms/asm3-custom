@@ -198,9 +198,15 @@ $(function() {
                 '    text-align: center;',
                 '}',
                 '.inspection-grid {',
+                '    display: flex;',
+                '    flex-direction: column;',
+                '    gap: 12px;',
+                '    align-items: stretch;',
+                '}',
+                '.inspection-row {',
                 '    display: grid;',
-                '    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));',
-                '    gap: 16px;',
+                '    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));',
+                '    gap: 12px;',
                 '    align-items: start;',
                 '}',
                 '.inspection-item {',
@@ -273,9 +279,9 @@ $(function() {
                 '}',
                 '/* Tablet and mobile responsive */',
                 '@media (max-width: 768px) {',
-                '    .inspection-grid {',
-                '        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));',
-                '        gap: 12px;',
+                '    .inspection-row {',
+                '        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));',
+                '        gap: 10px;',
                 '    }',
                 '    .inspection-item {',
                 '        padding: 14px;',
@@ -289,9 +295,9 @@ $(function() {
                 '    }',
                 '}',
                 '@media (max-width: 480px) {',
-                '    .inspection-grid {',
-                '        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));',
-                '        gap: 10px;',
+                '    .inspection-row {',
+                '        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));',
+                '        gap: 8px;',
                 '    }',
                 '    .inspection-item {',
                 '        padding: 12px;',
@@ -323,8 +329,8 @@ $(function() {
                 '}',
                 '/* Responsive adjustments */',
                 '@media (max-width: 768px) {',
-                '    .inspection-grid {',
-                '        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));',
+                '    .inspection-row {',
+                '        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));',
                 '        gap: 12px;',
                 '    }',
                 '    .inspection-item {',
@@ -745,7 +751,20 @@ $(function() {
                     return ai - bi;
                 });
 
+            let currentPrefix = null;
+
             $.each(inspectionFields, function(i, field) {
+                // Start a new row when the DISPLAYINDEX prefix changes (first 2 chars)
+                const di = (field.DISPLAYINDEX === undefined || field.DISPLAYINDEX === null) ? "" : String(field.DISPLAYINDEX);
+                const prefix = di.substring(0, 2);
+                if (currentPrefix === null || prefix !== currentPrefix) {
+                    if (currentPrefix !== null) {
+                        inspectionHtml += '</div>';
+                    }
+                    inspectionHtml += '<div class="inspection-row" data-prefix="' + html.title(prefix) + '">';
+                    currentPrefix = prefix;
+                }
+
                 // Get the display name (remove "entryinspection" prefix and make it readable)
                 let displayName = field.FIELDNAME.substring(15); // Remove "entryinspection" prefix
                 displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1); // Capitalize first letter
@@ -863,6 +882,11 @@ $(function() {
                 
                 inspectionHtml += '</div>';
             });
+
+            // Close the last row if any were opened
+            if (currentPrefix !== null) {
+                inspectionHtml += '</div>';
+            }
             
             // Insert the generated HTML into the inspection grid
             $("#inspection-fields").html(inspectionHtml);
