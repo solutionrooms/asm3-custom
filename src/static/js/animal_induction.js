@@ -5,7 +5,6 @@ $(function() {
     "use strict";
 
     // Debug marker to confirm latest grams-only induction build
-    console.info("[asm] induction grams build: 2025-02-21");
 
     const animal_induction = {
 
@@ -735,127 +734,134 @@ $(function() {
          */
         render_inspection_fields: function() {
             let inspectionHtml = '';
-            
-            // Find all additional fields that start with "entryinspection"
-            $.each(controller.additional, function(i, field) {
-                if (field.FIELDNAME && field.FIELDNAME.toLowerCase().startsWith('entryinspection')) {
-                    // Get the display name (remove "entryinspection" prefix and make it readable)
-                    let displayName = field.FIELDNAME.substring(15); // Remove "entryinspection" prefix
-                    displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1); // Capitalize first letter
-                    
-                    // Use field label if available, otherwise use the formatted name
-                    let label = field.FIELDLABEL || displayName;
-                    let fieldId = 'add_' + field.ID;
-                    let postAttr = 'a.' + field.MANDATORY + '.' + field.ID;
-                    
-                    // Add appropriate CSS class based on field type for optimal layout
-                    let itemClass = 'inspection-item';
-                    if (field.FIELDTYPE == 0) { // Yes/No checkbox
-                        itemClass += ' yesno-field';
-                    } else if (field.FIELDTYPE == 6 || field.FIELDTYPE == 7) { // Select/Multi-select
-                        itemClass += ' select-field';
+
+            // Find and sort additional fields that start with "entryinspection"
+            const inspectionFields = (controller.additional || [])
+                .filter(function(f) { return f.FIELDNAME && f.FIELDNAME.toLowerCase().startsWith("entryinspection"); })
+                .slice()
+                .sort(function(a, b) {
+                    const ai = parseInt(a.DISPLAYINDEX || 0, 10);
+                    const bi = parseInt(b.DISPLAYINDEX || 0, 10);
+                    return ai - bi;
+                });
+
+            $.each(inspectionFields, function(i, field) {
+                // Get the display name (remove "entryinspection" prefix and make it readable)
+                let displayName = field.FIELDNAME.substring(15); // Remove "entryinspection" prefix
+                displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1); // Capitalize first letter
+                
+                // Use field label if available, otherwise use the formatted name
+                let label = field.FIELDLABEL || displayName;
+                let fieldId = 'add_' + field.ID;
+                let postAttr = 'a.' + field.MANDATORY + '.' + field.ID;
+                
+                // Add appropriate CSS class based on field type for optimal layout
+                let itemClass = 'inspection-item';
+                if (field.FIELDTYPE == 0) { // Yes/No checkbox
+                    itemClass += ' yesno-field';
+                } else if (field.FIELDTYPE == 6 || field.FIELDTYPE == 7) { // Select/Multi-select
+                    itemClass += ' select-field';
+                }
+                
+                inspectionHtml += '<div class="' + itemClass + '" data-field-id="' + fieldId + '">';
+                
+                // Determine default value for field (string form)
+                let defaultVal = '';
+                if (field.DEFAULTVALUE !== undefined && field.DEFAULTVALUE !== null) {
+                    defaultVal = String(field.DEFAULTVALUE);
+                }
+                // Render the appropriate field widget based on field type
+                if (field.FIELDTYPE == 0) { // YESNO - Clickable card
+                    inspectionHtml += '<div class="yesno-label">' + label;
+                    if (field.MANDATORY == 1) {
+                        inspectionHtml += '<span class="asm-has-validation">*</span>';
                     }
+                    inspectionHtml += '</div>';
+                    inspectionHtml += '<div class="yesno-status">No</div>';
+                    // Store default as 1/0 for yes/no
+                    let defyn = (String(defaultVal).trim().toLowerCase() == '1' || String(defaultVal).trim().toLowerCase() == 'yes' || String(defaultVal).trim().toLowerCase() == 'true') ? '1' : '0';
+                    inspectionHtml += '<input id="' + fieldId + '" type="checkbox" class="asm-checkbox additional" ';
+                    inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + defyn + '" ';
+                    inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                     
-                    inspectionHtml += '<div class="' + itemClass + '" data-field-id="' + fieldId + '">';
-                    
-                    // Determine default value for field (string form)
-                    let defaultVal = '';
-                    if (field.DEFAULTVALUE !== undefined && field.DEFAULTVALUE !== null) {
-                        defaultVal = String(field.DEFAULTVALUE);
+                } else {
+                    // Regular label for non-checkbox fields
+                    inspectionHtml += '<label class="inspection-field-label" for="' + fieldId + '">' + label;
+                    if (field.MANDATORY == 1) {
+                        inspectionHtml += '<span class="asm-has-validation">*</span>';
                     }
-                    // Render the appropriate field widget based on field type
-                    if (field.FIELDTYPE == 0) { // YESNO - Clickable card
-                        inspectionHtml += '<div class="yesno-label">' + label;
-                        if (field.MANDATORY == 1) {
-                            inspectionHtml += '<span class="asm-has-validation">*</span>';
-                        }
-                        inspectionHtml += '</div>';
-                        inspectionHtml += '<div class="yesno-status">No</div>';
-                        // Store default as 1/0 for yes/no
-                        let defyn = (String(defaultVal).trim().toLowerCase() == '1' || String(defaultVal).trim().toLowerCase() == 'yes' || String(defaultVal).trim().toLowerCase() == 'true') ? '1' : '0';
-                        inspectionHtml += '<input id="' + fieldId + '" type="checkbox" class="asm-checkbox additional" ';
-                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + defyn + '" ';
+                    inspectionHtml += '</label>';
+                    
+                    if (field.FIELDTYPE == 1) { // TEXT - Text input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
                         inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                         
-                    } else {
-                        // Regular label for non-checkbox fields
-                        inspectionHtml += '<label class="inspection-field-label" for="' + fieldId + '">' + label;
-                        if (field.MANDATORY == 1) {
-                            inspectionHtml += '<span class="asm-has-validation">*</span>';
-                        }
-                        inspectionHtml += '</label>';
+                    } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
+                        inspectionHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
                         
-                        if (field.FIELDTYPE == 1) { // TEXT - Text input
-                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                            
-                        } else if (field.FIELDTYPE == 2) { // NOTES - Textarea
-                            inspectionHtml += '<textarea id="' + fieldId + '" class="asm-textareafixed additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '"></textarea>';
-                            
-                        } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
-                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                            
-                        } else if (field.FIELDTYPE == 4) { // DATE - Date input
-                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                            
-                        } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
-                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
-                            
-                        } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
-                            inspectionHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
-                            inspectionHtml += '<option value="">' + _("Select...") + '</option>';
-                            
-                            // Parse the lookup values
-                            if (field.LOOKUPVALUES) {
-                                let values = field.LOOKUPVALUES.split('|');
-                                $.each(values, function(j, value) {
-                                    if (value.trim()) {
-                                        inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
-                                    }
-                                });
-                            }
-                            inspectionHtml += '</select>';
-                            
-                        } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
-                            // Normalise default list values for comparison
-                            let deflist = [];
-                            if (defaultVal) { deflist = defaultVal.split('|').map(function(s){ return s.trim(); }).filter(Boolean).sort(); }
-                            inspectionHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(deflist.join('|')) + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
-                            
-                            // Parse the lookup values for multi-select
-                            if (field.LOOKUPVALUES) {
-                                let values = field.LOOKUPVALUES.split('|');
-                                $.each(values, function(j, value) {
-                                    if (value.trim()) {
-                                        inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
-                                    }
-                                });
-                            }
-                            inspectionHtml += '</select>';
-                            
-                        } else {
-                            // Fallback for other field types - render as text input
-                            inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
-                            inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
-                            inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                    } else if (field.FIELDTYPE == 3) { // NUMBER - Number input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-numberbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 4) { // DATE - Date input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-datebox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 5) { // MONEY - Currency input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox asm-currencybox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
+                        
+                    } else if (field.FIELDTYPE == 6) { // LOOKUP - Select dropdown
+                        inspectionHtml += '<select id="' + fieldId + '" class="asm-selectbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(defaultVal) + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                        inspectionHtml += '<option value="">' + _("Select...") + '</option>';
+                        
+                        // Parse the lookup values
+                        if (field.LOOKUPVALUES) {
+                            let values = field.LOOKUPVALUES.split('|');
+                            $.each(values, function(j, value) {
+                                if (value.trim()) {
+                                    inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                }
+                            });
                         }
+                        inspectionHtml += '</select>';
+                        
+                    } else if (field.FIELDTYPE == 7) { // MULTI_LOOKUP - Multi-select
+                        // Normalise default list values for comparison
+                        let deflist = [];
+                        if (defaultVal) { deflist = defaultVal.split('|').map(function(s){ return s.trim(); }).filter(Boolean).sort(); }
+                        inspectionHtml += '<select id="' + fieldId + '" class="asm-bsmselect additional" multiple="multiple" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" data-ftype="' + field.FIELDTYPE + '" data-default="' + html.title(deflist.join('|')) + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '">';
+                        
+                        // Parse the lookup values for multi-select
+                        if (field.LOOKUPVALUES) {
+                            let values = field.LOOKUPVALUES.split('|');
+                            $.each(values, function(j, value) {
+                                if (value.trim()) {
+                                    inspectionHtml += '<option value="' + html.title(value.trim()) + '">' + value.trim() + '</option>';
+                                }
+                            });
+                        }
+                        inspectionHtml += '</select>';
+                        
+                    } else {
+                        // Fallback for other field types - render as text input
+                        inspectionHtml += '<input id="' + fieldId + '" type="text" class="asm-textbox additional" ';
+                        inspectionHtml += 'data-id="' + field.ID + '" data-post="' + postAttr + '" ';
+                        inspectionHtml += 'title="' + html.title(field.TOOLTIP) + '" />';
                     }
-                    
-                    inspectionHtml += '</div>';
                 }
+                
+                inspectionHtml += '</div>';
             });
             
             // Insert the generated HTML into the inspection grid
@@ -1561,6 +1567,9 @@ $(function() {
          * Saves current progress by creating an animal record with minimal validation
          */
         save_progress: async function() {
+            // Live weight validation before any network request
+            if (!animal_induction.validate_weight_field(true)) { return; }
+
             // Check that name is populated (required field)
             if (!$("#animalname").val() || $("#animalname").val().trim() === "") {
                 header.show_error(_("Animal name is required to save progress"));
@@ -1714,7 +1723,7 @@ $(function() {
             if (config.bool("AddAnimalsShowJurisdiction")) { $("#jurisdictionrow").show(); }
 
             // Force-hide fields that should be permanently removed in this flow
-            $("#coordinatorrow, #feerow, #kilosrow, #poundsrow").hide();
+            $("#coordinatorrow, #feerow, #poundsrow").hide();
 
             // If transfer in is available and ticked, change the broughtinby label
             if (!config.bool("AddAnimalsShowEntryType") && $("#transferin").is(":checked")) {
@@ -2040,6 +2049,8 @@ $(function() {
             if (!isNew) {
                 $(".form-group, .inspection-section").show();
                 $(".form-group .field-row").show();
+                // Force weight row visible when editing (even if config hides it)
+                $("#kilosrow").css("display", "grid");
                 return;
             }
             // Hide all groups except the first Basic Information group
@@ -2047,9 +2058,11 @@ $(function() {
             $groups.hide();
             const $basic = $groups.first();
             $basic.show();
-            // Hide all rows except Name, Entry Age Range and Weight (grams-only)
+            // Hide all rows except Name and Entry Age Range for new records
             $basic.find('.field-row').hide();
-            $basic.find('#namerow, #entryagerangerow, #kilosrow').show();
+            // Ensure weight row stays hidden until after the first save
+            $basic.find('#kilosrow').hide();
+            $basic.find('#namerow, #entryagerangerow').show();
             // Hide other full-width sections
             $(".inspection-section").hide();
         },
@@ -2205,6 +2218,9 @@ $(function() {
             header.hide_error();
             validate.reset();
 
+            // Helper to validate the weight field in grams range (50-2000)
+            const validate_weight_field = animal_induction.validate_weight_field;
+
             // Minimal mode: new record — only require Name and Entry Age Range
             const isNew = !controller.animal || !controller.animal.ID;
             if (isNew) {
@@ -2246,8 +2262,29 @@ $(function() {
                     return false;
                 }
             }
+            if (!validate_weight_field(true)) { return false; }
             if (!additional.validate_mandatory()) { return false; }
             return true;
+        },
+
+        /**
+         * Validate weight field range (grams only). Returns true if ok.
+         * When showError is true, surfaces an error header and highlights the field.
+         */
+        validate_weight_field: function(showError) {
+            const weightValStr = common.trim($("#weight").val());
+            if (weightValStr === "") { return true; }
+            const w = format.to_float(weightValStr);
+            const ok = !(isNaN(w) || w < 50 || w > 2000);
+            if (!ok && showError) {
+                header.show_error(_("Weight must be between 50 and 2000 grams"));
+                validate.highlight("weight");
+            } else if (ok && showError) {
+                // Clear any prior weight error when the field becomes valid
+                header.hide_error();
+                validate.unhighlight && validate.unhighlight("weight");
+            }
+            return ok;
         },
 
         bind: function() {
@@ -2290,17 +2327,14 @@ $(function() {
 
             // Converting between whole number for weight and pounds and ounces
             if (animal_induction.weight_in_grams()) {
-                console.info("[asm] weight mode: grams; raw field:", $("#weight").val());
                 $("#kglabel").html(_("g"));
                 $("#kilosrow").show();
                 const grams = animal_induction.grams_string($("#weight").val());
                 if (grams !== "") { 
-                    console.info("[asm] weight after grams normalisation:", grams);
                     $("#weight").val(grams); 
                 }
             }
             else {
-                console.info("[asm] weight mode: kg/other");
                 $("#kglabel").html(_("kg"));
                 $("#kilosrow").show();
             }
@@ -2332,7 +2366,6 @@ $(function() {
             if (!config.bool("AddAnimalsShowTattoo")) { $("#tattoorow").hide(); }
             if (!config.bool("AddAnimalsShowTimeBroughtIn")) { $("#timebroughtinrow").hide(); }
             if (!config.bool("AddAnimalsShowWeight")) {
-                console.warn("[asm] AddAnimalsShowWeight is false (forced visible for grams-only induction)");
             }
             if (config.bool("UseSingleBreedField")) {
                 $("#crossbreedcol, #secondbreedcol").hide();
@@ -2419,6 +2452,10 @@ $(function() {
             $("#hold").change(animal_induction.enable_widgets);
             $("#holduntil").change(animal_induction.enable_widgets);
             animal_induction.enable_widgets();
+            $("#weight").on("change blur input", function() {
+                // Live validate weight range so users see errors immediately
+                animal_induction.validate_weight_field(true);
+            });
 
             // Default species has been set, update the available breeds
             // before choosing the default breed
@@ -2827,6 +2864,8 @@ $(function() {
         },
 
         destroy: function() {
+            // Clear any lingering validation banner when leaving the module
+            header.hide_error();
             if (typeof validate !== 'undefined' && validate.unbind_dirty) { validate.unbind_dirty(); }
             common.widget_destroy("#dialog-similar");
             common.widget_destroy("#nsowner", "personchooser");
