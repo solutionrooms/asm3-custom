@@ -107,8 +107,8 @@ def weight_display(dbo: Database, wv: float) -> str:
     oz = asm3.utils.cint((kg - lb) * 16.0)
     l = dbo.locale
     if asm3.configuration.show_weight_in_grams(dbo):
-        grams = asm3.utils.cint(round(kg * 1000))
-        return "%s g" % grams
+        grams = asm3.utils.cfloat(wv)
+        return "%s g" % asm3.utils.cint(round(grams))
     if asm3.configuration.show_weight_in_lbs(dbo):
         return "%s %s %s %s" % ( lb, _("lb", l), oz, _("oz", l) )
     elif asm3.configuration.show_weight_in_lbs_fraction(dbo):

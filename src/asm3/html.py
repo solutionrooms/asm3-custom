@@ -76,6 +76,9 @@ def asm_script_tags(path: str) -> str:
         if i in jsfiles: continue
         if is_standalone_js(i): continue
         if i.startswith(".") or not i.endswith(".js"): continue # ignore anything that's not a js file
+        # Skip rollup/bundle and compat outputs when serving individual scripts to avoid double-loading stale bundles
+        if i.startswith("rollup") or i.startswith("bundle") or i.startswith("compat"):
+            continue
         jsfiles.append(i)
     buf = []
     for i in jsfiles:

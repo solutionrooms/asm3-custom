@@ -3943,7 +3943,7 @@ def insert_weight_log(dbo: Database, username: str, animalid: int, newweight: fl
             display_weight = newweight
             units = ""
             if asm3.configuration.show_weight_in_grams(dbo):
-                display_weight = asm3.utils.cint(round(asm3.utils.cfloat(newweight) * 1000))
+                display_weight = asm3.utils.cint(round(asm3.utils.cfloat(newweight)))
                 if asm3.configuration.show_weight_units_in_log(dbo):
                     units = " g"
             else:

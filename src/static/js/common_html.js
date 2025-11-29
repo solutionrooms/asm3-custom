@@ -451,8 +451,9 @@ const html = {
         }
         let rv = "";
         if (config.bool("ShowWeightInGrams")) {
-            const grams = Math.round(format.to_float(weightValue) * 1000);
-            rv = grams + " g";
+            const grams = format.to_float(weightValue);
+            const display = isNaN(grams) ? String(weightValue).trim() : grams;
+            rv = display + " g";
         }
         else if (config.bool("ShowWeightInLbs")) {
             let kg = format.to_float(weightValue),
