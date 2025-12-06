@@ -1383,6 +1383,12 @@ def update_flags(dbo: Database, username: str, personid: int, flags: str) -> Non
         "AdditionalFlags":          flagstr
     }, username)
 
+def get_person_flags(dbo: Database, personid: int) -> str:
+    """Returns the AdditionalFlags string for personid or blank if missing."""
+    if personid is None or personid == 0:
+        return ""
+    return asm3.utils.nulltostr(dbo.query_string("SELECT AdditionalFlags FROM owner WHERE ID = ?", [personid]))
+
 def update_adopter_flag(dbo: Database, username: str, personid: int) -> None:
     """
     Sets or removes the adopter flag on personid if it has any open adoption movements.

@@ -139,6 +139,7 @@ $(function() {
                     }},
                     { field: "", display: _("Form URL"), formatter: function(row) {
                             let u = asm.serviceurl + "?";
+                            if (row.INTERNALUSE && controller.user) { u += "internaluser=" + encodeURIComponent(controller.user) + "&"; }
                             if (asm.useraccountalias) { u += "account=" + asm.useraccountalias + "&"; }
                             u += "method=online_form_html&formid=" + row.ID;
                             return '<span style="white-space: nowrap">' + 

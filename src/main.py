@@ -816,6 +816,8 @@ class configjs(ASMEndpoint):
         osmmaptiles = OSM_MAP_TILES
         osmmaptileso = asm3.configuration.osm_map_tiles_override(dbo)
         if osmmaptileso != "": osmmaptiles = osmmaptileso
+        userpersonflags = asm3.person.get_person_flags(dbo, o.session.staffid)
+        internalforms = asm3.onlineform.get_internal_forms_for_flags(dbo, userpersonflags)
         c = { "baseurl": BASE_URL,
             "serviceurl": SERVICE_URL,
             "build": BUILD,
@@ -857,10 +859,12 @@ class configjs(ASMEndpoint):
             "hascustomlogo": asm3.dbfs.file_exists(dbo, "logo.jpg"),
             "fontfiles": asm3.configuration.watermark_get_valid_font_files(),
             "config": asm3.configuration.get_map(dbo),
+            "userpersonflags": userpersonflags,
             "menustructure": asm3.html.menu_structure(o.locale, 
                 asm3.publish.PUBLISHER_LIST,
                 asm3.reports.get_reports_menu(dbo, o.session.roleids, o.session.superuser), 
-                asm3.reports.get_mailmerges_menu(dbo, o.session.roleids, o.session.superuser)),
+                asm3.reports.get_mailmerges_menu(dbo, o.session.roleids, o.session.superuser),
+                internalforms, userpersonflags, dbo.alias, o.session.user),
             "publishers": asm3.publish.PUBLISHER_LIST
         }
         return "const asm = %s;" % asm3.utils.json(c)
@@ -1134,11 +1138,12 @@ class mobile(ASMEndpoint):
         dbo = o.dbo
         animals = asm3.animal.get_shelterview_animals(dbo, o.lf)
         asm3.al.debug("mobile for '%s' (%s animals)" % (o.user, len(animals)), "main.mobile", dbo)
+        personflags = asm3.person.get_person_flags(dbo, o.session.staffid)
 
         c = {
             "animals":      animals,
             "reports":      asm3.reports.get_available_reports(dbo),
-            "internalforms": asm3.onlineform.get_internal_forms(dbo),
+            "internalforms": asm3.onlineform.get_internal_forms_for_flags(dbo, personflags),
             "vaccinations": asm3.medical.get_vaccinations_outstanding(dbo, "m31", o.lf),
             "tests":        asm3.medical.get_tests_outstanding(dbo, "m31", o.lf),
             "medicals":     asm3.medical.get_treatments_outstanding(dbo, "m31", o.lf),

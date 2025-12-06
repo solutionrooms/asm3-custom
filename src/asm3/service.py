@@ -860,7 +860,7 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
     elif method == "online_form_html":
         if formid == 0:
             raise asm3.utils.ASMError("method online_form_html requires a valid formid")
-        return set_cached_response(cache_key, account, "text/html; charset=utf-8", 1800, 1800, asm3.onlineform.get_onlineform_html(dbo, formid))
+        return set_cached_response(cache_key, account, "text/html; charset=utf-8", 1800, 1800, asm3.onlineform.get_onlineform_html(dbo, formid, internaluser=post["internaluser"]))
 
     elif method == "online_form_json":
         if formid == 0:
@@ -938,4 +938,3 @@ def handler(post: PostedData, path: str, remoteip: str, referer: str, useragent:
     else:
         asm3.al.error("invalid method '%s'" % method, "service.handler", dbo)
         raise asm3.utils.ASMError("Invalid method '%s'" % method)
-

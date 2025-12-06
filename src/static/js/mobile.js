@@ -47,6 +47,9 @@ const mobile = {
             let furl = asm.serviceurl + "?";
             if (asm.useraccountalias) { furl += "account=" + asm.useraccountalias + "&"; }
             furl += "method=online_form_html&formid=" + form.ID;
+            if (controller.user) {
+                furl += "&internaluser=" + encodeURIComponent(controller.user);
+            }
             fitems += '<a class="dropdown-item" data-perm="vof" href="' + furl + '" target="_blank">' + form.NAME + '</a>';
         });
         return fitems;

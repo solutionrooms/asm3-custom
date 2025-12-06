@@ -11,6 +11,7 @@
 | 2025-08-30 | Storage | S3-backed media storage and S3 mirroring for DB backups | [External Storage & Backups](#external-storage--backups) |
 | 2025-09-01 | Operations | Cron hardening, single-table backup helpers, dev hot-reload mounts, weight monitor photo linking | [Operational Automation](#operational-automation) |
 | 2025-09-07 | Application | Observations history poo sample column and Analysis tab with weight graph | [Observations & Analysis Enhancements](#observations--analysis-enhancements) |
+| 2025-10-27 | Application | Forms menu with person-flag filtered internal submissions | [Forms Menu & Filters](#forms-menu--filters) |
 
 ---
 
@@ -46,6 +47,13 @@
 - `src/asm3/geo.py` retries failed geocodes using postcode-only lookups, marking the stored hash with `POSTCODEONLY|` so the system knows the coordinates are approximate. The disk cache entry now reflects the fallback result and avoids hammering the provider.
  - `src/asm3/geo.py` retries failed geocodes using postcode-only lookups, marking the stored hash with `POSTCODEONLY|` so the system knows the coordinates are approximate. Unresolved `0,0` results are no longer cached, forcing fresh attempts whenever the record is viewed.
 - The person record lat/long widget highlights approximations with a visual warning (`src/static/js/common_widgets.js`, `src/static/css/asm.css`), so staff know when precision is limited.
+
+### Forms Menu & Filters
+**When**: 2025-10-27 (branch `develop`)
+
+- New top-level **Forms** menu exposing internal online forms under a Submit form section; entries filter automatically by the logged-in person's flags against each form's Person Flags field (`src/asm3/onlineform.py`, `src/main.py`, `src/asm3/html.py`).
+- Links open the live `online_form_html` service with the current account alias, while admin links for editing/incoming forms remain available from the same menu.
+- Mobile navigation now uses the same filtered internal form list so menus stay consistent across UIs.
 
 ### Animal Data Integrity
 **When**: 2025-08-25 (branch `develop`)

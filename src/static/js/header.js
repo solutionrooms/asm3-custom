@@ -166,7 +166,10 @@ header = {
                             return false;
                         });
                     }
-                    if (url.indexOf("report?") == 0 && config.bool("ReportNewBrowserTab")) {
+                    if (classes.indexOf("tagforms-submit") != -1) {
+                        target = " target=\"_blank\"";
+                    }
+                    else if (url.indexOf("report?") == 0 && config.bool("ReportNewBrowserTab")) {
                         target = " target=\"_blank\"";
                     }
                     h.push("<li class=\"asm-menu-item " + classes + "\"><a href=\"" + url + "\" " + target + ">" + iconhtml + " " + display + accesskeydisp + "</a></li>");
@@ -214,7 +217,10 @@ header = {
                             return false;
                         });
                     }
-                    if (url.indexOf("report") == 0 && config.bool("ReportNewBrowserTab")) {
+                    if (classes.indexOf("tagforms-submit") != -1) {
+                        target = " target=\"_blank\"";
+                    }
+                    else if (url.indexOf("report") == 0 && config.bool("ReportNewBrowserTab")) {
                         target = " target=\"_blank\"";
                     }
                     h.push("<li class=\"asm-menu-item " + classes + "\"><a href=\"" + url + "\" " + target + ">" + iconhtml + " " + display + accesskeydisp + "</a></li>");
