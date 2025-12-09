@@ -510,14 +510,19 @@ def doc_img_src(dbo: Database, row: ResultRow) -> str:
     else:
         return "image?db=%s&mode=media&id=%s&date=%s" % (dbo.name(), row.DOCMEDIAID, row.DOCMEDIADATE.isoformat())
 
-def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: MenuItems) -> MenuStructure:
+def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: MenuItems,
+    internalforms: Results = None, personflags: str = "", accountalias: str = "", username: str = "") -> MenuStructure:
     """
     Returns a list of lists representing the main menu structure
     l: The locale
     publisherlist: A reference to publish.PUBLISHER_LIST
     reports: A list of tuples containing the report url and name
     mailmerges: A list of tuples containing the report/mailmerge url and name
+    internalforms: Internal online forms to surface on the Forms menu
+    personflags: Person flags for the logged in user to filter internal forms
+    accountalias: Account alias appended to service URLs for form links
     """
+    if accountalias is None: accountalias = ""
     publishers = []
     for k, v in publisherlist.items():
         if k == "html" and not HTMLFTP_PUBLISHER_ENABLED: continue # Hide HTML publisher if it's disabled by sitedef
@@ -525,7 +530,37 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             publishers.append(("", "", "", "publish?mode=html", "asm-icon-blank", _("Publish HTML via FTP", l) ))
         else:
             publishers.append(("", "", "", "publish?mode=%s" % k, "asm-icon-blank", v["label"]))
-    return (
+    forms_menu: MenuStructure = ()
+    if internalforms is not None:
+        def _split_flags(s: str) -> List[str]:
+            if s is None: return []
+            return [f.strip().lower() for f in s.replace(",", "|").split("|") if f.strip() != ""]
+        pf = set(_split_flags(personflags))
+        filtered_forms = []
+        for f in internalforms:
+            required = set(_split_flags(getattr(f, "SETOWNERFLAGS", "")))
+            if len(required) == 0:
+                filtered_forms.append(f)
+            elif len(pf) == 0:
+                continue
+            elif pf.intersection(required):
+                filtered_forms.append(f)
+        formitems = []
+        if len(filtered_forms) > 0:
+            formitems.append(("", "", "tagforms-submit", "--cat", "asm-icon-forms", _("Submit form", l)))
+            for f in filtered_forms:
+                furl = f"{SERVICE_URL}?method=online_form_html&formid={f.ID}"
+                if accountalias != "":
+                    furl = f"{furl}&account={accountalias}"
+                if username != "":
+                    furl = f"{furl}&internaluser={asm3.utils.encode_uri(username)}"
+                formitems.append(("", "", "tagforms-submit", furl, "asm-icon-blank", f.NAME))
+        formitems.append((asm3.users.VIEW_ONLINE_FORMS, "", "tagforms-admin", "--cat", "asm-icon-settings", _("Administer", l)))
+        formitems.append((asm3.users.VIEW_ONLINE_FORMS, "", "tagforms-admin", "onlineforms", "asm-icon-blank", _("Edit Online Forms", l)))
+        formitems.append((asm3.users.VIEW_INCOMING_FORMS, "", "tagforms-admin", "onlineform_incoming", "asm-icon-blank", _("View Incoming Forms", l)))
+        forms_menu = (("", "forms", _("Forms", l), tuple(formitems)),)
+
+    menu_base: MenuStructure = (
         ("", "asm", _("ASM", l), (
             ( "", "", "", "--cat", "asm-icon-animal", _("Animals", l) ),
             ( asm3.users.VIEW_ANIMAL, "alt+shift+v", "", "shelterview", "asm-icon-location", _("Shelter view", l) ),
@@ -668,11 +703,16 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             (asm3.users.IMPORT_CSV_FILE, "", "", "csvimport_stripe", "asm-icon-stripe", _("Import a Stripe CSV file", l) ),
             (asm3.users.TRIGGER_BATCH, "", "", "batch", "asm-icon-batch", _("Trigger Batch Processes", l) )
         )),
+    )
+
+    hedgehog_menu: MenuStructure = (
         (asm3.users.ACCESS_HEDGHOG, "hedghog", _("Hedgehog", l), (
             ( asm3.users.ACCESS_HEDGHOG, "", "", "animal_induction", "asm-icon-animal-add", _("Patient Admission", l) ),
             ( asm3.users.ADD_LOG, "", "", "hedgehog_observation", "asm-icon-blank", _("Daily Observation (single)", l) ),
-        ))
+        )),
     )
+
+    return menu_base + forms_menu + hedgehog_menu
 
 def json_animalfindcolumns(dbo: Database) -> ColumnList:
     l = dbo.locale

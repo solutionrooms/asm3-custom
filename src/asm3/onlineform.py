@@ -152,7 +152,7 @@ def get_onlineforms(dbo: Database) -> Results:
     """ Return all online forms """
     return dbo.query("SELECT *, (SELECT COUNT(*) FROM onlineformfield WHERE OnlineFormID = onlineform.ID) AS NumberOfFields FROM onlineform ORDER BY Name")
 
-def get_onlineform_html(dbo: Database, formid: int, completedocument: bool = True) -> str:
+def get_onlineform_html(dbo: Database, formid: int, completedocument: bool = True, internaluser: str = "") -> str:
     """ Get the selected online form as HTML """
     h = []
     l = dbo.locale
@@ -190,6 +190,8 @@ def get_onlineform_html(dbo: Database, formid: int, completedocument: bool = Tru
     h.append('<input type="hidden" name="retainfor" value="%s" />' % form.RETAINFOR)
     h.append('<input type="hidden" name="flags" value="%s" />' % form.SETOWNERFLAGS)
     h.append('<input type="hidden" name="formname" value="%s" />' % asm3.html.escape(form.NAME))
+    if internaluser != "" and asm3.utils.cint(form.INTERNALUSE) == 1:
+        h.append('<input type="hidden" name="internaluser" value="%s" />' % asm3.html.escape(internaluser))
     h.append('<table class="asm-onlineform-table">')
     shelteranimals = None
     adoptableanimals = None
@@ -667,8 +669,39 @@ def get_animal_id_from_field(dbo: Database, name: str) -> int:
     return aid
 
 def get_internal_forms(dbo: Database) -> Results:
-    forms = dbo.query("SELECT * FROM onlineform WHERE InternalUse = 1")
+    forms = dbo.query("SELECT * FROM onlineform WHERE InternalUse = 1 ORDER BY Name")
     return forms
+
+def _split_flags(flags: str) -> List[str]:
+    """
+    Normalises pipe/comma separated flag strings to a lower-cased list without blanks.
+    """
+    if flags is None: return []
+    flags = flags.replace(",", "|")
+    return [f.strip().lower() for f in flags.split("|") if f.strip() != ""]
+
+def filter_internal_forms_by_flags(forms: Results, personflags: str) -> Results:
+    """
+    Returns the subset of internal forms where the form's person flags are blank
+    or overlap with the supplied person flags for the current user.
+    """
+    pf = set(_split_flags(personflags))
+    filtered = []
+    for f in forms:
+        required = set(_split_flags(f.SETOWNERFLAGS))
+        if len(required) == 0:
+            filtered.append(f)
+        elif len(pf) == 0:
+            continue
+        elif pf.intersection(required):
+            filtered.append(f)
+    return sorted(filtered, key=lambda x: x.NAME.lower())
+
+def get_internal_forms_for_flags(dbo: Database, personflags: str) -> Results:
+    """
+    Returns internal forms filtered to those applicable for a user with personflags.
+    """
+    return filter_internal_forms_by_flags(get_internal_forms(dbo), personflags)
 
 def insert_onlineform_from_form(dbo: Database, username: str, post: PostedData) -> int:
     """
@@ -933,6 +966,10 @@ def insert_onlineformincoming_from_form(dbo: Database, post: PostedData, remotei
             fieldname = k
             fieldtype = FIELDTYPE_TEXT
             tooltip = ""
+
+            # Mark internal user submissions with a readable label for incoming view
+            if fieldname == "internaluser":
+                label = asm3.i18n._("Internal User", l)
 
             # Form fields should have a _ONLINEFORMFIELD.ID suffix we can use to get the
             # original label and display position.
