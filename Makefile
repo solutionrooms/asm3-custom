@@ -645,14 +645,19 @@ install-cron:
 	@echo "Creating log directory..."
 	@mkdir -p $(LOCAL_LOG_DIR_ABS)
 	@echo "Installing cron jobs..."
-	@(crontab -l 2>/dev/null; echo "# ASM3 Daily Tasks - Runs at 2:00 AM every day"; echo "0 2 * * * /usr/local/bin/asm3-daily-tasks"; echo "# ASM3 Weight Monitor - Runs every minute"; echo "* * * * * /usr/local/bin/asm3-weight-monitor"; echo "# ASM3 Database Maintenance - Runs at 3:00 AM every day"; echo "0 3 * * * /usr/local/bin/asm3-db-maintenance"; echo "# ASM3 System Monitoring - Runs every 5 minutes"; echo "*/5 * * * * /usr/local/bin/asm3-monitor-system"; echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs") | crontab -
+	@(crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs)"; \
+	  echo "# ASM3 Daily Tasks - Runs at 2:00 AM every day"; echo "0 2 * * * /usr/local/bin/asm3-daily-tasks"; \
+	  echo "# ASM3 Weight Monitor - Runs every minute"; echo "* * * * * /usr/local/bin/asm3-weight-monitor"; \
+	  echo "# ASM3 Database Maintenance - Runs at 3:00 AM every day"; echo "0 3 * * * /usr/local/bin/asm3-db-maintenance"; \
+	  echo "# ASM3 System Monitoring - Runs every 5 minutes"; echo "*/5 * * * * /usr/local/bin/asm3-monitor-system"; \
+	  echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs") | crontab -
 	@echo "Cron jobs installed successfully!"
 	@echo "Use 'make status-cron' to check status"
 
 # Remove cron jobs from VM host
 uninstall-cron:
 	@echo "Removing ASM3 cron jobs from VM host..."
-	@crontab -l 2>/dev/null | grep -v "asm3-daily-tasks\|asm3-weight-monitor\|asm3-db-maintenance\|asm3-monitor-system\|asm3-cleanup-logs" | crontab - || true
+	@crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs)" | crontab - || true
 	@sudo rm -f /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
 	@echo "Cron jobs removed successfully!"
 

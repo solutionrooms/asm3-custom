@@ -59,7 +59,7 @@
 - Animal edit UI shows a “(synced)” or “(Not Synced)” indicator next to the primary microchip number based on whether an `animalpublished` entry exists for Animal Tracker; removed the microchip brand message and check-a-chip search button from the microchip field.
 - Set `ANIMALTRACKER_DRY_RUN=1` to preview actions without registering or marking chips.
 - Set `ANIMALTRACKER_ANIMALNAME=Name` to sync a single named animal on demand.
-- Default selection now targets any unsynced animal with `IdentichipNumber`, `IdentichipDate`, and `DateOfBirth` present (lookback disabled by default).
+- Default selection now targets any unsynced animal with `IdentichipNumber`, `IdentichipDate`, and `DateOfBirth` present (including archived/off-shelter; excludes deceased).
 - Convenience Make target: `make animaltracker [NAME=...] [DRY=1] [DEBUG=1] [LOOKBACK=0] [THROTTLE=1.0] [TIMEOUT=60] [RETRIES=2] [RETRY_SLEEP=2.0] [MAX=250] [DBNAME=asm3] [ALIAS=...]`.
 - For multi-database installs, set `ANIMALTRACKER_TARGET_DBNAME` or `ANIMALTRACKER_TARGET_DBALIAS` so the nightly job only runs against one database.
 

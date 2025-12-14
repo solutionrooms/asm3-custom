@@ -561,7 +561,6 @@ def _animals_to_process(dbo: Database, *, days: int, animalname: str | None = No
            AND a.IdentichipDate IS NOT NULL
            AND a.DateOfBirth IS NOT NULL
            AND a.DeceasedDate IS NULL
-           AND (a.Archived = 0 OR a.Archived IS NULL)
     """
     params: List[Any] = []
     if animalname:
