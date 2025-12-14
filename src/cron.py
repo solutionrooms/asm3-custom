@@ -4,6 +4,9 @@ import os, sys
 
 # Add our modules to the sys.path
 sys.path.append(os.getcwd())
+CUSTOM_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "customizations", "src"))
+if os.path.isdir(CUSTOM_SRC) and CUSTOM_SRC not in sys.path:
+    sys.path.insert(0, CUSTOM_SRC)
 
 from asm3 import automail
 from asm3 import animalcontrol
@@ -34,6 +37,7 @@ from asm3.sitedefs import HTMLFTP_PUBLISHER_ENABLED
 from asm3.typehints import Callable, Database
 
 import time
+import importlib
 
 def ttask(fn: Callable, dbo: Database) -> None:
     """ Runs a function and times how long it takes """
@@ -132,9 +136,28 @@ def daily(dbo: Database):
         # Send automated person emails
         ttask(automail.send_all, dbo)
 
+        # Animal Tracker microchip registration
+        ttask(run_animaltracker_sync, dbo)
+
     except:
         em = str(sys.exc_info()[0])
         al.error("FAIL: running batch tasks: %s" % em, "cron.daily", dbo, sys.exc_info())
+
+def run_animaltracker_sync(dbo: Database) -> None:
+    """
+    If the custom Animal Tracker sync module is present, run it.
+    """
+    try:
+        animaltracker_sync = importlib.import_module("animaltracker_sync")
+    except ImportError:
+        al.debug("Animal Tracker sync module not found; skipping.", "cron.animaltracker", dbo)
+        return
+
+    try:
+        animaltracker_sync.run(dbo)
+    except:
+        em = str(sys.exc_info()[0])
+        al.error("FAIL: running Animal Tracker sync: %s" % em, "cron.animaltracker", dbo, sys.exc_info())
 
 def reports_email(dbo: Database):
     """
@@ -691,4 +714,3 @@ if __name__ == "__main__":
         # We didn't get a valid combination of args
         print_usage()
         sys.exit(1)
-

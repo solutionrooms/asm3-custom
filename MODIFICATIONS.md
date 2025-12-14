@@ -8,6 +8,7 @@
 | 2025-08-24 → 2025-08-25 | Application | Hedgehog patient induction workflow with dedicated permissions and UI | [Hedgehog Patient Induction Workflow](#hedgehog-patient-induction-workflow) |
 | 2025-08-24 | Platform | Docker-first runtime (app, PostgreSQL, Redis, nginx) plus Makefile orchestration | [Containerised Runtime & Tooling](#containerised-runtime--tooling) |
 | 2025-08-25 | Data Integrity | Unique animal-name constraint and aligned form field mappings | [Animal Data Integrity](#animal-data-integrity) |
+| 2025-10-20 | Application | Animal Tracker daily microchip sync | [Animal Tracker Sync](#animal-tracker-sync) |
 | 2025-08-30 | Storage | S3-backed media storage and S3 mirroring for DB backups | [External Storage & Backups](#external-storage--backups) |
 | 2025-09-01 | Operations | Cron hardening, single-table backup helpers, dev hot-reload mounts, weight monitor photo linking | [Operational Automation](#operational-automation) |
 | 2025-09-07 | Application | Observations history poo sample column and Analysis tab with weight graph | [Observations & Analysis Enhancements](#observations--analysis-enhancements) |
@@ -47,6 +48,20 @@
 - `src/asm3/geo.py` retries failed geocodes using postcode-only lookups, marking the stored hash with `POSTCODEONLY|` so the system knows the coordinates are approximate. The disk cache entry now reflects the fallback result and avoids hammering the provider.
  - `src/asm3/geo.py` retries failed geocodes using postcode-only lookups, marking the stored hash with `POSTCODEONLY|` so the system knows the coordinates are approximate. Unresolved `0,0` results are no longer cached, forcing fresh attempts whenever the record is viewed.
 - The person record lat/long widget highlights approximations with a visual warning (`src/static/js/common_widgets.js`, `src/static/css/asm.css`), so staff know when precision is limited.
+
+### Animal Tracker Sync
+**When**: 2025-10-20 (branch `develop`)
+
+- Daily cron now loads `customizations/src/animaltracker_sync.py` to register microchips on Animal Tracker for animals changed within the last N days (default 2).
+- The sync uses the Animal Tracker registration flow (from `custom_scripts/bulk_upload_animaltracker.py`) and marks successes in `animalpublished` under `PublishedTo='animaltracker'`.
+- Credentials and tuning flags (`ANIMALTRACKER_EMAIL`, `ANIMALTRACKER_PASSWORD`, optional lookback/throttle/debug/timeout) were added to `docker-compose.yml` for containerised runs.
+- Interactive runs are available via `make run animaltracker` (set `ANIMALTRACKER_DEBUG=1` for verbose logging).
+- Animal edit UI shows a “(synced)” or “(Not Synced)” indicator next to the primary microchip number based on whether an `animalpublished` entry exists for Animal Tracker; removed the microchip brand message and check-a-chip search button from the microchip field.
+- Set `ANIMALTRACKER_DRY_RUN=1` to preview actions without registering or marking chips.
+- Set `ANIMALTRACKER_ANIMALNAME=Name` to sync a single named animal on demand.
+- Default selection now targets any unsynced animal with `IdentichipNumber`, `IdentichipDate`, and `DateOfBirth` present (lookback disabled by default).
+- Convenience Make target: `make animaltracker [NAME=...] [DRY=1] [DEBUG=1] [LOOKBACK=0] [THROTTLE=1.0] [TIMEOUT=60] [RETRIES=2] [RETRY_SLEEP=2.0] [MAX=250] [DBNAME=asm3] [ALIAS=...]`.
+- For multi-database installs, set `ANIMALTRACKER_TARGET_DBNAME` or `ANIMALTRACKER_TARGET_DBALIAS` so the nightly job only runs against one database.
 
 ### Forms Menu & Filters
 **When**: 2025-10-27 (branch `develop`)
