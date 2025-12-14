@@ -4,7 +4,7 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run db-init db-copy db-reset-password check_weights fix_weights js-clean
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker db-init db-copy db-reset-password check_weights fix_weights js-clean
 
 ifeq ($(firstword $(MAKECMDGOALS)),db-init)
   DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
@@ -80,8 +80,9 @@ help:
 	@echo "  fix_weights   - Normalize weights into 50–2000g (TARGET=animals|observations, default animals)"
 	@echo "  shell         - Open shell in ASM3 container"
 	@echo "  db-shell      - Open database shell"
+	@echo "  animaltracker - Run Animal Tracker sync (NAME=..., DRY=1, DEBUG=1, LOOKBACK=0, DBNAME=asm3, TIMEOUT=60, ALIAS=...)"
 	@echo "  run <task>    - Run utility tasks inside containers (see below)"
-	@echo "                 Tasks: weightmonitor, daily, db-maintenance, backup"
+	@echo "                 Tasks: weightmonitor, daily, animaltracker, db-maintenance, backup"
 	@echo "  testdata      - Generate test data (usage: make testdata TYPE COUNT)"
 	@echo "                  Types: animals, people"
 	@echo "  version       - Show current ASM3 version"
@@ -644,14 +645,19 @@ install-cron:
 	@echo "Creating log directory..."
 	@mkdir -p $(LOCAL_LOG_DIR_ABS)
 	@echo "Installing cron jobs..."
-	@(crontab -l 2>/dev/null; echo "# ASM3 Daily Tasks - Runs at 2:00 AM every day"; echo "0 2 * * * /usr/local/bin/asm3-daily-tasks"; echo "# ASM3 Weight Monitor - Runs every minute"; echo "* * * * * /usr/local/bin/asm3-weight-monitor"; echo "# ASM3 Database Maintenance - Runs at 3:00 AM every day"; echo "0 3 * * * /usr/local/bin/asm3-db-maintenance"; echo "# ASM3 System Monitoring - Runs every 5 minutes"; echo "*/5 * * * * /usr/local/bin/asm3-monitor-system"; echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs") | crontab -
+	@(crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs)"; \
+	  echo "# ASM3 Daily Tasks - Runs at 2:00 AM every day"; echo "0 2 * * * /usr/local/bin/asm3-daily-tasks"; \
+	  echo "# ASM3 Weight Monitor - Runs every minute"; echo "* * * * * /usr/local/bin/asm3-weight-monitor"; \
+	  echo "# ASM3 Database Maintenance - Runs at 3:00 AM every day"; echo "0 3 * * * /usr/local/bin/asm3-db-maintenance"; \
+	  echo "# ASM3 System Monitoring - Runs every 5 minutes"; echo "*/5 * * * * /usr/local/bin/asm3-monitor-system"; \
+	  echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs") | crontab -
 	@echo "Cron jobs installed successfully!"
 	@echo "Use 'make status-cron' to check status"
 
 # Remove cron jobs from VM host
 uninstall-cron:
 	@echo "Removing ASM3 cron jobs from VM host..."
-	@crontab -l 2>/dev/null | grep -v "asm3-daily-tasks\|asm3-weight-monitor\|asm3-db-maintenance\|asm3-monitor-system\|asm3-cleanup-logs" | crontab - || true
+	@crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs)" | crontab - || true
 	@sudo rm -f /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
 	@echo "Cron jobs removed successfully!"
 
@@ -709,8 +715,11 @@ run:
 		echo "Tasks:"; \
 		echo "  weightmonitor   - Run weight monitor now"; \
 		echo "  daily           - Run all daily tasks now"; \
+		echo "  animaltracker   - Run Animal Tracker microchip sync now"; \
 		echo "  db-maintenance  - Run VACUUM (VERBOSE, ANALYZE)"; \
 		echo "  backup          - Create database backup"; \
+		echo ""; \
+		echo "Tip: Prefer 'make animaltracker' for options."; \
 		exit 1; \
 	fi; \
 	TASK=$(word 2,$(MAKECMDGOALS)); \
@@ -720,6 +729,8 @@ run:
 	elif [ "$$TASK" = "daily" ]; then \
 		echo "Running daily tasks..."; \
 		docker-compose exec asm3 python3 /app/src/cron.py all; \
+	elif [ "$$TASK" = "animaltracker" ]; then \
+		$(MAKE) animaltracker; \
 	elif [ "$$TASK" = "db-maintenance" ]; then \
 		echo "Running database VACUUM (VERBOSE, ANALYZE)..."; \
 		bash custom_scripts/run-db-maintenance-external.sh; \
@@ -727,9 +738,31 @@ run:
 		$(MAKE) backup; \
 	else \
 		echo "Error: Unknown task '$$TASK'"; \
-		echo "Supported: weightmonitor, daily, db-maintenance, backup"; \
+		echo "Supported: weightmonitor, daily, animaltracker, db-maintenance, backup"; \
 		exit 1; \
 	fi
+
+# Run Animal Tracker microchip sync with easy-to-remember options:
+# - NAME="Max" to run one animal by exact name (case/whitespace-insensitive)
+# - DRY=1 to preview (no login/registration/DB writes)
+# - DEBUG=1 for verbose HTTP debug logging
+# - LOOKBACK=2 (days), THROTTLE=1.0 (seconds), TIMEOUT=20 (seconds)
+animaltracker:
+	@echo "Running Animal Tracker microchip sync..."; \
+	echo "Options: NAME=\"...\" DRY=1 DEBUG=1 LOOKBACK=0 THROTTLE=1.0 TIMEOUT=60 RETRIES=2 RETRY_SLEEP=2.0 MAX=250 DBNAME=asm3 ALIAS=\"...\""; \
+	docker-compose exec \
+	  -e ANIMALTRACKER_ANIMALNAME="$(NAME)" \
+	  -e ANIMALTRACKER_DRY_RUN="$(DRY)" \
+	  -e ANIMALTRACKER_DEBUG="$(DEBUG)" \
+	  -e ANIMALTRACKER_LOOKBACK_DAYS="$(LOOKBACK)" \
+	  -e ANIMALTRACKER_THROTTLE_SECONDS="$(THROTTLE)" \
+	  -e ANIMALTRACKER_HTTP_TIMEOUT="$(or $(TIMEOUT),60)" \
+	  -e ANIMALTRACKER_HTTP_RETRIES="$(RETRIES)" \
+	  -e ANIMALTRACKER_HTTP_RETRY_SLEEP="$(RETRY_SLEEP)" \
+	  -e ANIMALTRACKER_MAX_PER_RUN="$(MAX)" \
+	  -e ASM3_DBALIAS="$(ALIAS)" \
+	  -e ASM3_TARGET_DBNAME="$(or $(DBNAME),asm3)" \
+	  asm3 python3 /app/customizations/src/animaltracker_cli.py
 
 # Generate test data
 testdata:

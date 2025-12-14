@@ -233,7 +233,8 @@ $(function() {
 
                         }), 
                         tableform.render_text({ post_field: "microchipnumber", json_field: "IDENTICHIPNUMBER", placeholder: _("Number"), justwidget: true, maxlength: 15 }),
-                        '<span id="microchipbrand"></span> <button id="button-microchipcheck">' + microchip.check_site_name() + '</button>'
+                        '<span id="microchipsynced" style="display:none; margin-left: 6px;">(' + _("synced") + ')</span>',
+                        '<span id="microchipnotsynced" style="display:none; margin-left: 6px;">(' + _("Not Synced") + ')</span>',
                         ].join("\n") },
                     { rowid: "microchiprow2", type: "raw", label: "", 
                         markup: [
@@ -245,7 +246,6 @@ $(function() {
 
                         }), 
                         tableform.render_text({ post_field: "microchipnumber2", json_field: "IDENTICHIP2NUMBER", placeholder: _("Number"), justwidget: true, maxlength: 15 }),
-                        '<span id="microchipbrand2"></span> <button id="button-microchipcheck2">' + microchip.check_site_name() + '</button>'
                     ].join("\n") },
                     { rowid: "tattoorow", type: "raw", 
                         label: tableform.render_check({ post_field: "tattoo", json_field: "TATTOO", label: _("Tattoo"), justwidget: true }), 
@@ -501,6 +501,7 @@ $(function() {
                 else if (p == "findpetr") { t = html.icon("animal-found") + " Reported as a found pet with FindPet.com"; }
                 else if (p == "homeagain") { t = html.icon("microchip") + " Microchip registered with HomeAgain"; }
                 else if (p == "foundanimals") { t = html.icon("microchip") + " Microchip registered with Found/24Pet"; }
+                else if (p == "animaltracker") { t = html.icon("microchip") + " Microchip registered with Animal Tracker"; }
 
                 else if (p == "shareweb") { t = html.icon("web") + " " + _("Shared weblink"); }
                 else if (p == "shareemail") { t = html.icon("email") + " " + _("Shared email"); }
@@ -742,7 +743,9 @@ $(function() {
             if ($("#species").select("value") == 2) { $(".cats").show(); }
 
             // Enable/disable health and identification fields based on checkboxes
-            $("#microchipdate, #microchipstatus, #microchipnumber, #microchiprow2, #microchipbrand, #button-microchipcheck").toggle($("#microchipped").is(":checked"));
+            $("#microchipdate, #microchipstatus, #microchipnumber, #microchiprow2").toggle($("#microchipped").is(":checked"));
+            $("#microchipsynced").toggle($("#microchipped").is(":checked"));
+            $("#microchipnotsynced").toggle($("#microchipped").is(":checked"));
             $("#tattoodate, #tattoonumber").toggle($("#tattoo").is(":checked"));
             $("#smarttagnumber, #smarttagtype").toggle($("#smarttag").is(":checked"));
             $("#neutereddate").parent().toggle($("#neutered").is(":checked"));
@@ -999,12 +1002,27 @@ $(function() {
         },
 
         show_microchip_supplier: function() {
-            microchip.manufacturer("#microchipnumber", "#microchipbrand");
-            microchip.manufacturer("#microchipnumber2", "#microchipbrand2");
-            // Show the microchip check buttons
-            $("#button-microchipcheck, #button-microchipcheck2").hide();
-            if (microchip.is_check_available($("#microchipnumber").val())) { $("#button-microchipcheck").show(); }
-            if (microchip.is_check_available($("#microchipnumber2").val())) { $("#button-microchipcheck2").show(); }
+            animal.show_microchip_synced_indicator();
+        },
+
+        show_microchip_synced_indicator: function() {
+            let synced = false;
+            $.each(controller.publishhistory || [], function(i, v) {
+                if ((v.PUBLISHEDTO || "").toLowerCase() == "animaltracker") {
+                    synced = true;
+                    return false;
+                }
+            });
+            const currentchip = common.trim($("#microchipnumber").val());
+            const savedchip = common.trim(controller.animal.IDENTICHIPNUMBER);
+            const is_current_saved = currentchip != "" && savedchip != "" && currentchip == savedchip;
+            const is_microchipped = $("#microchipped").is(":checked");
+
+            const show_synced = is_microchipped && synced && is_current_saved;
+            const show_not_synced = is_microchipped && currentchip != "" && !show_synced;
+
+            $("#microchipsynced").toggle(show_synced);
+            $("#microchipnotsynced").toggle(show_not_synced);
         },
 
         show_popup_warning: async function() {
@@ -1418,14 +1436,6 @@ $(function() {
                 .button({ icons: { primary: "ui-icon-refresh" }, text: false })
                 .click(animal.generate_code);
 
-            $("#button-microchipcheck")
-                .button({ icons: { primary: "ui-icon-search" }, text: false })
-                .click(function() { microchip.check($("#microchipnumber").val()); });
-
-            $("#button-microchipcheck2")
-                .button({ icons: { primary: "ui-icon-search" }, text: false })
-                .click(function() { microchip.check($("#microchipnumber2").val()); });
-
             $("#button-randomname")
                 .button({ icons: { primary: "ui-icon-tag" }, text: false })
                 .click(async function() {
@@ -1494,6 +1504,7 @@ $(function() {
             // Update on-screen fields from the data and display the screen
             animal.enable_widgets();
             animal.show_microchip_supplier();
+            animal.show_microchip_synced_indicator();
 
             // Share button/links
             animal.set_sharinglinks();
