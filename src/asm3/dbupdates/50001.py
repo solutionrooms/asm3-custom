@@ -37,8 +37,18 @@ except:
 
 # Add unique constraint to animal names
 # This will prevent duplicate animal names from being created
-# If the index already exists (eg, created manually), don't fail the daily cron run.
-add_index(dbo, "animal_AnimalName_unique", "animal", "AnimalName", unique=True, ignore_errors=True)
+# If the index already exists (eg, created manually), skip creation (and avoid noisy SQL errors).
+idx_exists = False
+try:
+    if dbo.dbtype == "POSTGRESQL":
+        idx_exists = dbo.query_int(
+            "SELECT COUNT(1) FROM pg_indexes WHERE schemaname='public' AND indexname='animal_animalname_unique'"
+        ) > 0
+except:
+    idx_exists = False
+
+if not idx_exists:
+    add_index(dbo, "animal_AnimalName_unique", "animal", "AnimalName", unique=True, ignore_errors=True)
 
 # Log successful migration
 asm3.al.info("Migration 50001 completed: Unique constraint added to animal names", 
