@@ -153,7 +153,7 @@ def run_animaltracker_sync(dbo: Database) -> None:
     try:
         animaltracker_sync = importlib.import_module("animaltracker_sync")
     except ImportError:
-        al.debug("Animal Tracker sync module not found; skipping.", "cron.animaltracker", dbo)
+        al.info("Animal Tracker sync module not found; skipping.", "cron.animaltracker", dbo)
         return
 
     try:
@@ -169,7 +169,7 @@ def run_animaltracker_records_sync(dbo: Database) -> None:
     try:
         animaltracker_records_sync = importlib.import_module("animaltracker_records_sync")
     except ImportError:
-        al.debug("Animal Tracker records sync module not found; skipping.", "cron.animaltracker_records", dbo)
+        al.info("Animal Tracker records sync module not found; skipping.", "cron.animaltracker_records", dbo)
         return
 
     try:

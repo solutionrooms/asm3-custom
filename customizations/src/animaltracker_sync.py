@@ -623,10 +623,10 @@ def sync_recent_animals(dbo: Database, *, days: int | None = None) -> None:
     target_dbalias = (os.getenv("ANIMALTRACKER_TARGET_DBALIAS") or "").strip()
 
     if target_dbname and dbo.name() != target_dbname:
-        _log_debug(dbo, f"Skipping Animal Tracker sync for db={dbo.name()} (target dbname={target_dbname}).")
+        _log_info(dbo, f"Skipping Animal Tracker sync for db={dbo.name()} (target dbname={target_dbname}).")
         return
     if target_dbalias and getattr(dbo, "alias", "") != target_dbalias:
-        _log_debug(dbo, f"Skipping Animal Tracker sync for alias={getattr(dbo, 'alias', '')} (target alias={target_dbalias}).")
+        _log_info(dbo, f"Skipping Animal Tracker sync for alias={getattr(dbo, 'alias', '')} (target alias={target_dbalias}).")
         return
 
     email = password = None

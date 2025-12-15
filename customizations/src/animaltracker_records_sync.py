@@ -298,6 +298,18 @@ def run(dbo: Database) -> None:
     debug = _is_truthy_env(os.getenv("ANIMALTRACKER_DEBUG"))
     dry_run = _is_truthy_env(os.getenv("ANIMALTRACKER_DRY_RUN"))
 
+    target_dbname = (os.getenv("ANIMALTRACKER_TARGET_DBNAME") or "").strip()
+    target_dbalias = (os.getenv("ANIMALTRACKER_TARGET_DBALIAS") or "").strip()
+    if target_dbname and dbo.name() != target_dbname:
+        _log_info(dbo, f"Skipping Animal Tracker records sync for db={dbo.name()} (target dbname={target_dbname}).")
+        return
+    if target_dbalias and getattr(dbo, "alias", "") != target_dbalias:
+        _log_info(
+            dbo,
+            f"Skipping Animal Tracker records sync for alias={getattr(dbo, 'alias', '')} (target alias={target_dbalias}).",
+        )
+        return
+
     table_name = (os.getenv("ANIMALTRACKER_MICRO_TABLE") or "micro").strip()
     allow_empty = _is_truthy_env(os.getenv("ANIMALTRACKER_RECORDS_ALLOW_EMPTY"))
 
