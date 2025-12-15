@@ -139,6 +139,9 @@ def daily(dbo: Database):
         # Animal Tracker microchip registration
         ttask(run_animaltracker_sync, dbo)
 
+        # Animal Tracker "View Records" refresh into micro table
+        ttask(run_animaltracker_records_sync, dbo)
+
     except:
         em = str(sys.exc_info()[0])
         al.error("FAIL: running batch tasks: %s" % em, "cron.daily", dbo, sys.exc_info())
@@ -158,6 +161,27 @@ def run_animaltracker_sync(dbo: Database) -> None:
     except:
         em = str(sys.exc_info()[0])
         al.error("FAIL: running Animal Tracker sync: %s" % em, "cron.animaltracker", dbo, sys.exc_info())
+
+def run_animaltracker_records_sync(dbo: Database) -> None:
+    """
+    If the custom Animal Tracker records sync module is present, run it.
+    """
+    try:
+        animaltracker_records_sync = importlib.import_module("animaltracker_records_sync")
+    except ImportError:
+        al.debug("Animal Tracker records sync module not found; skipping.", "cron.animaltracker_records", dbo)
+        return
+
+    try:
+        animaltracker_records_sync.run(dbo)
+    except:
+        em = str(sys.exc_info()[0])
+        al.error(
+            "FAIL: running Animal Tracker records sync: %s" % em,
+            "cron.animaltracker_records",
+            dbo,
+            sys.exc_info(),
+        )
 
 def reports_email(dbo: Database):
     """

@@ -53,9 +53,11 @@
 **When**: 2025-10-20 (branch `develop`)
 
 - Daily cron now loads `customizations/src/animaltracker_sync.py` to register microchips on Animal Tracker for animals changed within the last N days (default 2).
+- Daily cron also loads `customizations/src/animaltracker_records_sync.py` to refresh Animal Tracker “View Records” into the local `micro` table (including `microchipid` when the column exists).
 - The sync uses the Animal Tracker registration flow (from `custom_scripts/bulk_upload_animaltracker.py`) and marks successes in `animalpublished` under `PublishedTo='animaltracker'`.
 - Credentials and tuning flags (`ANIMALTRACKER_EMAIL`, `ANIMALTRACKER_PASSWORD`, optional lookback/throttle/debug/timeout) were added to `docker-compose.yml` for containerised runs.
 - Interactive runs are available via `make run animaltracker` (set `ANIMALTRACKER_DEBUG=1` for verbose logging).
+- Records refresh can be run on demand via `make animaltracker-records` (supports `MICRO_TABLE=...`, `DRY=1`, `DEBUG=1`, `ALLOW_EMPTY=1`).
 - Animal edit UI shows a “(synced)” or “(Not Synced)” indicator next to the primary microchip number based on whether an `animalpublished` entry exists for Animal Tracker; removed the microchip brand message and check-a-chip search button from the microchip field.
 - Set `ANIMALTRACKER_DRY_RUN=1` to preview actions without registering or marking chips.
 - Set `ANIMALTRACKER_ANIMALNAME=Name` to sync a single named animal on demand.
@@ -74,6 +76,7 @@
 **When**: 2025-08-25 (branch `develop`)
 
 - Database migration `src/asm3/dbupdates/50001.py` enforces unique animal names (`animal_AnimalName_unique`); pre-migration script tidies duplicates (e.g., "Fidget" → "Fidget (2)").
+- Migration `src/asm3/dbupdates/50001.py` now tolerates an existing `animal_AnimalName_unique` index (idempotent) so nightly cron doesn’t fail repeatedly if the index was created manually.
 - Application validators in `src/asm3/animal.py` raise user-friendly errors before the DB constraint fires.
 - Patient induction form corrections ensure location, coordinator, coat type, and additional rescue fields persist.
 

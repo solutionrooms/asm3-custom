@@ -4,7 +4,7 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker db-init db-copy db-reset-password check_weights fix_weights js-clean
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker animaltracker-records db-init db-copy db-reset-password check_weights fix_weights js-clean
 
 ifeq ($(firstword $(MAKECMDGOALS)),db-init)
   DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
@@ -81,6 +81,7 @@ help:
 	@echo "  shell         - Open shell in ASM3 container"
 	@echo "  db-shell      - Open database shell"
 	@echo "  animaltracker - Run Animal Tracker sync (NAME=..., DRY=1, DEBUG=1, LOOKBACK=0, DBNAME=asm3, TIMEOUT=60, ALIAS=...)"
+	@echo "  animaltracker-records - Sync Animal Tracker records into micro table (MICRO_TABLE=micro, DRY=1, DEBUG=1, DBNAME=asm3, ALIAS=...)"
 	@echo "  run <task>    - Run utility tasks inside containers (see below)"
 	@echo "                 Tasks: weightmonitor, daily, animaltracker, db-maintenance, backup"
 	@echo "  testdata      - Generate test data (usage: make testdata TYPE COUNT)"
@@ -763,6 +764,25 @@ animaltracker:
 	  -e ASM3_DBALIAS="$(ALIAS)" \
 	  -e ASM3_TARGET_DBNAME="$(or $(DBNAME),asm3)" \
 	  asm3 python3 /app/customizations/src/animaltracker_cli.py
+
+# Sync Animal Tracker "View Records" list into a local table:
+# - MICRO_TABLE=micro (destination table name)
+# - DRY=1 to fetch/parse only (no DB writes)
+# - DEBUG=1 for verbose HTTP debug logging
+# - ALLOW_EMPTY=1 to allow truncating to empty set
+# - SORTBY="microchipno ASC"
+animaltracker-records:
+	@echo "Running Animal Tracker records sync..."; \
+	echo "Options: MICRO_TABLE=micro DRY=1 DEBUG=1 ALLOW_EMPTY=0 SORTBY=\"microchipno ASC\" DBNAME=asm3 ALIAS=\"...\""; \
+	docker-compose exec \
+	  -e ANIMALTRACKER_MICRO_TABLE="$(or $(MICRO_TABLE),micro)" \
+	  -e ANIMALTRACKER_RECORDS_ALLOW_EMPTY="$(ALLOW_EMPTY)" \
+	  -e ANIMALTRACKER_RECORDS_SORTBY="$(or $(SORTBY),microchipno ASC)" \
+	  -e ANIMALTRACKER_DRY_RUN="$(DRY)" \
+	  -e ANIMALTRACKER_DEBUG="$(DEBUG)" \
+	  -e ASM3_DBALIAS="$(ALIAS)" \
+	  -e ASM3_TARGET_DBNAME="$(or $(DBNAME),asm3)" \
+	  asm3 python3 /app/customizations/src/animaltracker_records_cli.py
 
 # Generate test data
 testdata:
