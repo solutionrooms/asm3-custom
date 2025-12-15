@@ -54,10 +54,12 @@
 
 - Daily cron now loads `customizations/src/animaltracker_sync.py` to register microchips on Animal Tracker for animals changed within the last N days (default 2).
 - Daily cron also loads `customizations/src/animaltracker_records_sync.py` to refresh Animal Tracker “View Records” into the local `micro` table (including `microchipid` when the column exists).
+- Daily cron also loads `customizations/src/animaltracker_record_update_sync.py` to update Animal Tracker record details (name/DOB) when they differ from ASM3, matching by microchip number and posting via microchipID.
 - The sync uses the Animal Tracker registration flow (from `custom_scripts/bulk_upload_animaltracker.py`) and marks successes in `animalpublished` under `PublishedTo='animaltracker'`.
 - Credentials and tuning flags (`ANIMALTRACKER_EMAIL`, `ANIMALTRACKER_PASSWORD`, optional lookback/throttle/debug/timeout) were added to `docker-compose.yml` for containerised runs.
 - Interactive runs are available via `make run animaltracker` (set `ANIMALTRACKER_DEBUG=1` for verbose logging).
 - Records refresh can be run on demand via `make animaltracker-records` (supports `MICRO_TABLE=...`, `DRY=1`, `DEBUG=1`, `ALLOW_EMPTY=1`).
+- Record updates can be run on demand via `make animaltracker-update` (supports `MICRO_TABLE=...`, `DRY=1`, `DEBUG=1`, `MAX=...`, `THROTTLE=...`, `ONLY_CHIP=...`), and `make animaltracker-all` runs steps 1-3.
 - Animal edit UI shows a “(synced)” or “(Not Synced)” indicator next to the primary microchip number based on whether an `animalpublished` entry exists for Animal Tracker; removed the microchip brand message and check-a-chip search button from the microchip field.
 - Set `ANIMALTRACKER_DRY_RUN=1` to preview actions without registering or marking chips.
 - Set `ANIMALTRACKER_ANIMALNAME=Name` to sync a single named animal on demand.

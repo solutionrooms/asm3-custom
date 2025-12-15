@@ -4,7 +4,7 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker animaltracker-records db-init db-copy db-reset-password check_weights fix_weights js-clean
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker animaltracker-records animaltracker-update animaltracker-all db-init db-copy db-reset-password check_weights fix_weights js-clean
 
 ifeq ($(firstword $(MAKECMDGOALS)),db-init)
   DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
@@ -82,6 +82,8 @@ help:
 	@echo "  db-shell      - Open database shell"
 	@echo "  animaltracker - Run Animal Tracker sync (NAME=..., DRY=1, DEBUG=1, LOOKBACK=0, DBNAME=asm3, TIMEOUT=60, ALIAS=...)"
 	@echo "  animaltracker-records - Sync Animal Tracker records into micro table (MICRO_TABLE=micro, DRY=1, DEBUG=1, DBNAME=asm3, ALIAS=...)"
+	@echo "  animaltracker-update - Update Animal Tracker records from ASM3 (matches by chip no; updates name/DOB when different)"
+	@echo "  animaltracker-all - Run Animal Tracker steps 1-3 (sync, refresh micro, update records)"
 	@echo "  run <task>    - Run utility tasks inside containers (see below)"
 	@echo "                 Tasks: weightmonitor, daily, animaltracker, db-maintenance, backup"
 	@echo "  testdata      - Generate test data (usage: make testdata TYPE COUNT)"
@@ -783,6 +785,28 @@ animaltracker-records:
 	  -e ASM3_DBALIAS="$(ALIAS)" \
 	  -e ASM3_TARGET_DBNAME="$(or $(DBNAME),asm3)" \
 	  asm3 python3 /app/customizations/src/animaltracker_records_cli.py
+
+# Update Animal Tracker record details from ASM3 by matching chip number to micro table,
+# then POSTing updates via microchipID when name/DOB differ.
+animaltracker-update:
+	@echo "Running Animal Tracker record update (name/DOB) from ASM3..."; \
+	echo "Options: MICRO_TABLE=micro DRY=1 DEBUG=1 MAX=250 THROTTLE=1.0 ONLY_CHIP=... DBNAME=asm3 ALIAS=\"...\""; \
+	docker-compose exec \
+	  -e ANIMALTRACKER_MICRO_TABLE="$(or $(MICRO_TABLE),micro)" \
+	  -e ANIMALTRACKER_UPDATE_MAX_PER_RUN="$(or $(MAX),250)" \
+	  -e ANIMALTRACKER_UPDATE_THROTTLE_SECONDS="$(or $(THROTTLE),1.0)" \
+	  -e ANIMALTRACKER_UPDATE_ONLY_CHIP="$(ONLY_CHIP)" \
+	  -e ANIMALTRACKER_DRY_RUN="$(DRY)" \
+	  -e ANIMALTRACKER_DEBUG="$(DEBUG)" \
+	  -e ASM3_DBALIAS="$(ALIAS)" \
+	  -e ASM3_TARGET_DBNAME="$(or $(DBNAME),asm3)" \
+	  asm3 python3 /app/customizations/src/animaltracker_record_update_cli.py
+
+# Convenience wrapper: run steps 1-3 in order.
+animaltracker-all:
+	@$(MAKE) animaltracker
+	@$(MAKE) animaltracker-records
+	@$(MAKE) animaltracker-update
 
 # Generate test data
 testdata:

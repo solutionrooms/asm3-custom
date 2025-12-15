@@ -142,6 +142,9 @@ def daily(dbo: Database):
         # Animal Tracker "View Records" refresh into micro table
         ttask(run_animaltracker_records_sync, dbo)
 
+        # Animal Tracker record updates (name/DOB) from ASM3 -> Animal Tracker
+        ttask(run_animaltracker_record_update, dbo)
+
     except:
         em = str(sys.exc_info()[0])
         al.error("FAIL: running batch tasks: %s" % em, "cron.daily", dbo, sys.exc_info())
@@ -179,6 +182,27 @@ def run_animaltracker_records_sync(dbo: Database) -> None:
         al.error(
             "FAIL: running Animal Tracker records sync: %s" % em,
             "cron.animaltracker_records",
+            dbo,
+            sys.exc_info(),
+        )
+
+def run_animaltracker_record_update(dbo: Database) -> None:
+    """
+    If the custom Animal Tracker record update module is present, run it.
+    """
+    try:
+        animaltracker_record_update_sync = importlib.import_module("animaltracker_record_update_sync")
+    except ImportError:
+        al.info("Animal Tracker record update module not found; skipping.", "cron.animaltracker_update", dbo)
+        return
+
+    try:
+        animaltracker_record_update_sync.run(dbo)
+    except:
+        em = str(sys.exc_info()[0])
+        al.error(
+            "FAIL: running Animal Tracker record update: %s" % em,
+            "cron.animaltracker_update",
             dbo,
             sys.exc_info(),
         )
