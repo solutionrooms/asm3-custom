@@ -75,6 +75,7 @@ ADD_DIET                        = "daad"
 CHANGE_DIET                     = "dcad"
 DELETE_DIET                     = "ddad"
 VIEW_DIET                       = "dvad"
+VIEW_FEEDING                    = "vfd"
 
 ADD_COST                        = "caad"
 CHANGE_COST                     = "ccad"

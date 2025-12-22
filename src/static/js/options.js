@@ -523,6 +523,13 @@ $(function() {
                     { id: "tab-daily-observations", title: _("Daily Observations"), info: _("These are the values that can be recorded for animals on the daily observations screen"), fields: [
                         { id: "behavelogtype", post_field: "BehaveLogType", label: _("Log Type"), type: "select", options: html.list_to_options(controller.logtypes, "ID", "LOGTYPENAME")},
                         { id: "suppressblankobservations", post_field: "SuppressBlankObservations", label: _("Suppress blank observations"), type: "check" }, 
+                        { type: "raw", fullrow: true, markup: html.info(_("Daily feeding defaults (used only when no current diet is set).")) },
+                        { id: "feedingthreshold", post_field: "FeedingDefaultWeightThreshold", label: _("Default feeding weight threshold"), type: "number",
+                            callout: _("Uses the same units as the stored animal/observation weights.") },
+                        { id: "feedingdietunder", post_field: "FeedingDefaultDietUnderID", label: _("Diet for weights under threshold"), type: "select",
+                            options: '<option value="0"></option>' + html.list_to_options(controller.diettypes, "ID", "DIETNAME") },
+                        { id: "feedingdietover", post_field: "FeedingDefaultDietOverID", label: _("Diet for weights at or above threshold"), type: "select",
+                            options: '<option value="0"></option>' + html.list_to_options(controller.diettypes, "ID", "DIETNAME") },
                         { type: "raw", fullrow: true, markup: 
                             tableform.render_text({xattr: 'data="Behave1Name"', justwidget: true, placeholder: _("Name")}) + ' ' +
                             tableform.render_text({xattr: 'data="Behave1Values"', doublesize: true, justwidget: true, placeholder: _("Values")}) +

@@ -121,9 +121,8 @@ $(function() {
             let h = [
                 html.content_header(headerTitle),
                 tableform.buttons_render([
-                    { type: "raw", markup: '<button id="button-selectall">' + _("Select all") + '</button>' },
                     { type: "raw", markup: '<button id="button-history">' + _("Enter historical observations") + '</button>' },
-                    { id: "save", icon: "save", tooltip: _("Write observation logs for all selected rows") },
+                    { id: "save", icon: "save", text: _("Save"), tooltip: _("Write observation logs for all rows with data") },
                     { id: "location", type: "dropdownfilter", options: html.list_to_options(controller.internallocations, "ID", "DISPLAY") }
                 ])
             ];
@@ -142,9 +141,7 @@ $(function() {
             $.each(controller.animals, function(i, a) {
                 if (a.ACTIVEMOVEMENTTYPE) { return; } // Only animals currently on shelter
                 h.push('<tr data-animalid="' + a.ID + '" data-locationid="' + a.SHELTERLOCATION + '" style="display: none">');
-                h.push('<td><input type="checkbox" class="asm-checkbox selector" /> ');
-                h.push(html.animal_link(a, { emblemsright: true, newtab: true }));
-                h.push('</td>');
+                h.push('<td>' + html.animal_link(a, { emblemsright: true, newtab: true }) + '</td>');
                 h.push('<td>' + common.nulltostr(a.SHELTERLOCATIONUNIT) + '</td>');
                 $.each(colwidgets, function(ix, widgetMarkup) {
                     h.push('<td class="centered">' + widgetMarkup + '</td>');
@@ -637,9 +634,8 @@ $(function() {
                 row.data("obsState", state);
                 row.attr("data-existing-logid", state.logid || 0);
                 row.removeClass("ui-state-highlight asm-row-error");
-                row.addClass("asm-has-existing asm-completerow");
-                row.find(".selector").prop("checked", false);
-                row.find(".widget").prop("disabled", true).removeClass("ui-state-error");
+                row.addClass("asm-has-existing");
+                row.find(".widget").removeClass("ui-state-error");
 
                 const entryPayload = {
                     "ID": state.logid,
@@ -659,6 +655,28 @@ $(function() {
             });
         },
 
+        row_has_changes: function(row) {
+            const ao = animal_observations;
+            const state = row.data("obsState") || { map: {} };
+            let changed = false;
+            let hasValue = false;
+            row.find(".widget").each(function() {
+                const widget = $(this);
+                const nm = widget.attr("data-name");
+                const val = $.trim(widget.val() || "");
+                if (val !== "") { hasValue = true; }
+                const existingKey = ao.find_map_key(state.map || {}, nm);
+                const existingVal = existingKey ? $.trim(state.map[existingKey] || "") : "";
+                if (val !== existingVal) {
+                    if (val !== "" || existingVal !== "") {
+                        changed = true;
+                    }
+                }
+            });
+            if (!hasValue) { return false; }
+            return changed || !state.logid;
+        },
+
         bind: function() {
 
             const ao = animal_observations;
@@ -669,47 +687,23 @@ $(function() {
             ao.ensure_dialog_shells();
             ao.prefill_existing();
 
-            $("#button-selectall").button({
-                icons: { primary: "ui-icon-check" },
-                text: false
-            }).click(function() {
-                $(".asm-daily-observations tbody tr:visible").each(function() {
-                    $(this).find(".selector").prop("checked", true);
-                    $(this).removeClass("asm-completerow").addClass("ui-state-highlight");
-                    $(this).find(".widget").prop("disabled", false);
-                });
-            });
-
             $("#button-history").button({
                 icons: { primary: "ui-icon-clock" }
             }).click(function() {
-                let target = "hedgehog_observation_history";
-                const selectedRow = $(".asm-daily-observations tbody tr").filter(function() {
-                    return $(this).find(".selector").is(":checked");
-                }).first();
-                if (selectedRow.length) {
-                    const aid = selectedRow.data("animalid");
-                    if (aid) {
-                        target += "?animalid=" + aid;
-                    }
-                }
-                common.route(target);
+                common.route("hedgehog_observation_history");
             });
 
             $("#button-save").button().click(async function() {
-                const selectedRows = $(".asm-daily-observations tbody tr").filter(function() {
-                    return $(this).find(".selector").is(":checked");
-                });
-                if (selectedRows.length === 0) {
-                    header.show_info(_("Select at least one animal to record observations."));
-                    return;
-                }
+                const candidateRows = $(".asm-daily-observations tbody tr:visible");
                 let logs = [];
                 let updateMap = {};
                 let results = [];
 
-                for (let i = 0; i < selectedRows.length; i++) {
-                    const row = $(selectedRows[i]);
+                for (let i = 0; i < candidateRows.length; i++) {
+                    const row = $(candidateRows[i]);
+                    if (!ao.row_has_changes(row)) {
+                        continue;
+                    }
                     const outcome = await ao.process_row(row);
                     if (!outcome) {
                         return; // User cancelled or validation failed
@@ -726,7 +720,7 @@ $(function() {
                 }
 
                 if (!logs.length) {
-                    header.show_error(_("Please enter at least one observation value."));
+                    header.show_info(_("No observations to save."));
                     return;
                 }
 
@@ -752,22 +746,6 @@ $(function() {
                 header.show_info(_("{0} observation logs successfully written.").replace("{0}", countText));
                 ao.after_save(results, payload);
             });
-
-            $(".asm-daily-observations").on("click", ".selector", function() {
-                const row = $(this).closest("tr");
-                if ($(this).is(":checked")) {
-                    row.removeClass("asm-completerow").addClass("ui-state-highlight");
-                    row.find(".widget").prop("disabled", false);
-                }
-                else {
-                    row.addClass("asm-completerow").removeClass("ui-state-highlight");
-                    row.find(".widget").prop("disabled", true).removeClass("ui-state-error");
-                }
-                row.removeClass("asm-row-error");
-            });
-
-            $(".asm-daily-observations tbody tr").addClass("asm-completerow");
-            $(".asm-daily-observations .widget").prop("disabled", true);
 
             $("#location").change(this.change_location);
         },
