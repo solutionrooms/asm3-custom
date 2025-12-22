@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, traceback, json
+import os, sys, traceback, json, re
 
 # The path to the folder containing the ASM3 modules
 PATH = os.path.dirname(os.path.abspath(__file__)) + os.sep
@@ -3442,6 +3442,341 @@ class animal_observations(JSONEndpoint):
 
             newlogid = asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, animalid, logtype, msg)
             created.append({ "animalid": animalid, "logid": newlogid })
+
+        count = len(created) + len(updated)
+        return json.dumps({
+            "count": count,
+            "created": created,
+            "updated": updated
+        })
+
+class animal_feeding(JSONEndpoint):
+    url = "animal_feeding"
+    get_permissions = asm3.users.VIEW_FEEDING
+    post_permissions = asm3.users.VIEW_FEEDING
+
+    def _get_weight_field_labels(self, dbo) -> List[str]:
+        labels: List[str] = []
+        for i in range(0, 50):
+            name = asm3.configuration.cstring(dbo, f"Behave{i}Name", "")
+            if not name:
+                continue
+            if "weight" in name.lower():
+                labels.append(name)
+        for name in asm3.configuration.weight_gainer_fields(dbo):
+            if name and name not in labels:
+                labels.append(name)
+        if "Weight" not in labels:
+            labels.append("Weight")
+        return labels
+
+    def _parse_observation_map(self, comments: str) -> Dict[str, str]:
+        obs = {}
+        if not comments:
+            return obs
+        try:
+            for part in comments.split(","):
+                if "=" not in part:
+                    continue
+                key, val = part.split("=", 1)
+                obs[key.strip()] = val.strip()
+        except Exception:
+            return obs
+        return obs
+
+    def _find_map_key(self, obs: Dict[str, str], label: str) -> str:
+        if not obs or not label:
+            return ""
+        target = label.strip().lower()
+        for key in obs.keys():
+            if key.strip().lower() == target:
+                return key
+        return ""
+
+    def _parse_weight_value(self, raw: Any) -> float:
+        if raw is None:
+            return 0.0
+        val = str(raw).strip()
+        if val == "":
+            return 0.0
+        if "," in val and "." not in val:
+            val = val.replace(",", ".")
+        val = val.replace(",", "")
+        m = re.search(r"[-+]?\d*\.?\d+", val)
+        if not m:
+            return 0.0
+        return asm3.utils.cfloat(m.group(0))
+
+    def _extract_weight_from_comments(self, comments: str, labels: List[str]) -> float:
+        obs = self._parse_observation_map(comments)
+        for label in labels:
+            key = self._find_map_key(obs, label)
+            if key:
+                weight = self._parse_weight_value(obs.get(key, ""))
+                if weight > 0:
+                    return weight
+        return 0.0
+
+    def _resolve_logtype(self, o) -> int:
+        dbo = o.dbo
+        l = o.locale
+        logtype = asm3.configuration.cint(dbo, "FeedingLogType", 0)
+        if logtype > 0:
+            if dbo.query_int("SELECT COUNT(*) FROM logtype WHERE ID = ?", [logtype]) > 0:
+                return logtype
+        for name in ("Daily Feeding", "Feeding"):
+            existing = dbo.query_int("SELECT ID FROM logtype WHERE LOWER(LogTypeName) = ?", [name.lower()])
+            if existing > 0:
+                asm3.configuration.cset(dbo, "FeedingLogType", str(existing), ignoreDBLock=True)
+                return existing
+        try:
+            name = _("Daily Feeding", l)
+            desc = _("Daily feeding log entries", l)
+            logtype = asm3.lookups.insert_lookup(dbo, o.user, "logtype", name, desc)
+            asm3.configuration.cset(dbo, "FeedingLogType", str(logtype), ignoreDBLock=True)
+            return logtype
+        except Exception as e:
+            asm3.al.warn(f"unable to create feeding log type: {e}", "main.animal_feeding", dbo)
+            return 0
+
+    def _get_active_diet_map(self, dbo, animal_ids: List[int]) -> Dict[int, Any]:
+        if not animal_ids:
+            return {}
+        sql = (
+            "SELECT ad.AnimalID, d.DietName, d.DietDescription, ad.DateStarted, ad.Comments "
+            "FROM animaldiet ad "
+            "INNER JOIN diet d ON d.ID = ad.DietID "
+            "INNER JOIN (SELECT AnimalID, MAX(ID) AS MaxID FROM animaldiet "
+            f"WHERE AnimalID IN ({dbo.sql_placeholders(animal_ids)}) GROUP BY AnimalID) latest "
+            "ON latest.AnimalID = ad.AnimalID AND latest.MaxID = ad.ID"
+        )
+        diet_map = {}
+        for row in dbo.query(sql, animal_ids):
+            aid = asm3.utils.atoi(str(row["ANIMALID"]))
+            if aid > 0:
+                diet_map[aid] = row
+        return diet_map
+
+    def _get_today_logs(self, dbo, animal_ids: List[int], logtype: int, day_start, day_end) -> List[Dict]:
+        if not animal_ids or logtype <= 0:
+            return []
+        sql = (
+            "SELECT ID, LinkID AS AnimalID, Date, Comments "
+            "FROM log "
+            "WHERE LinkType = ? AND LogTypeID = ? AND Date >= ? AND Date < ? "
+            f"AND LinkID IN ({dbo.sql_placeholders(animal_ids)}) "
+            "ORDER BY Date DESC"
+        )
+        params = [asm3.log.ANIMAL, logtype, day_start, day_end] + animal_ids
+        rows = dbo.query(sql, params)
+        seen = set()
+        results = []
+        for row in rows:
+            aid = asm3.utils.atoi(str(row["ANIMALID"]))
+            if aid <= 0 or aid in seen:
+                continue
+            seen.add(aid)
+            results.append({
+                "ID": row["ID"],
+                "LOGID": row["ID"],
+                "ANIMALID": aid,
+                "DATE": row["DATE"],
+                "COMMENTS": row["COMMENTS"]
+            })
+        return results
+
+    def _get_recent_observation_weights(self, dbo, animal_ids: List[int], logtype: int, cutoff, labels: List[str]) -> Dict[int, float]:
+        if not animal_ids or logtype <= 0:
+            return {}
+        sql = (
+            "SELECT LinkID AS AnimalID, Comments, Date, ID "
+            "FROM log "
+            "WHERE LinkType = ? AND LogTypeID = ? AND Date >= ? "
+            f"AND LinkID IN ({dbo.sql_placeholders(animal_ids)}) "
+            "ORDER BY Date DESC, ID DESC"
+        )
+        params = [asm3.log.ANIMAL, logtype, cutoff] + animal_ids
+        weights: Dict[int, float] = {}
+        for row in dbo.query(sql, params):
+            aid = asm3.utils.atoi(str(row["ANIMALID"]))
+            if aid <= 0 or aid in weights:
+                continue
+            weight = self._extract_weight_from_comments(row["COMMENTS"], labels)
+            if weight > 0:
+                weights[aid] = weight
+        return weights
+
+    def _get_animal_weights(self, dbo, animal_ids: List[int]) -> Dict[int, float]:
+        if not animal_ids:
+            return {}
+        sql = f"SELECT ID, Weight FROM animal WHERE ID IN ({dbo.sql_placeholders(animal_ids)})"
+        weights = {}
+        for row in dbo.query(sql, animal_ids):
+            aid = asm3.utils.atoi(str(row["ID"]))
+            if aid > 0:
+                weights[aid] = asm3.utils.cfloat(row["WEIGHT"])
+        return weights
+
+    def _get_diet_map(self, dbo, diet_ids: List[int]) -> Dict[int, Any]:
+        ids = sorted({asm3.utils.atoi(str(did)) for did in diet_ids if asm3.utils.atoi(str(did)) > 0})
+        if not ids:
+            return {}
+        sql = f"SELECT ID, DietName, DietDescription FROM diet WHERE ID IN ({dbo.sql_placeholders(ids)})"
+        diet_map = {}
+        for row in dbo.query(sql, ids):
+            diet_map[int(row["ID"])] = row
+        return diet_map
+
+    def _get_last_logs(self, dbo, animal_ids: List[int], logtype: int) -> Dict[int, Any]:
+        if not animal_ids or logtype <= 0:
+            return {}
+        sql = (
+            "SELECT ID, LinkID AS AnimalID, Date, CreatedBy, LastChangedBy "
+            "FROM log "
+            "WHERE LinkType = ? AND LogTypeID = ? "
+            f"AND LinkID IN ({dbo.sql_placeholders(animal_ids)}) "
+            "ORDER BY Date DESC, ID DESC"
+        )
+        params = [asm3.log.ANIMAL, logtype] + animal_ids
+        rows = dbo.query(sql, params)
+        last_map = {}
+        for row in rows:
+            aid = asm3.utils.atoi(str(row["ANIMALID"]))
+            if aid <= 0 or aid in last_map:
+                continue
+            byname = row["LASTCHANGEDBY"] or row["CREATEDBY"] or ""
+            last_map[aid] = { "DATE": row["DATE"], "BY": byname }
+        return last_map
+
+    def controller(self, o):
+        dbo = o.dbo
+        animals = asm3.animal.get_shelterview_animals(dbo, o.lf)
+        asm3.al.debug("got %d shelter animals" % len(animals), "main.animal_feeding", dbo)
+
+        animal_ids = []
+        for a in animals:
+            aid = asm3.utils.atoi(str(a.get("ID", 0)))
+            if aid > 0:
+                animal_ids.append(aid)
+        diet_map = self._get_active_diet_map(dbo, animal_ids)
+        for a in animals:
+            aid = asm3.utils.atoi(str(a.get("ID", 0)))
+            if aid <= 0:
+                continue
+            diet = diet_map.get(aid)
+            if diet:
+                a["ACTIVEDIETNAME"] = diet["DIETNAME"]
+                a["ACTIVEDIETDESCRIPTION"] = diet["DIETDESCRIPTION"]
+                a["ACTIVEDIETSTARTDATE"] = diet["DATESTARTED"]
+                a["ACTIVEDIETCOMMENTS"] = diet["COMMENTS"]
+
+        now = dbo.now()
+        day_start = asm3.i18n.remove_time(now)
+        day_end = asm3.i18n.add_days(day_start, 1)
+        logtype = self._resolve_logtype(o)
+        today_logs = self._get_today_logs(dbo, animal_ids, logtype, day_start, day_end)
+        last_logs = self._get_last_logs(dbo, animal_ids, logtype)
+
+        behave_logtype = asm3.configuration.cint(dbo, "BehaveLogType", 0)
+        cutoff = asm3.i18n.subtract_days(now, 30)
+        weight_labels = self._get_weight_field_labels(dbo)
+        recent_weights = self._get_recent_observation_weights(dbo, animal_ids, behave_logtype, cutoff, weight_labels)
+        animal_weights = self._get_animal_weights(dbo, animal_ids)
+        threshold = asm3.configuration.cfloat(dbo, "FeedingDefaultWeightThreshold", 0.0)
+        diet_under = asm3.configuration.cint(dbo, "FeedingDefaultDietUnderID", 0)
+        diet_over = asm3.configuration.cint(dbo, "FeedingDefaultDietOverID", 0)
+        default_diets = self._get_diet_map(dbo, [diet_under, diet_over])
+
+        for a in animals:
+            aid = asm3.utils.atoi(str(a.get("ID", 0)))
+            if aid <= 0:
+                continue
+            last = last_logs.get(aid)
+            if last:
+                a["LASTFEDDATE"] = last["DATE"]
+                a["LASTFEDBY"] = last["BY"]
+            diet_name = asm3.utils.nulltostr(a.get("ACTIVEDIETNAME", ""))
+            if diet_name == "" and threshold > 0 and (diet_under > 0 or diet_over > 0):
+                weight = recent_weights.get(aid, 0.0)
+                if weight <= 0:
+                    weight = animal_weights.get(aid, 0.0)
+                if weight > 0:
+                    chosen = diet_under if weight < threshold else diet_over
+                    if chosen > 0 and chosen in default_diets:
+                        diet = default_diets[chosen]
+                        a["ACTIVEDIETNAME"] = diet["DIETNAME"]
+                        a["ACTIVEDIETDESCRIPTION"] = diet["DIETDESCRIPTION"]
+                        a["ACTIVEDIETDEFAULT"] = 1
+
+        return {
+            "animals": animals,
+            "internallocations": asm3.lookups.get_internal_locations_counts(dbo, o.lf),
+            "todaydate": now,
+            "todaylogs": today_logs
+        }
+
+    def post_save(self, o):
+        entries_raw = o.post["entries"] if o.post.has_key("entries") else ""
+        if entries_raw == "":
+            return json.dumps({ "count": 0, "created": [], "updated": [] })
+        try:
+            entries = json.loads(entries_raw)
+        except Exception:
+            entries = []
+        if not isinstance(entries, list):
+            entries = []
+
+        logtype = self._resolve_logtype(o)
+        if logtype <= 0:
+            raise asm3.utils.ASMError("feeding log type is not configured")
+
+        now = o.dbo.now()
+        day_start = asm3.i18n.remove_time(now)
+        day_end = asm3.i18n.add_days(day_start, 1)
+
+        animal_ids = []
+        for row in entries:
+            try:
+                aid = asm3.utils.atoi(str(row.get("animalid", 0)))
+            except Exception:
+                aid = 0
+            if aid > 0:
+                animal_ids.append(aid)
+
+        existing_logs = self._get_today_logs(o.dbo, animal_ids, logtype, day_start, day_end)
+        existing_map = { int(l["ANIMALID"]): l for l in existing_logs }
+
+        created = []
+        updated = []
+        for row in entries:
+            aid = asm3.utils.atoi(str(row.get("animalid", 0)))
+            if aid <= 0:
+                continue
+            confirmed = bool(row.get("confirmed", False))
+            comments = asm3.utils.nulltostr(row.get("comments", "")).strip()
+            if not confirmed and comments == "":
+                continue
+            comment_lines = []
+            comment_lines.append("Confirmed=%s" % ("Yes" if confirmed else "No"))
+            if comments != "":
+                comment_lines.append("Comments=%s" % comments)
+            logtext = "\n".join(comment_lines)
+
+            existing = existing_map.get(aid)
+            if existing:
+                logid = asm3.utils.atoi(str(existing.get("LOGID", 0)))
+                if logid > 0:
+                    asm3.users.ensure_can_edit_historical_foster(o.dbo, o.user, aid, o.locale)
+                    o.dbo.update("log", logid, {
+                        "LogTypeID": logtype,
+                        "Comments": logtext,
+                        "Date": existing.get("DATE") or now
+                    }, o.user)
+                    updated.append({ "animalid": aid, "logid": logid })
+                    continue
+
+            newlogid = asm3.log.add_log(o.dbo, o.user, asm3.log.ANIMAL, aid, logtype, logtext, now)
+            created.append({ "animalid": aid, "logid": newlogid })
 
         count = len(created) + len(updated)
         return json.dumps({
@@ -7383,6 +7718,7 @@ class options(JSONEndpoint):
             "currencies": asm3.lookups.CURRENCIES,
             "deathreasons": asm3.lookups.get_deathreasons(dbo),
             "donationtypes": asm3.lookups.get_donation_types(dbo),
+            "diettypes": asm3.lookups.get_diets(dbo),
             "eventfindcolumns": asm3.html.json_eventfindcolumns(dbo),
             "entryreasons": asm3.lookups.get_entryreasons(dbo),
             "entrytypes": asm3.lookups.get_entry_types(dbo),

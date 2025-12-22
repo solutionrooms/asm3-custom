@@ -14,6 +14,7 @@
 | 2025-09-07 | Application | Observations history poo sample column and Analysis tab with weight graph | [Observations & Analysis Enhancements](#observations--analysis-enhancements) |
 | 2025-10-27 | Application | Forms menu with person-flag filtered internal submissions | [Forms Menu & Filters](#forms-menu--filters) |
 | 2025-12-22 | Media | Video uploads on media tab with mobile-native pickers | [Media Upload Video Support](#media-upload-video-support) |
+| 2025-12-22 | Application | Daily feeding screen with active diet view by location | [Daily Feeding Screen](#daily-feeding-screen) |
 
 ---
 
@@ -50,6 +51,12 @@
 - Historical entry workflow introduced for hedgehog observations: dedicated endpoint (`hedgehog_observation_history` in `src/main.py`) honours custom observation dates, updated single-animal UI (`src/static/js/hedgehog_observation.js`), navigation entry from the multi-animal screen (`src/static/js/animal_observations.js`), and regression coverage in `unittest/test_hedgehog.py`.
 - Historical mode bypasses clinician/poo confirmation prompts and the new binary flags (“Poo Sample Taken?”, “Clinician Alerted?”) display across single-entry, multi-entry, and history tables (`src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/static/js/animal_observations_history.js`).
 - Options → Daily Observations now include a “Weight Gainer Entry?” flag per field; users in the Weight Gainer role only see flagged inputs on observation screens, and poo/clinician prompts are suppressed (`src/static/js/options.js`, `src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/asm3/configuration.py`, `src/main.py`).
+
+### Daily Feeding Screen
+**When**: 2025-12-22
+
+- Added a dedicated Daily Feeding screen that lists on-shelter animals with their current diet, optional weight-based default diet display, and a per-day feeding confirmation/comments log, filterable by internal location (`src/main.py`, `src/static/js/animal_feeding.js`, `src/static/js/options.js`).
+- New permission flag `VIEW_FEEDING` controls access and appears in role editing UI, with a new menu entry under Animals (`src/asm3/users.py`, `src/static/js/roles.js`, `src/asm3/html.py`).
 
 ### Low Access Volunteer Location Selection
 **When**: 2025-12-20 (branch `develop`)

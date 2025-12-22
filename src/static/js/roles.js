@@ -129,6 +129,7 @@ $(function() {
                 cl(_("Diets")),
                 cr("daad", _("Add Diets")),
                 cr("dvad", _("View Diets")),
+                cr("vfd", _("View Daily Feeding")),
                 cr("dcad", _("Change Diets")),
                 cr("ddad", _("Delete Diets")),
                 cl(_("Transport")),
