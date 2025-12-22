@@ -17,6 +17,8 @@ from typing import Optional, Set, Tuple
 import os
 import sys
 
+LOW_ACCESS_VOLUNTEER_ROLE = "Low Access Volunteer"
+
 # Security flags
 ADD_ANIMAL                      = "aa"
 CHANGE_ANIMAL                   = "ca"
@@ -282,6 +284,27 @@ def add_security_flag(securitymap: str, flag: str) -> str:
     if not has_security_flag(securitymap, flag):
         securitymap += flag + " *"
     return securitymap
+
+def has_role(roles: str, rolename: str) -> bool:
+    """
+    Returns True if rolename is present in the pipe-separated roles string.
+    """
+    if rolename is None:
+        return False
+    roles_raw = asm3.utils.nulltostr(roles)
+    target = rolename.strip().lower()
+    if target == "":
+        return False
+    for role in roles_raw.split("|"):
+        if role.strip().lower() == target:
+            return True
+    return False
+
+def is_low_access_volunteer(roles: str) -> bool:
+    """
+    Returns True if roles contains the Low Access Volunteer role.
+    """
+    return has_role(roles, LOW_ACCESS_VOLUNTEER_ROLE)
 
 def authenticate(dbo: Database, username: str, password: str) -> ResultRow:
     """
@@ -1080,6 +1103,7 @@ def web_login(post: PostedData, session: Session, remoteip: str, useragent: str,
         update_session(dbo, session, user.USERNAME)
         if password_matches_force_change_token(dbo, user.PASSWORD):
             session.forcechangepassword = True
+        session.forcelocationselect = is_low_access_volunteer(session.roles)
     except:
         asm3.al.error("failed setting up session: %s" % str(sys.exc_info()[0]), "users.web_login", dbo, sys.exc_info())
         return "FAIL"

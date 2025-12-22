@@ -42,6 +42,13 @@
 - Historical mode bypasses clinician/poo confirmation prompts and the new binary flags (“Poo Sample Taken?”, “Clinician Alerted?”) display across single-entry, multi-entry, and history tables (`src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/static/js/animal_observations_history.js`).
 - Options → Daily Observations now include a “Weight Gainer Entry?” flag per field; users in the Weight Gainer role only see flagged inputs on observation screens, and poo/clinician prompts are suppressed (`src/static/js/options.js`, `src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/asm3/configuration.py`, `src/main.py`).
 
+### Low Access Volunteer Location Selection
+**When**: 2025-12-20 (branch `develop`)
+
+- Low Access Volunteer users are forced through a location selection screen on every login, with a warning about assigned areas and Clare notification (`src/main.py`, `src/static/js/change_location.js`).
+- Added a Change Location menu item plus a confirmation step before switches; location changes update `users.LocationFilter` and write an audit log entry (`src/asm3/html.py`, `src/main.py`).
+- Internal locations marked with “Exclude from view” in their description are omitted from the Low Access Volunteer picker and rejected on submission (`src/main.py`).
+
 ### Geocoding Fallback & Indicators
 **When**: 2025-10-26 (branch `develop`)
 
