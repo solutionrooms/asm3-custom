@@ -66,6 +66,12 @@ def mime_type(filename: str) -> str:
         "odp"   : "application/vnd.oasis.opendocument.presentation",
         "pdf"   : "application/pdf",
         "mpg"   : "video/mpg",
+        "mp4"   : "video/mp4",
+        "m4v"   : "video/x-m4v",
+        "mov"   : "video/quicktime",
+        "webm"  : "video/webm",
+        "3gp"   : "video/3gpp",
+        "3g2"   : "video/3gpp2",
         "mp3"   : "audio/mpeg3",
         "avi"   : "video/avi",
         "htm"   : "text/html",
@@ -385,10 +391,18 @@ def attach_file_from_form(dbo: Database, username: str, linktype: int, linkid: i
     transformed = post.integer("transformed") == 1
     if filedata != "":
         filetype = post["filetype"]
-        if filetype.startswith("image") or filename.lower().endswith(".jpg") or filename.lower().endswith(".jpeg"): ext = ".jpg"
-        elif filename.lower().endswith(".png"): ext = ".png"
-        elif filetype.find("pdf") != -1 or filename.lower().endswith(".pdf"): ext = ".pdf"
-        elif filetype.find("html") != -1 or filename.lower().endswith(".html"): ext = ".html"
+        lname = filename.lower()
+        if filetype.startswith("image") or lname.endswith(".jpg") or lname.endswith(".jpeg"): ext = ".jpg"
+        elif lname.endswith(".png"): ext = ".png"
+        elif filetype.find("pdf") != -1 or lname.endswith(".pdf"): ext = ".pdf"
+        elif filetype.find("html") != -1 or lname.endswith(".html"): ext = ".html"
+        elif filetype.startswith("video/") or lname.endswith((".mp4", ".mov", ".m4v", ".3gp", ".3g2", ".webm")):
+            if filetype == "video/quicktime" or lname.endswith(".mov"): ext = ".mov"
+            elif filetype in ("video/x-m4v", "video/m4v") or lname.endswith(".m4v"): ext = ".m4v"
+            elif filetype == "video/3gpp2" or lname.endswith(".3g2"): ext = ".3g2"
+            elif filetype in ("video/3gpp", "video/3gp") or lname.endswith(".3gp"): ext = ".3gp"
+            elif filetype == "video/webm" or lname.endswith(".webm"): ext = ".webm"
+            elif filetype == "video/mp4" or lname.endswith(".mp4"): ext = ".mp4"
         # Strip the data:mime prefix so we just have base64 data
         if filedata.startswith("data:"):
             filedata = filedata[filedata.find(",")+1:]

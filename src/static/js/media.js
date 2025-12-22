@@ -21,6 +21,12 @@ $(function() {
             "9|" + _("{0} years").replace("{0}", 9)
         ],
 
+        allowed_extensions: [ "jpg", "jpeg", "png", "pdf", "html", "mp4", "mov", "m4v", "3gp", "3g2", "webm" ],
+        video_extensions: [ "mp4", "mov", "m4v", "3gp", "3g2", "webm" ],
+        file_accept: "image/*,video/*,application/pdf,text/html",
+        attach_info_text: _("Please select an image, PDF, HTML, or video file to attach"),
+        allowed_types_message: _("Only image, PDF, HTML, and video files can be attached."),
+
         model: function() {
 
             const dialog = {
@@ -191,14 +197,14 @@ $(function() {
                 tableform.dialog_render(this.dialog),
 
                 '<div id="dialog-add" style="display: none" title="' + html.title(_("Attach File")) + '">',
-                html.info(_("Please select a PDF, HTML or JPG image file to attach")),
+                html.info(media.attach_info_text),
                 '<form id="addform" method="post" enctype="multipart/form-data" action="media">',
                 tableform.fields_render([
                     { type: "hidden", name: "mode", value: "create" },
                     { type: "hidden", name: "linkid", value: controller.linkid },
                     { type: "hidden", name: "linktypeid", value: controller.linktypeid },
                     { type: "hidden", name: "controller", value: controller.name },
-                    { type: "file", name: "filechooser", label: _("File") },
+                    { type: "file", name: "filechooser", label: _("File"), xattr: 'accept="' + media.file_accept + '"' },
                     { type: "select", name: "retainfor", label: _("Retain for"), options: media.retain_for_years },
                     { type: "selectmulti", id: "newmediaflags", name: "flags", label: _("Flags") },
                     { type: "textarea", name: "comments", label: _("Notes"), rows: 10,
@@ -207,6 +213,13 @@ $(function() {
                     }
                 ]),
                 '</form>',
+                '</div>',
+
+                '<div id="dialog-video-viewer" style="display: none" title="' + html.title(_("Video")) + '">',
+                '<div class="asm-media-video-wrapper">',
+                '<video id="video-viewer" controls preload="metadata" style="width: 100%; max-height: 70vh;"></video>',
+                '<div id="video-viewer-notes" style="margin-top: 10px;"></div>',
+                '</div>',
                 '</div>',
 
                 '<div id="dialog-addlink" style="display: none" title="' + html.title(_("Attach link")) + '">',
@@ -374,12 +387,47 @@ $(function() {
                 h.push('<a href="media?id=' + m.ID + '">');
                 h.push('<img class="' + tc + '" ' + tt + ' src="static/images/ui/pdf-media.png" /></a>');
             }
+            else if (m.MEDIAMIMETYPE.indexOf("video/") == 0) {
+                h.push('<a href="media?id=' + m.ID + '" class="asm-media-video" data-mid="' + m.ID + '">');
+                h.push('<img class="' + tc + '" ' + tt + ' src="static/images/ui/file-video.png" /></a>');
+            }
             else {
                 h.push('<a href="media?id=' + m.ID + '">');
                 h.push('<img class="' + tc + '" ' + tt + ' src="static/images/ui/file-media.png" /></a>');
             }
             h.push('</div>');
             return h.join("");
+        },
+
+        find_media_by_id: function(id) {
+            let found = null;
+            $.each(controller.media, function(i, m) {
+                if (String(m.ID) == String(id)) {
+                    found = m;
+                    return false;
+                }
+            });
+            return found;
+        },
+
+        open_video_viewer: function(id) {
+            let m = media.find_media_by_id(id);
+            if (!m) { return; }
+            let title = html.truncate(html.decode(m.MEDIANOTES || ""), 60);
+            if (!title) { title = html.truncate(m.MEDIANAME || "", 60); }
+            if (!title) { title = _("Video"); }
+            $("#dialog-video-viewer").dialog("option", "title", title);
+            $("#video-viewer").attr("src", "media?id=" + m.ID);
+            $("#video-viewer-notes").text(html.decode(m.MEDIANOTES || ""));
+            $("#dialog-video-viewer").dialog("open");
+        },
+
+        close_video_viewer: function() {
+            let video = $("#video-viewer").get(0);
+            if (video && video.pause) { video.pause(); }
+            $("#video-viewer").removeAttr("src");
+            if (video && video.load) { video.load(); }
+            $("#video-viewer-notes").empty();
         },
 
         render_mods: function(m, withlabels) {
@@ -467,10 +515,20 @@ $(function() {
             if (!flags) { flags = ""; }
 
             // We're only allowed to upload files of a certain type
-            if ( !media.is_jpeg(file.name) && !media.is_extension(file.name, "png") && 
-                 !media.is_extension(file.name, "pdf") && !media.is_extension(file.name, "html") ) {
-                header.show_error(_("Only PDF, HTML and JPG image files can be attached."));
+            if (!media.is_allowed_file(file.name)) {
+                header.show_error(media.allowed_types_message);
                 deferred.resolve();
+                return deferred.promise();
+            }
+
+            if (media.is_video_file(file.name)) {
+                media.attach_file_formdata(file, sourceid, retainfor, comments, flags)
+                    .then(function() {
+                        deferred.resolve();
+                    })
+                    .fail(function() {
+                        deferred.reject();
+                    });
                 return deferred.promise();
             }
 
@@ -614,9 +672,8 @@ $(function() {
 
             // If the file isn't a jpeg or a PDF, fail validation
             let fname = $("#filechooser").val();
-            if ( !media.is_jpeg(fname) && !media.is_extension(fname, "png") && 
-                 !media.is_extension(fname, "pdf") && !media.is_extension(fname, "html") ) {
-                header.show_error(_("Only PDF, HTML and JPG image files can be attached."));
+            if (!media.is_allowed_file(fname)) {
+                header.show_error(media.allowed_types_message);
                 return;
             }
 
@@ -659,12 +716,67 @@ $(function() {
                 });
         },
 
+        has_extension: function(s, extlist) {
+            let i = 0;
+            for (i = 0; i < extlist.length; i += 1) {
+                if (media.is_extension(s, extlist[i])) { return true; }
+            }
+            return false;
+        },
+
+        is_allowed_file: function(s) {
+            return media.has_extension(s, media.allowed_extensions);
+        },
+
+        is_video_file: function(s) {
+            return media.has_extension(s, media.video_extensions);
+        },
+
         is_extension: function(s, ext) {
             return s.toLowerCase().indexOf("." + ext) != -1;
         },
 
         is_jpeg: function(s) {
             return media.is_extension(s, "jpg") || media.is_extension(s, "jpeg");
+        },
+
+        attach_file_formdata: function(file, sourceid, retainfor, comments, flags) {
+            let deferred = $.Deferred();
+            let formdata = new FormData();
+            formdata.append("mode", "create");
+            formdata.append("linkid", controller.linkid);
+            formdata.append("linktypeid", controller.linktypeid);
+            formdata.append("sourceid", sourceid);
+            formdata.append("comments", comments || "");
+            formdata.append("retainfor", retainfor || "");
+            formdata.append("flags", flags || "");
+            formdata.append("filechooser", file, file.name);
+            $.ajax({
+                type: "POST",
+                url: "media",
+                data: formdata,
+                processData: false,
+                contentType: false,
+                dataType: "text",
+                mimeType: "textPlain",
+                success: function(result) {
+                    if (result.indexOf("login.render()") != -1) {
+                        common.route_reload(true);
+                        deferred.reject("login");
+                        return;
+                    }
+                    deferred.resolve(result);
+                },
+                error: function(jqxhr, textstatus, response) {
+                    let errmessage = common.get_error_response(jqxhr, textstatus, response);
+                    try {
+                        header.show_error(errmessage);
+                    }
+                    catch (ex) {}
+                    deferred.reject(errmessage);
+                }
+            });
+            return deferred.promise();
         },
 
         /**
@@ -758,6 +870,22 @@ $(function() {
                 buttons: addbuttons
             });
 
+            $("#dialog-video-viewer").dialog({
+                autoOpen: false,
+                width: 720,
+                modal: true,
+                dialogClass: "dialogshadow",
+                show: dlgfx.edit_show,
+                hide: dlgfx.edit_hide,
+                open: function() {
+                    let width = Math.min($(window).width() - 40, 720);
+                    $(this).dialog("option", "width", width);
+                },
+                close: function() {
+                    media.close_video_viewer();
+                }
+            });
+
             let signbuttons = {};
             signbuttons[_("Sign")] = {
                 text: _("Sign"),
@@ -790,7 +918,12 @@ $(function() {
                 buttons: signbuttons
             });
 
-           $("#button-viewmode").button().click(function() {
+            $("#asm-content").off("click.media-video").on("click.media-video", ".asm-media-video", function(e) {
+                e.preventDefault();
+                media.open_video_viewer($(this).data("mid"));
+            });
+
+            $("#button-viewmode").button().click(function() {
                 if (media.icon_mode_active) {
                     media.mode_table();
                 }
@@ -1174,6 +1307,7 @@ $(function() {
         destroy: function() {
             tableform.dialog_destroy();
             common.widget_destroy("#dialog-add");
+            common.widget_destroy("#dialog-video-viewer");
             common.widget_destroy("#dialog-addlink");
             common.widget_destroy("#dialog-sign");
             common.widget_destroy("#dialog-signlink");
@@ -1182,6 +1316,7 @@ $(function() {
             common.widget_destroy("#dialog-moveanimal");
             common.widget_destroy("#dialog-moveperson");
             common.widget_destroy("#emailform");
+            $("#asm-content").off("click.media-video");
         },
 
         name: "media",

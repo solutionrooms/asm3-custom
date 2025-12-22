@@ -66,7 +66,7 @@ http {
         ssl_trusted_certificate /etc/letsencrypt/live/NGINX_SERVER_NAME_PLACEHOLDER/chain.pem;
 
         # File upload size
-        client_max_body_size 100M;
+        client_max_body_size 500M;
 
         # Proxy settings
         proxy_set_header Host $host;
