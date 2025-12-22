@@ -511,7 +511,8 @@ def doc_img_src(dbo: Database, row: ResultRow) -> str:
         return "image?db=%s&mode=media&id=%s&date=%s" % (dbo.name(), row.DOCMEDIAID, row.DOCMEDIADATE.isoformat())
 
 def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: MenuItems,
-    internalforms: Results = None, personflags: str = "", accountalias: str = "", username: str = "") -> MenuStructure:
+    internalforms: Results = None, personflags: str = "", accountalias: str = "", username: str = "",
+    is_low_access: bool = False) -> MenuStructure:
     """
     Returns a list of lists representing the main menu structure
     l: The locale
@@ -521,6 +522,7 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
     internalforms: Internal online forms to surface on the Forms menu
     personflags: Person flags for the logged in user to filter internal forms
     accountalias: Account alias appended to service URLs for form links
+    is_low_access: True if the Low Access Volunteer menu item should be shown
     """
     if accountalias is None: accountalias = ""
     publishers = []
@@ -560,8 +562,7 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
         formitems.append((asm3.users.VIEW_INCOMING_FORMS, "", "tagforms-admin", "onlineform_incoming", "asm-icon-blank", _("View Incoming Forms", l)))
         forms_menu = (("", "forms", _("Forms", l), tuple(formitems)),)
 
-    menu_base: MenuStructure = (
-        ("", "asm", _("ASM", l), (
+    asm_menu_items: MenuItems = (
             ( "", "", "", "--cat", "asm-icon-animal", _("Animals", l) ),
             ( asm3.users.VIEW_ANIMAL, "alt+shift+v", "", "shelterview", "asm-icon-location", _("Shelter view", l) ),
             ( asm3.users.VIEW_ANIMAL, "alt+shift+f", "", "animal_find", "asm-icon-animal-find", _("Find animal", l) ),
@@ -609,7 +610,14 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             ( "", "", "tagwaitinglist", "--cat", "asm-icon-waitinglist", _("Waiting List", l) ),
             ( asm3.users.ADD_WAITING_LIST, "", "tagwaitinglist", "waitinglist_new", "asm-icon-blank", _("Add an animal to the waiting list", l) ),
             ( asm3.users.VIEW_WAITING_LIST, "alt+shift+w", "tagwaitinglist", "waitinglist_results", "asm-icon-blank", _("Edit the current waiting list", l) )
-        )),
+    )
+    if is_low_access:
+        asm_menu_items = asm_menu_items[:2] + (
+            ( "", "", "", "change_location", "asm-icon-location", _("Change Location", l) ),
+        ) + asm_menu_items[2:]
+
+    menu_base: MenuStructure = (
+        ("", "asm", _("ASM", l), asm_menu_items),
         (asm3.users.VIEW_MOVEMENT, "move", _("Move", l), (
             ( asm3.users.ADD_MOVEMENT, "", "", "--cat", "asm-icon-movement", _("Out", l) ),
             ( asm3.users.ADD_MOVEMENT, "", "", "move_reserve", "asm-icon-reservation", _("Reserve an animal", l) ),

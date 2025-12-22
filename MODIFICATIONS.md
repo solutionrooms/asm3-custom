@@ -13,6 +13,7 @@
 | 2025-09-01 | Operations | Cron hardening, single-table backup helpers, dev hot-reload mounts, weight monitor photo linking | [Operational Automation](#operational-automation) |
 | 2025-09-07 | Application | Observations history poo sample column and Analysis tab with weight graph | [Observations & Analysis Enhancements](#observations--analysis-enhancements) |
 | 2025-10-27 | Application | Forms menu with person-flag filtered internal submissions | [Forms Menu & Filters](#forms-menu--filters) |
+| 2025-12-22 | Media | Video uploads on media tab with mobile-native pickers | [Media Upload Video Support](#media-upload-video-support) |
 
 ---
 
@@ -38,9 +39,24 @@
 - `src/static/js/animal_observations_history.js` now surfaces poo sample results in a dedicated column and includes logs that previously hid when only a sample was recorded.
 - New "Analysis" tab (`src/static/js/header_edit_header.js`) loads `src/static/js/animal_analysis.js`, backed by `animal_analysis` and `animal_weight_graph` endpoints in `src/main.py`. Matplotlib renders a PNG weight graph, with client-side hover detail and a PNG fallback.
 - Hedgehog daily observation screen keeps the animal selector visible (`src/static/js/hedgehog_observation.js`), ensuring `/hedgehog_observation` loads with a searchable picker even without context; regression hook added in `unittest/test_hedgehog.py`.
+
+### Media Upload Video Support
+**When**: 2025-12-22
+
+- Media uploads now accept common phone video formats (MP4/MOV/M4V/3GP/3G2/WEBM) and set correct MIME types (`src/asm3/media.py`).
+- Media UI allows video files, uses native mobile pickers, and shows a video icon thumbnail (`src/static/js/media.js`).
+- Clicking a stored video now opens an in-app HTML5 player dialog with the media notes underneath (`src/static/js/media.js`).
+- Nginx upload limit raised to 500MB to accommodate larger clips (`nginx.conf`, `nginx-ssl.conf`, `nginx-nossl.conf`, `nginx-simple.conf`, `nginx-ssl.conf.template`, `nginx-processed.conf`).
 - Historical entry workflow introduced for hedgehog observations: dedicated endpoint (`hedgehog_observation_history` in `src/main.py`) honours custom observation dates, updated single-animal UI (`src/static/js/hedgehog_observation.js`), navigation entry from the multi-animal screen (`src/static/js/animal_observations.js`), and regression coverage in `unittest/test_hedgehog.py`.
 - Historical mode bypasses clinician/poo confirmation prompts and the new binary flags (“Poo Sample Taken?”, “Clinician Alerted?”) display across single-entry, multi-entry, and history tables (`src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/static/js/animal_observations_history.js`).
 - Options → Daily Observations now include a “Weight Gainer Entry?” flag per field; users in the Weight Gainer role only see flagged inputs on observation screens, and poo/clinician prompts are suppressed (`src/static/js/options.js`, `src/static/js/hedgehog_observation.js`, `src/static/js/animal_observations.js`, `src/asm3/configuration.py`, `src/main.py`).
+
+### Low Access Volunteer Location Selection
+**When**: 2025-12-20 (branch `develop`)
+
+- Low Access Volunteer users are forced through a location selection screen on every login, with a warning about assigned areas and Clare notification (`src/main.py`, `src/static/js/change_location.js`).
+- Added a Change Location menu item plus a confirmation step before switches; location changes update `users.LocationFilter` and write an audit log entry (`src/asm3/html.py`, `src/main.py`).
+- Internal locations marked with “Exclude from view” in their description are omitted from the Low Access Volunteer picker and rejected on submission (`src/main.py`).
 
 ### Geocoding Fallback & Indicators
 **When**: 2025-10-26 (branch `develop`)

@@ -146,6 +146,54 @@ def resolve_weight_gainer_state(dbo, session) -> Tuple[bool, List[str]]:
     fields = asm3.configuration.weight_gainer_fields(dbo)
     return is_weight_gainer, fields
 
+def _low_access_location_id(locationfilter: str) -> int:
+    raw = asm3.utils.nulltostr(locationfilter)
+    if raw == "":
+        return 0
+    return asm3.utils.cint(raw.split(",")[0])
+
+def _low_access_location_label(dbo, locationid: int) -> str:
+    if locationid <= 0:
+        return "None"
+    name = asm3.utils.nulltostr(asm3.lookups.get_internallocation_name(dbo, locationid))
+    if name == "":
+        return str(locationid)
+    return f"{name} (ID {locationid})"
+
+def _require_low_access_volunteer(session: Session) -> None:
+    if not asm3.users.is_low_access_volunteer(getattr(session, "roles", "")):
+        raise asm3.utils.ASMPermissionError("Forbidden")
+
+def _low_access_locations(dbo) -> List[ResultRow]:
+    rows = asm3.lookups.get_internal_locations(dbo)
+    allowed = []
+    for row in rows:
+        desc = asm3.utils.nulltostr(getattr(row, "LOCATIONDESCRIPTION", ""))
+        if "exclude from view" in desc.lower():
+            continue
+        allowed.append(row)
+    return allowed
+
+def _apply_low_access_location_change(o, locationid: int) -> None:
+    if locationid <= 0:
+        raise asm3.utils.ASMValidationError(_("Please select a location.", o.locale))
+    if o.dbo.query_int("SELECT COUNT(*) FROM internallocation WHERE ID=?", [locationid]) == 0:
+        raise asm3.utils.ASMValidationError(_("Invalid location.", o.locale))
+    desc = asm3.utils.nulltostr(o.dbo.query_string("SELECT LocationDescription FROM internallocation WHERE ID=?", [locationid]))
+    if "exclude from view" in desc.lower():
+        raise asm3.utils.ASMValidationError(_("Invalid location.", o.locale))
+    user = asm3.users.get_user(o.dbo, o.user)
+    if user is None:
+        raise asm3.utils.ASMValidationError(_("User not found.", o.locale))
+    old_id = _low_access_location_id(asm3.utils.nulltostr(user.LOCATIONFILTER))
+    if old_id != locationid:
+        o.dbo.update("users", user.ID, { "LocationFilter": str(locationid) }, o.user, setLastChanged=False, writeAudit=False)
+        old_label = _low_access_location_label(o.dbo, old_id)
+        new_label = _low_access_location_label(o.dbo, locationid)
+        asm3.audit.edit(o.dbo, o.user, "users", user.ID, "", f"Location filter changed from {old_label} to {new_label}. Clare notified.")
+    asm3.users.update_session(o.dbo, o.session, o.user)
+    o.session.forcelocationselect = False
+
 def session_manager():
     """
     Sort out our session manager. We use a global in the utils module
@@ -508,6 +556,7 @@ class ASMEndpoint(object):
             self.check_loggedin(session, web, self.login_url)
             self.check_2fa(session, web)
             self.check_force_password(session, web)
+            self.check_location_select(session, web)
         if isinstance(permissions, str):
             asm3.users.check_permission(session, permissions)
         else:
@@ -572,6 +621,24 @@ class ASMEndpoint(object):
                 and web.ctx.path.find("/logout") == -1
             ):
                 raise web.seeother("%s/change_password?forcechangepassword=1" % BASE_URL)
+
+    def check_location_select(self, session: Session, web: Any) -> None:
+        """
+        Forces Low Access Volunteer users to pick a location after login.
+        """
+        if not getattr(session, "forcelocationselect", False):
+            return
+        if not asm3.users.is_low_access_volunteer(getattr(session, "roles", "")):
+            session.forcelocationselect = False
+            return
+        path = web.ctx.path or ""
+        if (
+            path.find("/location_select") == -1
+            and path.find("/logout") == -1
+            and path.find("/change_password") == -1
+            and path.find("/change_user_settings") == -1
+        ):
+            raise web.seeother("%s/location_select" % BASE_URL)
 
     def check_mode(self, mode: str) -> bool:
         """
@@ -949,6 +1016,7 @@ class configjs(ASMEndpoint):
         if osmmaptileso != "": osmmaptiles = osmmaptileso
         userpersonflags = asm3.person.get_person_flags(dbo, o.session.staffid)
         internalforms = asm3.onlineform.get_internal_forms_for_flags(dbo, userpersonflags)
+        is_low_access = asm3.users.is_low_access_volunteer(o.session.roles)
         c = { "baseurl": BASE_URL,
             "serviceurl": SERVICE_URL,
             "build": BUILD,
@@ -995,7 +1063,7 @@ class configjs(ASMEndpoint):
                 asm3.publish.PUBLISHER_LIST,
                 asm3.reports.get_reports_menu(dbo, o.session.roleids, o.session.superuser), 
                 asm3.reports.get_mailmerges_menu(dbo, o.session.roleids, o.session.superuser),
-                internalforms, userpersonflags, dbo.alias, o.session.user),
+                internalforms, userpersonflags, dbo.alias, o.session.user, is_low_access),
             "publishers": asm3.publish.PUBLISHER_LIST
         }
         return "const asm = %s;" % asm3.utils.json(c)
@@ -4104,6 +4172,49 @@ class change_user_settings(JSONEndpoint):
         asm3.configuration.cset(o.dbo, "%s_DefaultStockUsageTypeID" % o.user, defaultstockusagetypeid)
 
         self.reload_config()
+
+class location_select(JSONEndpoint):
+    url = "location_select"
+    js_module = "change_location"
+
+    def controller(self, o):
+        _require_low_access_volunteer(o.session)
+        current_id = _low_access_location_id(o.session.locationfilter)
+        current_name = ""
+        if current_id > 0:
+            current_name = asm3.lookups.get_internallocation_name(o.dbo, current_id)
+        return {
+            "mode": "login",
+            "internallocations": _low_access_locations(o.dbo),
+            "currentlocationid": current_id,
+            "currentlocationname": current_name
+        }
+
+    def post_all(self, o):
+        _require_low_access_volunteer(o.session)
+        _apply_low_access_location_change(o, o.post.integer("locationid"))
+        return "OK"
+
+class change_location(JSONEndpoint):
+    url = "change_location"
+
+    def controller(self, o):
+        _require_low_access_volunteer(o.session)
+        current_id = _low_access_location_id(o.session.locationfilter)
+        current_name = ""
+        if current_id > 0:
+            current_name = asm3.lookups.get_internallocation_name(o.dbo, current_id)
+        return {
+            "mode": "change",
+            "internallocations": _low_access_locations(o.dbo),
+            "currentlocationid": current_id,
+            "currentlocationname": current_name
+        }
+
+    def post_all(self, o):
+        _require_low_access_volunteer(o.session)
+        _apply_low_access_location_change(o, o.post.integer("locationid"))
+        return "OK"
 
 class citations(JSONEndpoint):
     url = "citations"
