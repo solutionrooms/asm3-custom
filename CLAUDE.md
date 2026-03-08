@@ -1,330 +1,131 @@
-# Claude.md - ASM3 Modification Project
-
-> Reference document for AI assistance on this ASM3 fork project
+# Claude.md - ASM3 Custom Fork
 
 ## Quick Context
 
-This is a customized fork of [Animal Shelter Manager 3 (ASM3)](https://github.com/sheltermanager/asm3) with Docker containerization and custom modifications.
+Customized fork of [ASM3](https://github.com/sheltermanager/asm3) (Animal Shelter Manager) with Docker containerization.
+**Stack**: Python 3 + web.py + PostgreSQL | **Frontend**: jQuery + jQuery UI
+**Database schema**: `schema_list.txt`
 
-**Original Project**: https://github.com/sheltermanager/asm3  
-**Technology**: Python 3.x + web.py framework + PostgreSQL  
-**My Focus**: Docker deployment + custom features + upstream sync management
-
-## Project Goals
-
-- [x] Fork and set up git tracking with upstream
-- [ ] Complete Docker containerization
-- [ ] Implement custom features
-- [ ] Maintain sync capability with upstream
-- [ ] Document all modifications comprehensively
-
-## Current Architecture
-
-```
-├── src/                 # ASM3 source (upstream synced)
-├── docker-compose.yml   # Docker orchestration
-├── Dockerfile          # Application container build
-├── asm3.conf           # ASM3 configuration file
-├── .env.example        # Environment variables template
-├── nginx*.conf         # Nginx configuration files
-├── postgres-optimization.conf # PostgreSQL tuning
-├── custom/             # My custom modules (planned)
-│   ├── reports/
-│   └── api/
-├── docs/               # Custom documentation
-├── MODIFICATIONS.md    # Detailed change log
-└── scripts/           # Original ASM3 deployment utilities
-    └── docker/        # Reference Docker files from upstream
-```
-
-## Database schema
-the full schema can be found in schema_list.txt
+## Test Credentials
+- **Username**: `claude` | **Password**: `Kj32!8`
 
 ## Key Commands
 
 ```bash
-# Sync with upstream
-git fetch upstream && git checkout main && git merge upstream/main
+# Development cycle
+make o_rollup           # MUST rebuild after ANY JS changes
+docker-compose restart asm3  # Apply Python/config changes
+docker-compose down && docker-compose up -d  # Required for env var changes
 
-# Work on modifications  
-git checkout -b feature/new-feature
-git commit -m "feat: description of change"
+# Testing
+make o_tests            # Full unit test suite (44 pre-existing failures from missing optional deps)
 
-# Deploy locally
-docker-compose up --build
-
-# Run tests
-docker-compose exec asm3 python -m pytest
+# Other
+make o_all              # Full build: clean, compile, tags, rollup, schema
+make o_compile          # Lint JS + Python
+make logs               # Show container logs
+make shell              # Shell into ASM3 container
+make db-shell           # PostgreSQL shell
 ```
 
-## Modification Strategy
+## Critical Gotchas
 
-### Git Workflow
-- `main-custom` branch stays synced with upstream
-- `develop` branch for stable modifications
-- Feature branches for specific changes
-- Regular upstream syncing with rebase strategy
+1. **JS changes require `make o_rollup`** - The container loads `rollup_compat.min.js` (bundled). Editing JS files without rebuilding the bundle has NO effect.
+2. **New env vars need THREE places**: `.env`, `docker-compose.yml` environment section, AND `asm3.conf.template` (envsubst substitutes template vars inside the container)
+3. **`asm-menu-icon` CSS class** triggers the `asmmenu()` jQuery widget which hijacks click events. Don't use it on standalone buttons.
+4. **Module method naming** - If a JS file both auto-initializes AND registers as a module (`common.module_register`), internal methods must not collide with module lifecycle names (`render`, `bind`, `sync`, `destroy`). The module registration overwrites them.
+5. **Env var changes** require full `docker-compose down && up -d` (restart is insufficient)
+6. **External URLs** in menu items cause JavaScript errors. Use internal redirects.
 
-### Code Changes
-- Follow ASM3's existing patterns and conventions
-- Custom code goes in `custom/` directory when possible
-- Modify core files minimally and document thoroughly
-- Use configuration/environment variables for customization
+## ASM3 Architecture Patterns
 
-### Docker Strategy
-- Multi-stage build for production optimization
-- Separate containers for app, database, and caching
-- Environment-based configuration
-- Health checks and proper logging
-- Development vs production compose files
-
-## Documentation Standards
-
-### Commit Messages
-```
-feat: add new functionality
-fix: bug fix
-docs: documentation changes  
-docker: containerization changes
-sync: upstream synchronization
-```
-
-### Change Tracking
-All modifications logged in `MODIFICATIONS.md` with:
-- Description of change
-- Files modified
-- Reason for modification  
-- Upstream compatibility notes
-- Testing performed
-
-
-
-## Quick References
-
-### Test Credentials
-For testing with browsermcp (avoids password prompts):
-- **Username**: `claude`
-- **Password**: `Kj32!8`
-
-### Make Commands
-
-**Docker Management (Primary Commands):**
-- `make help` - Show all available commands
-- `make build` - Build Docker images
-- `make start` - Start the application
-- `make stop` - Stop the application
-- `make restart` - Restart the application
-- `make logs` - Show application logs
-- `make backup` - Backup database
-- `make restore FILE=backup.dump` - Restore database
-- `make shell` - Open shell in ASM3 container
-- `make db-shell` - Open database shell
-- `make version` - Show current ASM3 version
-- `make upgrade` - Interactive version upgrade
-
-**Original ASM3 Commands (prefixed with o_):**
-- `make o_all` - Complete build: clean, compile, tags, rollup, schema
-- `make o_test` - Run development server on port 5000
-- `make o_tests` - Run unit test suite
-- `make o_compile` - Compile/lint JavaScript and Python
-- `make o_rollup` - Bundle and minify JavaScript files
-- `make o_clean` - Clean build artifacts
-
-### ASM3 Key Files
-- `src/main.py` - Main application entry point
-- `src/asm3/` - Core ASM3 modules directory
-- `src/asm3/db.py` - Database abstraction layer
-- `src/asm3/reports.py` - Report generation system
-- `src/asm3/service.py` - Business logic services
-
-### Custom Integration Points
-- Environment variables in `.env` (copy from `.env.example`)
-- Custom modules in `custom/` (planned)
-- Docker configuration in project root
-- Documentation in `docs/`
-
-### Testing Strategy
-- Unit tests for custom code
-- Integration tests with Docker
-- Upstream compatibility testing
-- Database migration testing
-
-## ASM3 Customization Patterns
-
-### Development Workflow (Optimal)
-```bash
-# 1. Edit files locally (instant)
-vim src/asm3/html.py
-
-# 2. Deploy changes (10-15 seconds)
-docker-compose restart asm3
-
-# 3. Test immediately - changes are live!
-```
-
-### Hot-Reload Investigation Results
-- **✅ Volume Mounting**: Works perfectly with `./src:/app/src:ro`
-- **⚠ Key Issue**: Dockerfile `COPY ./src` conflicts with volume mount
-- **✅ Solution**: Generate required build files locally (e.g. `__version__.py`)
-- **❌ Auto-Reload**: web.py autoreload doesn't work in Docker/WSGI context
-- **🔧 Debug Mode**: Successfully enabled via `ASM3_DEBUG=true` → `web.config.debug = True`
-
-### Menu System Architecture
-**Location**: `src/asm3/html.py` - `menu_structure()` function
-
-**Menu Structure Format**:
+### Backend Endpoint Pattern (`src/main.py`)
 ```python
-(permission, "identifier", _("Menu Name", l), subitems)
-
-# Submenu items format (6 parameters):
-(permission, shortcut, tag, url, icon, label)
+class my_endpoint(JSONEndpoint):
+    url = "my_endpoint"
+    get_permissions = asm3.users.SOME_PERMISSION
+    def controller(self, o):     # GET - returns data for JS module
+        return {"key": "value"}
+    def post_mode(self, o):      # POST with mode=mode (lowercase, 2-30 chars)
+        return result
 ```
 
-**Example Menu Addition**:
-```python
-("", "custom", _("Custom", l), (
-    ("", "", "", "internal_page", "asm-icon-web", _("Test", l))
-))
-```
-
-**⚠ External URL Limitation**: Direct external URLs (https://google.com) in menu items cause JavaScript errors. Use internal redirects instead.
-
-### Page Title/Header Customization
-**Location**: `src/static/js/[page_name].js`
-
-**Pattern for animal_new.js**:
+### Frontend Module Pattern (`src/static/js/*.js`)
 ```javascript
-// Page header (line ~20)
-html.content_header(_("Add a new animal")),
+const my_module = {
+    render: function() { return "html"; },  // Returns HTML for page body
+    bind: function() { /* event handlers */ },
+    sync: function() { /* init data */ },
+    destroy: function() { return false; },
+    name: "my_module",
+    title: function() { return _("Title"); },
+    routes: { "my_module": function() { common.module_loadandstart("my_module", "my_module"); } }
+};
+common.module_register(my_module);
+```
+- All `.js` files in `src/static/js/` are auto-included in rollup bundle
+- AJAX: `common.ajax_post("endpoint", "mode=x&key=val", successFn, errorFn)`
+- Permissions: `common.has_permission("flag")` (superuser bypasses all)
 
-// Browser title (line ~607) 
-title: function() { return _("Add a new animal"); },
+### Permission System
+- **Backend**: `src/asm3/users.py` - flag constants (e.g., `USE_AI_ASSISTANT = "uaia"`)
+- **Backend check**: `asm3.users.check_permission(session, flag)` / `check_permission_bool()`
+- **Frontend check**: `common.has_permission("flag")` - returns true for superusers
+- **Roles UI**: `src/static/js/roles.js` - `render_dialog()` builds the checkbox grid
+- **Security map format**: flags delimited by `*` with trailing space (e.g., `"va *aa *ca *"`)
+
+### Menu System (`src/asm3/html.py`)
+```python
+# In menu_structure(): (permission, shortcut, tag, url, icon, label)
+(asm3.users.VIEW_ANIMAL, "alt+shift+v", "", "shelterview", "asm-icon-location", _("Shelter view", l))
 ```
 
-### Critical Files for UI Changes
-- **Menu Structure**: `src/asm3/html.py` (Python backend)
-- **Page Content**: `src/static/js/[page].js` (Frontend JavaScript)
-- **Permissions**: `src/asm3/users.py` (User access control)
-- **Localization**: `src/asm3/locales/locale_*.py` + `src/static/js/locales/locale_*.js`
+### Header Topline (`src/static/js/header.js`)
+- Buttons in `render()` around line 432
+- Event binding in `bind()` around line 606
+- Don't use `asm-menu-icon` class for non-dropdown buttons
 
-### Docker Volume Mount Setup
-```yaml
-# docker-compose.yml
-volumes:
-  - ./src:/app/src:ro  # Source code (read-only)
-```
+### Config Flow
+`.env` -> `docker-compose.yml` (environment) -> container env -> `envsubst` -> `asm3.conf.template` -> `asm3.conf` -> `src/asm3/sitedefs.py`
 
-**Required Build Files** (must exist locally):
-```bash
-# Generate version file for development
-echo '#!/usr/bin/env python3
-VERSION = "50 [Custom Build Development]"
-BUILD = "dev"' > src/asm3/__version__.py
-```
+## AI Assistant Project
 
-### Configuration Integration
-**Development Settings** (`asm3.conf.template`):
-```ini
-# Development settings
-autoreload = true
-debug_mode = ${ASM3_DEBUG}
-```
+**PRD**: `AI_PRD.md` | **Progress**: `AI_PROGRESS.md` | **Branch**: `feature/ai-assistant`
 
-**Environment Variables** (`.env`):
-```bash
-ASM3_DEBUG=true  # Enables web.py debug mode
-```
+### Files
+- `src/asm3/ai_assistant.py` - Backend: 16 tool definitions, Claude API chat loop, permission filtering
+- `src/static/js/ai_assistant.js` - Frontend: floating chat panel, voice, page context
+- `src/main.py` - Endpoint class `ai_assistant(JSONEndpoint)`
+- `unittest/test_ai_assistant.py` - 42 tests
 
-### Common Pitfalls
-1. **Menu JavaScript Errors**: Undefined values or external URLs break menu rendering
-2. **Environment Variable Changes**: Require `docker-compose down && docker-compose up -d` (restart is insufficient)
-3. **Database Host Configuration**: Must be `ASM3_DBHOST=postgres` (matches docker-compose service name)
-4. **File Permissions**: Volume mounts need proper file access
-5. **Localization**: UI text changes may need updates in multiple locale files
+### Key Decisions
+- `import anthropic` is lazy (inside `chat()`) so module loads without the package
+- Tool handlers convert params to `PostedData` via `_make_post()` (values stringified)
+- `add_log` is write but NO confirmation (quick observation notes)
+- Permission flag: `USE_AI_ASSISTANT` (`uaia`) - superusers always have access
+- The JS file both auto-initializes a floating panel (on every page) AND registers as a module (for `/ai_assistant` URL)
+- Internal methods use `bind_panel()` / `render_panel()` to avoid collision with module lifecycle
 
-### Testing Checklist
-- [ ] Menu loads without JavaScript errors
-- [ ] Page titles/headers display correctly  
-- [ ] Links navigate to intended destinations
-- [ ] No Python errors in container logs
-- [ ] Changes persist after container restart
+### Config
+Requires in `.env`: `ASM3_AI_ENABLED=true`, `ASM3_AI_API_KEY=...`, `ASM3_AI_MODEL=...`
+Passed via: `docker-compose.yml` env section + `asm3.conf.template`
 
-## SSL Configuration & Troubleshooting
+## Key Files Reference
 
-### SSL Setup Process
-1. **Prerequisites**: Domain DNS must point to server IP, port 80 must be accessible
-2. **Initialize SSL**: `make init-ssl` (automatically handles certificate generation and configuration)
-3. **Verify**: Check https://yourdomain.com and https://www.ssllabs.com/ssltest/
-
-### SSL Architecture
-**Configuration Files**:
-- `nginx-ssl.conf.template` → Template with `NGINX_SERVER_NAME_PLACEHOLDER`
-- `nginx-processed.conf` → Generated config (domain substituted)
-- `docker-compose.ssl-init.yml` → Override for certificate generation (exposes port 80)
-
-### Common SSL Issues & Fixes
-
-#### Issue 1: "Connection refused" on port 443
-**Cause**: SSL certificates missing or nginx not using SSL config  
-**Fix**: 
-```bash
-make init-ssl  # Generates certificates and switches to SSL config
-```
-
-#### Issue 2: Let's Encrypt fails - "Connection refused" on port 80
-**Cause**: Port 80 not accessible for ACME challenge  
-**Fix**: The `init-ssl.sh` script automatically exposes port 80 during certificate generation
-
-#### Issue 3: Nginx fails to start with "invalid number of arguments"
-**Cause**: Environment variable substitution removing nginx variables like `$binary_remote_addr`  
-**Fix**: Use template system instead of `envsubst`:
-```bash
-# Don't use:
-envsubst < nginx-ssl.conf > nginx-processed.conf
-
-# Use instead:
-sed "s/NGINX_SERVER_NAME_PLACEHOLDER/$DOMAIN/g" nginx-ssl.conf.template > nginx-processed.conf
-```
-
-#### Issue 4: SSL works but redirects broken
-**Check**: Nginx config has proper `server_name` and `return 301 https://$server_name$request_uri`
-
-### SSL File Workflow
-1. **Templates**: `nginx-ssl.conf.template`, `nginx-temp.conf.template` (with placeholders)
-2. **Generation**: `init-ssl.sh` substitutes domain and creates `nginx-processed.conf`
-3. **Mounting**: `docker-compose.yml` mounts `nginx-processed.conf` to container
-
-### Debugging SSL Issues
-```bash
-# Check if certificates exist
-docker run --rm -v "$(basename $(pwd))_certbot_certs:/certs" alpine ls -la /certs/live/
-
-# Test nginx config syntax
-docker-compose exec nginx nginx -t
-
-# Check which ports are listening
-ss -tlnp | grep ':80\|:443'
-
-# Test direct connectivity
-curl -v http://yourdomain.com
-curl -v https://yourdomain.com
-```
-
-### Manual SSL Recovery
-If SSL setup fails, manually fix:
-```bash
-# 1. Generate certificates manually
-docker-compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d yourdomain.com
-
-# 2. Create SSL config
-sed "s/NGINX_SERVER_NAME_PLACEHOLDER/yourdomain.com/g" nginx-ssl.conf.template > nginx-processed.conf
-
-# 3. Restart with SSL
-docker-compose down && docker-compose up -d
-```
+| File | Purpose |
+|------|---------|
+| `src/main.py` | All endpoint classes, routing |
+| `src/asm3/html.py` | Menu structure, page HTML generation |
+| `src/asm3/users.py` | Permission flags and checking |
+| `src/asm3/sitedefs.py` | Config constants from asm3.conf |
+| `src/asm3/utils.py` | PostedData, json_parse, helpers |
+| `src/static/js/header.js` | Topline bar, menus, notifications |
+| `src/static/js/common.js` | Module system, AJAX, permissions |
+| `src/static/js/roles.js` | User roles permission UI |
+| `src/static/css/asm-icon.css` | Available icon classes |
+| `asm3.conf.template` | Config template (envsubst) |
+| `docker-compose.yml` | Container orchestration |
+| `scripts/rollup/rollup.py` | JS bundling script |
 
 ---
-
-**Last Updated**: 2025-08-27  
-**ASM3 Upstream Version**: 50  
-**Custom Version**: C1
+**ASM3 Upstream Version**: 50 | **Custom Version**: C1

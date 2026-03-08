@@ -75,7 +75,8 @@ RUN pip install --no-cache-dir \
     sphinx \
     sphinx-rtd-theme \
     matplotlib \
-    anthropic
+    anthropic \
+    openai
 
 # Note: Customization script removed - using direct source approach
 

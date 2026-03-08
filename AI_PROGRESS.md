@@ -7,7 +7,7 @@
 
 `feature/ai-assistant` (based off `master`)
 
-## Status: Phase 1 Complete, Phase 2 Next
+## Status: Phase 4 Complete, Phase 5 (Testing) Next
 
 ### Phase 1: Foundation + Config + Backend Module -- DONE
 
@@ -54,56 +54,64 @@ All 42 unit tests passing.
 
 ---
 
-### Phase 2: Endpoint -- TODO (next)
+### Phase 2: Endpoint -- DONE
 
-Add `ai_assistant` endpoint class to `src/main.py`.
+**Files modified:**
+- `src/main.py` -- Added `ai_assistant` endpoint class (line ~2022) and import
 
-**What to build:**
-- Class inheriting from `JSONEndpoint` (pattern at line ~727 of main.py)
-- `url = "ai_assistant"`
-- `get_permissions = asm3.users.VIEW_ANIMAL` (minimum permission)
-- `controller(self, o)` -- returns `{"ai_enabled": bool, "locations": [...], "species": [...]}`
-- `post_chat(self, o)` -- accepts message + history + context JSON, calls `asm3.ai_assistant.chat()`
-- `post_confirm(self, o)` -- accepts tool name + params, calls `asm3.ai_assistant.execute_tool()`
-- POST mode names must be lowercase, 2-30 chars (validated by `check_mode` at line 576)
-- Import `asm3.ai_assistant` at top of main.py
-
-**Tests to add:**
-- Endpoint routing verification
-- POST mode handling
-- Error responses for invalid modes
+**What was built:**
+- `import asm3.ai_assistant` added to imports
+- `AI_ENABLED`, `AI_API_KEY` imported from `asm3.sitedefs`
+- `class ai_assistant(JSONEndpoint)` with:
+  - `url = "ai_assistant"`, `get_permissions = asm3.users.VIEW_ANIMAL`
+  - `controller(self, o)` -- returns `ai_enabled` (bool), `locations`, `species`
+  - `post_chat(self, o)` -- parses message/history/context from POST, calls `asm3.ai_assistant.chat()`, returns JSON
+  - `post_confirm(self, o)` -- parses tool/params from POST, calls `asm3.ai_assistant.execute_tool()`, returns JSON
+- Route `/ai_assistant` verified as registered via `generate_routes()`
+- All 42 existing unit tests still pass
 
 ---
 
-### Phase 3: Frontend -- TODO
+### Phase 3: Frontend -- DONE
 
-Create `src/static/js/ai_assistant.js` -- floating chat panel.
+**Files created:**
+- `src/static/js/ai_assistant.js` -- Floating chat panel (~310 lines)
 
-**What to build:**
-- Standard ASM3 JS module pattern: `render()`, `bind()`, `sync()`, `title()`
-- Register with `common.module_register()`
-- Floating panel HTML (jQuery UI dialog, fixed bottom-right, z-index 10000)
-- Message rendering (user right-aligned, AI left-aligned, confirmations with buttons)
-- AJAX via `common.ajax_post("ai_assistant", ...)`
-- Web Speech API: `SpeechRecognition` for input, `SpeechSynthesis` for output
-- Page context extraction from `controller` object and URL
-- Push-to-talk mic button, speaker toggle
-- Conversation state in JS (messages array, conversation_id UUID)
+**What was built:**
+- Self-initializing global `ai_assistant` object (not a page module -- it's a floating overlay on every page)
+- Auto-injects floating panel HTML into `<body>` on page load
+- Skips init on login/database pages
+- Auto-included in rollup bundle (rollup.py picks up all .js files)
 
-**Key patterns to follow:**
-- See `src/static/js/animal_new.js` for module pattern
-- See `src/static/js/header.js` for topline button pattern (line ~410-437)
-- AJAX pattern: `common.ajax_post(action, formdata, callback)`
-- Dialog pattern: jQuery UI dialog (see header.js line ~115)
+**Features implemented:**
+- Chat panel: fixed bottom-right, draggable header, z-index 10000
+- Message display: user (blue, right-aligned), AI (grey, left-aligned), errors (red)
+- Typing indicator while waiting for response
+- AJAX via `common.ajax_post("ai_assistant", formdata)` with mode=chat and mode=confirm
+- Confirmation flow: Confirm/Cancel buttons for write actions
+- Page context extraction from `controller` object (animal page, person page)
+- Web Speech API: push-to-talk mic button (red highlight when recording)
+- Web Speech API: text-to-speech toggle for AI responses
+- New conversation button, minimize, close
+- Keyboard shortcut: Alt+Shift+Q (via Mousetrap)
+- Conversation history maintained in `conversation_history` array
+- XSS protection: text escaped via jQuery `.text().html()` pattern
+- Graceful degradation: mic button hidden when SpeechRecognition unavailable
 
 ---
 
-### Phase 4: Integration -- TODO
+### Phase 4: Integration -- DONE
 
-- `src/static/js/header.js` -- Add AI button to topline bar render + bind
-- `src/asm3/html.py` -- Add menu item in `menu_structure()`
-- Keyboard shortcut: `Alt+Shift+Q` via Mousetrap
-- Conditionally show/hide based on AI enabled config
+**Files modified:**
+- `src/static/js/header.js` -- Added AI button to topline bar (render + click binding)
+- `src/asm3/html.py` -- Added AI category and menu item in `menu_structure()`
+
+**What was built:**
+- Topline button: `#asm-topline-ai` with callout icon, placed before user/help buttons
+- Click binding: calls `ai_assistant.toggle_panel()` with `typeof` guard
+- Menu item: "AI" category with "AI Assistant" entry under ASM menu, shortcut Alt+Shift+Q
+- Permission: `VIEW_ANIMAL` (same as endpoint minimum)
+- Keyboard shortcut already handled by `ai_assistant.js` via Mousetrap
 
 ---
 
@@ -127,12 +135,7 @@ Create `src/static/js/ai_assistant.js` -- floating chat panel.
 | `src/asm3/html.py` | `menu_structure()` for menu items |
 | `src/static/js/header.js` | Topline bar UI |
 
-## Git Status (uncommitted)
+## Git History
 
-```
-Modified:  .env.example, Dockerfile, asm3.conf, src/asm3/sitedefs.py
-New:       AI_PRD.md, AI_PROGRESS.md, src/asm3/ai_assistant.py, unittest/test_ai_assistant.py
-```
-
-Not yet committed -- commit when ready with message like:
-`feat: add AI assistant backend module with tool definitions and tests (Phase 1)`
+- `df9c7a2` -- Phase 1: `feat: add AI assistant backend module with tool definitions and tests (Phase 1)`
+- Phase 2-4: uncommitted -- endpoint, frontend JS, header/menu integration

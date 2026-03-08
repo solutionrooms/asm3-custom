@@ -430,6 +430,17 @@ header = {
                 '</div>',
                 ' ',
                 '<div class="topline-element">',
+                    '<div id="asm-topline-ai" style="cursor:pointer; display:inline-block; vertical-align:middle; padding:4px;" ',
+                        'title="' + _("AI Assistant") + ' (Alt+Shift+Q)">',
+                        '<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:middle; fill:currentColor;">',
+                            '<path d="M8 0L9.2 4.8L14 6L9.2 7.2L8 12L6.8 7.2L2 6L6.8 4.8Z"/>',
+                            '<path d="M12.5 10L13.1 12L15 12.5L13.1 13L12.5 15L11.9 13L10 12.5L11.9 12Z" opacity="0.7"/>',
+                            '<path d="M3 0.5L3.4 2L5 2.5L3.4 3L3 4.5L2.6 3L1 2.5L2.6 2Z" opacity="0.5"/>',
+                        '</svg>',
+                        '<span style="vertical-align:middle; font-size:0.85em; font-weight:bold;"> AI</span>',
+                    '</div>',
+                '</div>',
+                '<div class="topline-element">',
                     '<div id="asm-topline-user" class="asm-menu-icon"><span id="asm-topline-username"></span></div>',
                 '</div>',
                 '<div class="topline-element">',
@@ -620,6 +631,11 @@ header = {
         // Hide the error and info boxes
         $("#asm-topline-error").hide();
         $("#asm-topline-info").hide();
+
+        // AI Assistant button
+        $("#asm-topline-ai").click(function() {
+            if (typeof ai_assistant !== "undefined") { ai_assistant.toggle_panel(); }
+        });
 
         // Hide the My sheltermanager.com menu option for non-smcom and if this
         // user isn't the master user (same username as the database)

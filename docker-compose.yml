@@ -62,6 +62,12 @@ services:
       - ASM3_FROM_ADDRESS=${ASM3_FROM_ADDRESS}
       - ASM3_SMTP_SERVER=${ASM3_SMTP_SERVER}
       - ASM3_ROLLUP_JS=${ASM3_ROLLUP_JS}
+      # AI Assistant
+      - ASM3_AI_ENABLED=${ASM3_AI_ENABLED}
+      - ASM3_AI_PROVIDER=${ASM3_AI_PROVIDER}
+      - ASM3_AI_API_KEY=${ASM3_AI_API_KEY}
+      - ASM3_AI_MODEL=${ASM3_AI_MODEL}
+      - ASM3_AI_BASE_URL=${ASM3_AI_BASE_URL}
       - ASM3_GEO_BATCH=${GEO_BATCH}
       - ASM3_GEO_LIMIT=${GEO_LIMIT}
       # Animal Tracker microchip sync

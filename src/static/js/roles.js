@@ -14,6 +14,7 @@ $(function() {
                     validate.reset("dialog-add");
                     $("#roleid").val(row.ID);
                     $("#rolename").val(row.ROLENAME);
+                    $("#aicontext").val(row.AICONTEXT || "");
                     let perms = row.SECURITYMAP.replace(/\*/g, "").split(" ");
                     $(".token").prop("checked", false);
                     $.each(perms, function(i, v) {
@@ -34,9 +35,10 @@ $(function() {
                         validate.reset("dialog-add");
                         $("#dialog-add .asm-textbox").val("");
                         $("#dialog-add input:checkbox").prop("checked", false);
+                        $("#aicontext").val("");
                         $("#dialog-add").dialog("option", "buttons", roles.addbuttons);
                         $("#dialog-add").dialog("option", "title", _("Add role"));
-                        $("#dialog-add").dialog("open"); 
+                        $("#dialog-add").dialog("open");
                     }
                 },
                 { id: "clone", text: _("Clone"), icon: "copy", enabled: "one", 
@@ -45,6 +47,7 @@ $(function() {
                         $("#dialog-add .asm-textbox").val("");
                         let perms = row.SECURITYMAP.replace(/\*/g, "").split(" ");
                         $("#rolename").val(_("Copy of {0}").replace("{0}", row.ROLENAME));
+                        $("#aicontext").val(row.AICONTEXT || "");
                         $(".token").prop("checked", false);
                         $.each(perms, function(i, v) {
                             if (v) { $("#" + v).prop("checked", true); }
@@ -52,7 +55,7 @@ $(function() {
                         validate.reset("dialog-add");
                         $("#dialog-add").dialog("option", "buttons", roles.addbuttons);
                         $("#dialog-add").dialog("option", "title", _("Add role"));
-                        $("#dialog-add").dialog("open"); 
+                        $("#dialog-add").dialog("open");
                     }
                 },
                 { id: "delete", text: _("Delete"), icon: "delete", enabled: "multi", 
@@ -297,6 +300,12 @@ $(function() {
                 cr("hcr", _("Change Report")),
                 cr("excr", _("Export Report")),
                 cr("dcr", _("Delete Report")),
+                cl(_("AI")),
+                cr("uaia", _("Use AI Assistant")),
+                cr("uaid", _("Record Induction Notes")),
+                '<label for="aicontext" style="display:block; margin-top:6px;">' + _("AI Context") + '</label>',
+                '<textarea id="aicontext" rows="6" style="width:100%; margin-top:4px; font-size:0.9em;" ',
+                    'placeholder="' + html.title(_("Enter role-specific context for the AI assistant, e.g. You are helping a veterinary nurse focused on medical treatments...")) + '"></textarea>',
                 '</p>',
                 '</div>', // col
                 '</div>', // row
@@ -316,14 +325,16 @@ $(function() {
                     $(".token").each(function() {
                         if ($(this).is(":checked")) { securitymap += $(this).attr("id") + " *"; }
                     });
-                    let formdata = "mode=create&securitymap=" + securitymap + "&" + $("#dialog-add input").toPOST();
+                    let formdata = "mode=create&securitymap=" + securitymap +
+                        "&aicontext=" + encodeURIComponent($("#aicontext").val()) +
+                        "&" + $("#dialog-add input").toPOST();
                     $("#dialog-add").disable_dialog_buttons();
                     try {
                         await common.ajax_post("roles", formdata);
-                        common.route_reload(); 
+                        common.route_reload();
                     }
                     finally {
-                        $("#dialog-add").dialog("close"); 
+                        $("#dialog-add").dialog("close");
                     }
                 }
             };
@@ -343,15 +354,17 @@ $(function() {
                     $(".token").each(function() {
                         if ($(this).is(":checked")) { securitymap += $(this).attr("id") + " *"; }
                     });
-                    let formdata = "mode=update&roleid=" + $("#roleid").val() + "&" + 
-                        "securitymap=" + securitymap + "&" + $("#dialog-add input").toPOST();
+                    let formdata = "mode=update&roleid=" + $("#roleid").val() +
+                        "&securitymap=" + securitymap +
+                        "&aicontext=" + encodeURIComponent($("#aicontext").val()) +
+                        "&" + $("#dialog-add input").toPOST();
                     $("#dialog-add").disable_dialog_buttons();
                     try {
                         await common.ajax_post("roles", formdata);
-                        common.route_reload(); 
+                        common.route_reload();
                     }
                     finally {
-                        $("#dialog-add").dialog("close"); 
+                        $("#dialog-add").dialog("close");
                     }
                 }
             };
