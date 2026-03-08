@@ -74,7 +74,9 @@ RUN pip install --no-cache-dir \
     kombu \
     sphinx \
     sphinx-rtd-theme \
-    matplotlib
+    matplotlib \
+    anthropic \
+    openai
 
 # Note: Customization script removed - using direct source approach
 

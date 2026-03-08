@@ -61,6 +61,10 @@ $(function() {
                 '<div id="dialog-photo-source" style="display:none;" title="' + _("Add Photo") + '">',
                 '  <p>' + _("How would you like to add a photo?") + '</p>',
                 '</div>',
+                '<div id="dialog-import-transcript" style="display:none;" title="' + _("Import from Transcript") + '">',
+                '  <p>' + _("Paste or type examination notes below. The AI will extract animal data to pre-fill the form.") + '</p>',
+                '  <textarea id="import-transcript-text" rows="10" style="width:100%; font-size:0.9em;"></textarea>',
+                '</div>',
                 html.content_header(_("Patient Admission")),
                 '<div class="patient-induction-form">',
                 '<style>',
@@ -728,6 +732,7 @@ $(function() {
                 tableform.buttons_render([
                    { id: "save", icon: "save", text: _("Save") },
                    { id: "reset", icon: "delete", text: _("Reset") },
+                   { id: "importtranscript", icon: "message", text: _("AI Import from Transcript") },
                    { id: "barcode", icon: "print", text: _("Print QR Label") },
                    { id: "delete", icon: "delete", text: _("Delete") }
                 ], { centered: true }),
@@ -2522,6 +2527,42 @@ $(function() {
                 window.open(url, "_blank", "noopener");
             });
 
+            // Import from Transcript button
+            if (!common.has_permission("uaid")) {
+                $("#button-importtranscript").hide();
+            }
+            $("#button-importtranscript").button().click(function() {
+                $("#import-transcript-text").val("");
+                let btns = {};
+                btns[_("Extract & Fill")] = {
+                    text: _("Extract & Fill"),
+                    "class": "asm-dialog-actionbutton",
+                    click: function() {
+                        let text = $.trim($("#import-transcript-text").val());
+                        if (!text) { return; }
+                        $("#dialog-import-transcript").dialog("close");
+                        header.show_loading(_("Extracting data from transcript..."));
+                        common.ajax_post("ai_assistant", "mode=extract&transcript=" + encodeURIComponent(text), function(result) {
+                            header.hide_loading();
+                            let response;
+                            try { response = JSON.parse(result); } catch(e) { response = {}; }
+                            if (response.success && response.data) {
+                                sessionStorage.setItem("ai_induction_data", JSON.stringify(response.data));
+                                sessionStorage.setItem("ai_induction_transcript", text);
+                                animal_induction.load_from_transcript();
+                            } else {
+                                header.show_error(response.message || _("Failed to extract data from transcript."));
+                            }
+                        });
+                    }
+                };
+                btns[_("Cancel")] = function() { $(this).dialog("close"); };
+                $("#dialog-import-transcript").dialog({
+                    autoOpen: true, width: 600, modal: true,
+                    dialogClass: "dialogshadow", buttons: btns
+                });
+            });
+
             // Delete / barcode buttons (only for existing records)
             if (!controller.animal || !controller.animal.ID) {
                 $("#button-delete").hide();
@@ -2691,6 +2732,8 @@ $(function() {
             } else {
                 // New animal mode - reset form
                 animal_induction.reset();
+                // Check for AI transcript data to pre-fill
+                animal_induction.load_from_transcript();
             }
             // After initial programmatic setup, ensure we don't warn as dirty
             if (typeof validate !== 'undefined' && validate.dirty) {
@@ -2885,6 +2928,46 @@ $(function() {
             animal_induction.enable_widgets();
             animal_induction.update_breed_select();
             animal_induction.update_units();
+        },
+
+        /** Load pre-fill data from AI transcript extraction (stored in sessionStorage) */
+        load_from_transcript: function() {
+            var raw = sessionStorage.getItem("ai_induction_data");
+            if (!raw) { return; }
+            // Clear it so it doesn't re-apply on next visit
+            sessionStorage.removeItem("ai_induction_data");
+            var transcript = sessionStorage.getItem("ai_induction_transcript") || "";
+            sessionStorage.removeItem("ai_induction_transcript");
+
+            var data;
+            try { data = JSON.parse(raw); } catch(e) { return; }
+
+            // Show a banner so the user knows this was pre-filled
+            header.show_info(_("Form pre-filled from voice transcript. Please review before saving."));
+
+            // Delay to ensure form is fully rendered
+            setTimeout(function() {
+                if (data.animalname) { $("#animalname").val(data.animalname); }
+                if (data.species_id) { $("#species").val(data.species_id).change(); }
+                if (data.breed_id) {
+                    setTimeout(function() { $("#breed1").val(data.breed_id); }, 300);
+                }
+                if (data.sex !== undefined && data.sex !== null) { $("#sex").val(data.sex); }
+                if (data.colour_id) { $("#basecolour").val(data.colour_id); }
+                if (data.weight) { $("#weight").val(data.weight); }
+                if (data.microchip) {
+                    $("#microchipped").prop("checked", true);
+                    $("#microchipnumber").val(data.microchip);
+                }
+                if (data.markings) { $("#markings").val(data.markings); }
+                if (data.location_id) { $("#internallocation").val(data.location_id); }
+                // Combine comments, health_problems, and original transcript
+                var comments = [];
+                if (data.comments) { comments.push(data.comments); }
+                if (data.health_problems) { comments.push("Health: " + data.health_problems); }
+                if (transcript) { comments.push("--- Original transcript ---\n" + transcript); }
+                if (comments.length > 0) { $("#comments").val(comments.join("\n\n")); }
+            }, 300);
         },
 
         destroy: function() {

@@ -610,7 +610,9 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             ( asm3.users.VIEW_INCOMING_FORMS, "alt+shift+m", "tagonlineform", "onlineform_incoming", "asm-icon-blank", _("View Incoming Forms", l) ),
             ( "", "", "tagwaitinglist", "--cat", "asm-icon-waitinglist", _("Waiting List", l) ),
             ( asm3.users.ADD_WAITING_LIST, "", "tagwaitinglist", "waitinglist_new", "asm-icon-blank", _("Add an animal to the waiting list", l) ),
-            ( asm3.users.VIEW_WAITING_LIST, "alt+shift+w", "tagwaitinglist", "waitinglist_results", "asm-icon-blank", _("Edit the current waiting list", l) )
+            ( asm3.users.VIEW_WAITING_LIST, "alt+shift+w", "tagwaitinglist", "waitinglist_results", "asm-icon-blank", _("Edit the current waiting list", l) ),
+            ( "", "", "", "--cat", "asm-icon-message", _("AI", l) ),
+            ( asm3.users.USE_AI_ASSISTANT, "alt+shift+q", "", "ai_assistant", "asm-icon-message", _("AI Assistant", l) )
     )
     if is_low_access:
         asm_menu_items = asm_menu_items[:2] + (

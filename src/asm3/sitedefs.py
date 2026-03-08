@@ -406,5 +406,13 @@ TIMEPICKER_CSS = get_string("timepicker_css", 'static/lib/timepicker/0.3.3/jquer
 TIMEPICKER_JS = get_string("timepicker_js", 'static/lib/timepicker/0.3.3/jquery.ui.timepicker.js')
 TINYMCE_5_JS = get_string("tinymce_4_js", 'static/lib/tinymce/5.5.1/tinymce/js/tinymce/tinymce.min.js')
 
+# AI Assistant configuration
+AI_ENABLED = get_boolean("ai_enabled", False)
+AI_PROVIDER = get_string("ai_provider", "anthropic")
+AI_API_KEY = get_string("ai_api_key", "")
+AI_MODEL = get_string("ai_model", "claude-sonnet-4-20250514")
+AI_MAX_TOKENS = get_integer("ai_max_tokens", 2048)
+AI_BASE_URL = get_string("ai_base_url", "")
+
 # Directory where font files are located for use with image watermarking
 WATERMARK_FONT_BASEDIRECTORY = get_string("watermark_font_basedirectory", "/usr/share/fonts/truetype/")

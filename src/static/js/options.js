@@ -996,6 +996,14 @@ $(function() {
                         { id: "wlremoval", post_field: "WaitingListDefaultRemovalWeeks", label: _("Default removal after weeks without contact"), type: "number", min: 0, max: 52, callout: _("Set to 0 to never auto remove.") }, 
                         { id: "wlcolumns", post_field: "WaitingListViewColumns", label: _("Columns displayed"), type: "selectmulti", options: this.two_pair_options(controller.waitinglistcolumns) }
                     ]}, 
+                    { id: "tab-ai", title: _("AI"), fields: [
+                        { id: "aicontext", post_field: "AIContext", label: _("AI System Context"), type: "textarea", doublesize: true,
+                            callout: _("This context is sent to the AI assistant for all users. Use it to describe your shelter, common procedures, or any instructions the AI should always follow.") },
+                        { id: "aivoice", post_field: "AIVoice", label: _("AI Voice"), type: "select", options: '<option value="">' + _("Browser default") + '</option>',
+                            callout: _("The voice used when the AI reads responses aloud. Available voices depend on your browser and operating system.") },
+                        { id: "aivoicerate", post_field: "AIVoiceRate", label: _("AI Voice Speed"), type: "select",
+                            options: '<option value="0.8">' + _("Slow") + '</option><option value="0.9">' + _("Slightly slow") + '</option><option value="1" selected>' + _("Normal") + '</option><option value="1.1">' + _("Slightly fast") + '</option><option value="1.2">' + _("Fast") + '</option>' }
+                    ]},
                     { id: "tab-watermark", title: _("Watermark"), fields: [
                         { id: "watermarkxoffset", post_field: "WatermarkXOffset", label: _("Watermark logo X offset"), type: "number", min: 0, max: 9999, callout: _("Relative to bottom right corner of the image") }, 
                         { id: "watermarkyoffset", post_field: "WatermarkYOffset", label: _("Watermark logo Y offset"), type: "number", min: 0, max: 9999, callout: _("Relative to bottom right corner of the image") }, 
@@ -1165,7 +1173,26 @@ $(function() {
         },
 
         sync: function() {
-            
+            // Populate AI voice dropdown with available browser voices
+            var populateVoices = function() {
+                var voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+                if (voices.length === 0) { return; }
+                var sel = $("#aivoice");
+                var current = config.str("AIVoice");
+                sel.find("option:not(:first)").remove();
+                $.each(voices, function(i, v) {
+                    var label = v.name + (v.lang ? " (" + v.lang + ")" : "");
+                    sel.append('<option value="' + html.title(v.name) + '">' + html.title(label) + '</option>');
+                });
+                if (current) { sel.select("value", current); }
+            };
+            populateVoices();
+            if (window.speechSynthesis) {
+                window.speechSynthesis.onvoiceschanged = populateVoices;
+            }
+            // Set voice rate from config
+            var rate = config.str("AIVoiceRate");
+            if (rate) { $("#aivoicerate").select("value", rate); }
         },
 
         delay: function() {

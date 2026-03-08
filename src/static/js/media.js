@@ -475,6 +475,13 @@ $(function() {
                 let ru = _("Retain until {0}").replace("{0}", format.date(m.RETAINUNTIL));
                 mod_out("media-delete", ru);
             }
+            // Show "Process Transcript" button for voice transcripts on animal media pages
+            if (m.MEDIANOTES && m.MEDIANOTES.indexOf("Voice Transcript") === 0 &&
+                m.MEDIAMIMETYPE === "text/html" && controller.name === "animal_media") {
+                h.push('<button type="button" class="ai-process-transcript" data-id="' + m.ID + '" ' +
+                    'style="margin-top:4px; padding:3px 10px; font-size:0.8em; background:#1565c0; color:#fff; ' +
+                    'border:none; border-radius:3px; cursor:pointer;">' + _("Process Transcript") + '</button>');
+            }
             if (config.bool("AutoRemoveDocumentMedia") && config.integer("AutoRemoveDMYears")) {
                 let dd = common.add_days(format.date_js(m.DATE), config.integer("AutoRemoveDMYears") * 365);
                 let ar = _("Auto remove on {0}").replace("{0}", format.date(dd));
@@ -843,6 +850,51 @@ $(function() {
 
             tableform.buttons_bind(this.buttons);
             tableform.table_bind(this.table, this.buttons);
+
+            // Process Transcript button on voice transcript media items
+            $(document).on("click", ".ai-process-transcript", function(e) {
+                e.stopPropagation();
+                var mediaid = $(this).data("id");
+                $(this).prop("disabled", true).text(_("Processing..."));
+                // Fetch the HTML content to extract the transcript text
+                $.ajax({
+                    url: "media?id=" + mediaid,
+                    dataType: "html",
+                    success: function(htmlContent) {
+                        // Parse the transcript from the HTML - text is in the last <p> tag after <hr>
+                        var $doc = $("<div>").html(htmlContent);
+                        var transcript = "";
+                        // Get the text after the <hr>
+                        var hr = $doc.find("hr");
+                        if (hr.length) {
+                            transcript = hr.nextAll("p").text();
+                        }
+                        if (!transcript) {
+                            // Fallback: get all paragraph text
+                            transcript = $doc.find("p").last().text();
+                        }
+                        if (!transcript) {
+                            header.show_error(_("Could not extract transcript text from this document."));
+                            return;
+                        }
+                        // Send to AI for extraction
+                        common.ajax_post("ai_assistant", "mode=extract&transcript=" + encodeURIComponent(transcript), function(result) {
+                            var response;
+                            try { response = JSON.parse(result); } catch(ex) { response = {}; }
+                            if (response.success && response.data) {
+                                sessionStorage.setItem("ai_induction_data", JSON.stringify(response.data));
+                                sessionStorage.setItem("ai_induction_transcript", transcript);
+                                common.route("animal_induction");
+                            } else {
+                                header.show_error(response.message || _("Failed to extract data from transcript."));
+                            }
+                        });
+                    },
+                    error: function() {
+                        header.show_error(_("Failed to load transcript document."));
+                    }
+                });
+            });
 
             $(".asm-tabbar").asmtabs();
             $("#emailform").emailform();

@@ -10,6 +10,7 @@ sys.path.insert(0, PATH)
 
 import web062 as web
 
+import asm3.ai_assistant
 import asm3.al
 import asm3.additional
 import asm3.animal
@@ -63,7 +64,8 @@ from asm3.i18n import _, translate, get_version, get_display_date_format, \
     add_minutes, add_days, subtract_days, subtract_months, first_of_month, last_of_month, \
     monday_of_week, sunday_of_week, first_of_year, last_of_year, now, format_currency
 
-from asm3.sitedefs import AUTORELOAD, BASE_URL, CONTENT_SECURITY_POLICY, DEBUG_MODE, DEPLOYMENT_TYPE, \
+from asm3.sitedefs import AI_ENABLED, AI_API_KEY, \
+    AUTORELOAD, BASE_URL, CONTENT_SECURITY_POLICY, DEBUG_MODE, DEPLOYMENT_TYPE, \
     ELECTRONIC_SIGNATURES, EMERGENCY_NOTICE, \
     AKC_REUNITE_BASE_URL, BUDDYID_BASE_URL, FINDPET_BASE_URL, HOMEAGAIN_BASE_URL, \
     LARGE_FILES_CHUNKED, LOCALE, JQUERY_UI_CSS, \
@@ -2016,6 +2018,103 @@ class reset_password(ASMEndpoint):
             _("The ASM password for {0} has been reset to:", l).format(rinfo["username"]) + 
             "\n\n    " + newpass)
         self.redirect("static/pages/password_reset.html")
+
+class ai_assistant(JSONEndpoint):
+    url = "ai_assistant"
+    get_permissions = asm3.users.USE_AI_ASSISTANT
+
+    def controller(self, o):
+        return {
+            "ai_enabled": AI_ENABLED and AI_API_KEY != "",
+            "locations": asm3.lookups.get_internal_locations(o.dbo, o.lf),
+            "species": asm3.lookups.get_species(o.dbo)
+        }
+
+    def post_chat(self, o):
+        self.content_type("application/json")
+        try:
+            message = o.post["message"]
+            history = asm3.utils.json_parse(o.post["history"]) if o.post["history"] else []
+            context = asm3.utils.json_parse(o.post["context"]) if o.post["context"] else {}
+            result = asm3.ai_assistant.chat(o.dbo, o.session, message, history, context)
+            return asm3.utils.json(result)
+        except Exception as err:
+            asm3.al.error("AI chat error: %s" % err, "main.ai_assistant", o.dbo)
+            return asm3.utils.json({
+                "text": "Sorry, an error occurred: %s" % err,
+                "requires_confirmation": False,
+                "history": []
+            })
+
+    def post_confirm(self, o):
+        self.content_type("application/json")
+        try:
+            tool_name = o.post["tool"]
+            params = asm3.utils.json_parse(o.post["params"])
+            result = asm3.ai_assistant.execute_tool(o.dbo, o.session, tool_name, params)
+            return asm3.utils.json({"result": result, "success": True})
+        except Exception as err:
+            asm3.al.error("AI confirm error: %s" % err, "main.ai_assistant", o.dbo)
+            return asm3.utils.json({"success": False, "message": str(err)})
+
+    def post_transcript(self, o):
+        self.content_type("application/json")
+        try:
+            animal_id = o.post.integer("animal_id")
+            transcript = o.post["transcript"]
+            if not animal_id or not transcript:
+                return asm3.utils.json({"success": False, "message": "Missing animal_id or transcript"})
+            a = asm3.animal.get_animal(o.dbo, animal_id)
+            if a is None:
+                return asm3.utils.json({"success": False, "message": "Animal not found"})
+            # Build HTML document from transcript
+            now = asm3.i18n.python2display(o.locale, asm3.i18n.now(o.dbo.timezone))
+            title = "Voice Transcript - %s - %s" % (a.ANIMALNAME, now)
+            content = "<h2>%s</h2><p><b>Animal:</b> %s (%s)</p><p><b>Recorded by:</b> %s</p><p><b>Date:</b> %s</p><hr><p>%s</p>" % (
+                title, a.ANIMALNAME, a.SHELTERCODE, o.session.user, now,
+                asm3.utils.nulltostr(transcript).replace("\n", "<br>")
+            )
+            media_id = asm3.media.create_document_media(o.dbo, o.session.user, asm3.media.ANIMAL, animal_id, title, content)
+            asm3.al.info("Voice transcript saved for %s by %s (media %d)" % (a.ANIMALNAME, o.session.user, media_id),
+                "main.ai_assistant", o.dbo)
+            return asm3.utils.json({"success": True, "media_id": media_id})
+        except Exception as err:
+            asm3.al.error("AI transcript error: %s" % err, "main.ai_assistant", o.dbo)
+            return asm3.utils.json({"success": False, "message": str(err)})
+
+    def post_extract(self, o):
+        self.content_type("application/json")
+        try:
+            transcript = o.post["transcript"]
+            if not transcript:
+                return asm3.utils.json({"success": False, "message": "No transcript provided"})
+            result = asm3.ai_assistant.extract_animal_data(o.dbo, o.session, transcript)
+            return asm3.utils.json({"success": True, "data": result})
+        except Exception as err:
+            asm3.al.error("AI extract error: %s" % err, "main.ai_assistant", o.dbo)
+            return asm3.utils.json({"success": False, "message": str(err)})
+
+    def post_feedback(self, o):
+        self.content_type("application/json")
+        try:
+            response_text = o.post["response"]
+            reason = o.post["reason"]
+            page = o.post["page"]
+            context_id = o.post["context_id"]
+            asm3.al.info("AI feedback from %s [page=%s, id=%s]: reason='%s' response='%s'" % (
+                o.session.user, page, context_id,
+                reason[:200] if reason else "",
+                response_text[:200] if response_text else ""),
+                "main.ai_assistant", o.dbo)
+            # Also store in the audit log for later analysis
+            asm3.audit.create(o.dbo, o.session.user, "ai_assistant", 0,
+                "", "AI Feedback: %s | Response: %s" % (
+                    reason[:500] if reason else "(no reason)",
+                    response_text[:500] if response_text else ""))
+            return asm3.utils.json({"success": True})
+        except Exception as err:
+            asm3.al.error("AI feedback error: %s" % err, "main.ai_assistant", o.dbo)
+            return asm3.utils.json({"success": False})
 
 class accounts(JSONEndpoint):
     url = "accounts"

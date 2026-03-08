@@ -220,6 +220,9 @@ VIEW_LITTER                     = "vll"
 DELETE_LITTER                   = "dll"
 CHANGE_LITTER                   = "cll"
 
+USE_AI_ASSISTANT                = "uaia"
+USE_AI_DICTATION                = "uaid"
+
 ADD_STOCKLEVEL                  = "asl"
 VIEW_STOCKLEVEL                 = "vsl"
 DELETE_STOCKLEVEL               = "dsl"
@@ -828,11 +831,12 @@ def delete_user(dbo: Database, username: str, uid: int) -> None:
 
 def insert_role_from_form(dbo: Database, username: str, post: PostedData) -> int:
     """
-    Creates a role record from posted form data. 
+    Creates a role record from posted form data.
     """
     return dbo.insert("role", {
         "Rolename":     post["rolename"],
-        "SecurityMap":  post["securitymap"]
+        "SecurityMap":  post["securitymap"],
+        "AIContext":    post["aicontext"]
     }, username, setCreated=False)
 
 def update_role_from_form(dbo: Database, username: str, post: PostedData) -> None:
@@ -841,8 +845,19 @@ def update_role_from_form(dbo: Database, username: str, post: PostedData) -> Non
     """
     dbo.update("role", post.integer("roleid"), {
         "Rolename":     post["rolename"],
-        "SecurityMap":  post["securitymap"]
+        "SecurityMap":  post["securitymap"],
+        "AIContext":    post["aicontext"]
     }, username, setLastChanged=False)
+
+def get_ai_context_for_user(dbo: Database, userid: int) -> str:
+    """
+    Returns the combined AI context from all roles assigned to a user.
+    """
+    rows = dbo.query("SELECT role.AIContext FROM role " \
+        "INNER JOIN userrole ON role.ID = userrole.RoleID " \
+        "WHERE userrole.UserID = ? AND role.AIContext IS NOT NULL AND role.AIContext != ''", [userid])
+    contexts = [str(r.AICONTEXT) for r in rows if r.AICONTEXT]
+    return "\n\n".join(contexts)
 
 def delete_role(dbo: Database, username: str, rid: int) -> None:
     """

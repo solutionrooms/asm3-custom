@@ -1412,6 +1412,9 @@ def organisation_latlong(dbo: Database, newvalue: str = "") -> str:
 def organisation_telephone(dbo: Database) -> str:
     return cstring(dbo, "OrganisationTelephone", DEFAULTS["OrganisationTelephone"])
 
+def ai_context(dbo: Database) -> str:
+    return cstring(dbo, "AIContext")
+
 def osm_map_tiles_override(dbo: Database) -> str:
     return cstring(dbo, "OSMMapTilesOverride")
 
