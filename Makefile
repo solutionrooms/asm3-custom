@@ -507,9 +507,9 @@ clear-cache:
 shell:
 	docker-compose exec asm3 bash
 
-# Open database shell
+# Open database shell (use DBNAME=asm3_d for other databases)
 db-shell:
-	docker-compose exec postgres psql -U asm3 -d asm3
+	docker-compose exec postgres psql -U asm3 -d $(or $(DBNAME),asm3)
 
 # Normalize historical animal weights to grams
 normalize-weights:
