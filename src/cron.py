@@ -31,6 +31,7 @@ from asm3 import person
 from asm3 import publish
 from asm3 import reports as extreports
 from asm3 import utils
+from asm3 import social_media
 from asm3 import waitinglist
 from asm3.sitedefs import LOCALE, TIMEZONE, MULTIPLE_DATABASES, MULTIPLE_DATABASES_TYPE, MULTIPLE_DATABASES_MAP
 from asm3.sitedefs import HTMLFTP_PUBLISHER_ENABLED
@@ -138,6 +139,9 @@ def daily(dbo: Database):
 
         # Animal Tracker microchip registration
         ttask(run_animaltracker_sync, dbo)
+
+        # Generate daily social media summary
+        ttask(social_media.generate_daily_summary, dbo)
 
     except:
         em = str(sys.exc_info()[0])
@@ -610,6 +614,8 @@ def run(dbo: Database, mode: str) -> None:
         maint_deduplicate_people(dbo)
     elif mode == "maint_disk_cache":
         maint_disk_cache(dbo)
+    elif mode == "social_media_summary":
+        social_media.generate_daily_summary(dbo)
 
     elapsed = time.time() - x
     al.info("end %s: elapsed %0.2f secs" % (mode, elapsed), "cron.run", dbo)

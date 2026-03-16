@@ -1415,6 +1415,9 @@ def organisation_telephone(dbo: Database) -> str:
 def ai_context(dbo: Database) -> str:
     return cstring(dbo, "AIContext")
 
+def social_media_prompt(dbo: Database) -> str:
+    return cstring(dbo, "SocialMediaPrompt")
+
 def osm_map_tiles_override(dbo: Database) -> str:
     return cstring(dbo, "OSMMapTilesOverride")
 

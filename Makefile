@@ -4,7 +4,7 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker db-init db-copy db-reset-password check_weights fix_weights js-clean
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker db-init db-copy db-reset-password check_weights fix_weights js-clean social-summary
 
 ifeq ($(firstword $(MAKECMDGOALS)),db-init)
   DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
@@ -641,24 +641,26 @@ install-cron:
 	@sudo cp custom_scripts/run-db-maintenance-external.sh /usr/local/bin/asm3-db-maintenance
 	@sudo cp custom_scripts/monitor-system.sh /usr/local/bin/asm3-monitor-system
 	@sudo cp custom_scripts/cleanup-logs.sh /usr/local/bin/asm3-cleanup-logs
-	@sudo chmod +x /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
+	@sudo cp custom_scripts/run-social-summary-external.sh /usr/local/bin/asm3-social-summary
+	@sudo chmod +x /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs /usr/local/bin/asm3-social-summary
 	@echo "Creating log directory..."
 	@mkdir -p $(LOCAL_LOG_DIR_ABS)
 	@echo "Installing cron jobs..."
-	@(crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs)"; \
+	@(crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs|asm3-social-summary)"; \
 	  echo "# ASM3 Daily Tasks - Runs at 2:00 AM every day"; echo "0 2 * * * /usr/local/bin/asm3-daily-tasks"; \
 	  echo "# ASM3 Weight Monitor - Runs every minute"; echo "* * * * * /usr/local/bin/asm3-weight-monitor"; \
 	  echo "# ASM3 Database Maintenance - Runs at 3:00 AM every day"; echo "0 3 * * * /usr/local/bin/asm3-db-maintenance"; \
 	  echo "# ASM3 System Monitoring - Runs every 5 minutes"; echo "*/5 * * * * /usr/local/bin/asm3-monitor-system"; \
-	  echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs") | crontab -
+	  echo "# ASM3 Log Cleanup - Runs daily at 1:00 AM"; echo "0 1 * * * /usr/local/bin/asm3-cleanup-logs"; \
+	  echo "# ASM3 Social Media Summary - Runs at 7:00 AM every day"; echo "0 7 * * * /usr/local/bin/asm3-social-summary") | crontab -
 	@echo "Cron jobs installed successfully!"
 	@echo "Use 'make status-cron' to check status"
 
 # Remove cron jobs from VM host
 uninstall-cron:
 	@echo "Removing ASM3 cron jobs from VM host..."
-	@crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs)" | crontab - || true
-	@sudo rm -f /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs
+	@crontab -l 2>/dev/null | grep -v -E "(^# ASM3 |asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-monitor-system|asm3-cleanup-logs|asm3-social-summary)" | crontab - || true
+	@sudo rm -f /usr/local/bin/asm3-daily-tasks /usr/local/bin/asm3-weight-monitor /usr/local/bin/asm3-db-maintenance /usr/local/bin/asm3-monitor-system /usr/local/bin/asm3-cleanup-logs /usr/local/bin/asm3-social-summary
 	@echo "Cron jobs removed successfully!"
 
 # Show cron job status and recent logs
@@ -666,7 +668,7 @@ status-cron:
 	@echo "========================================"
 	@echo "Current Cron Jobs:"
 	@echo "========================================"
-	@crontab -l 2>/dev/null | grep -E "(asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance)" || echo "No ASM3 cron jobs found"
+	@crontab -l 2>/dev/null | grep -E "(asm3-daily-tasks|asm3-weight-monitor|asm3-db-maintenance|asm3-social-summary)" || echo "No ASM3 cron jobs found"
 	@echo ""
 	@echo "========================================"
 	@echo "Cron Service Status:"
@@ -687,6 +689,16 @@ status-cron:
 	@echo "Recent Database Maintenance Log (last 20 lines):"
 	@echo "========================================"
 	@tail -20 $(LOCAL_LOG_DIR)/db-maintenance.log 2>/dev/null || echo "No database maintenance log found"
+	@echo ""
+	@echo "========================================"
+	@echo "Recent Social Media Summary Log (last 20 lines):"
+	@echo "========================================"
+	@tail -20 $(LOCAL_LOG_DIR)/social-summary.log 2>/dev/null || echo "No social summary log found"
+
+# Run social media summary now
+social-summary:
+	@echo "Running social media summary generator..."
+	@docker-compose exec -T asm3 python3 /app/src/cron.py social_media_summary
 
 # Monitor system performance
 monitor:

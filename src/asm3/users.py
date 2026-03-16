@@ -223,6 +223,9 @@ CHANGE_LITTER                   = "cll"
 USE_AI_ASSISTANT                = "uaia"
 USE_AI_DICTATION                = "uaid"
 
+VIEW_SOCIAL_MEDIA               = "vsm"
+EDIT_SOCIAL_MEDIA               = "esm"
+
 ADD_STOCKLEVEL                  = "asl"
 VIEW_STOCKLEVEL                 = "vsl"
 DELETE_STOCKLEVEL               = "dsl"

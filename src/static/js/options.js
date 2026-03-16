@@ -1002,7 +1002,9 @@ $(function() {
                         { id: "aivoice", post_field: "AIVoice", label: _("AI Voice"), type: "select", options: '<option value="">' + _("Browser default") + '</option>',
                             callout: _("The voice used when the AI reads responses aloud. Available voices depend on your browser and operating system.") },
                         { id: "aivoicerate", post_field: "AIVoiceRate", label: _("AI Voice Speed"), type: "select",
-                            options: '<option value="0.8">' + _("Slow") + '</option><option value="0.9">' + _("Slightly slow") + '</option><option value="1" selected>' + _("Normal") + '</option><option value="1.1">' + _("Slightly fast") + '</option><option value="1.2">' + _("Fast") + '</option>' }
+                            options: '<option value="0.8">' + _("Slow") + '</option><option value="0.9">' + _("Slightly slow") + '</option><option value="1" selected>' + _("Normal") + '</option><option value="1.1">' + _("Slightly fast") + '</option><option value="1.2">' + _("Fast") + '</option>' },
+                        { id: "socialmediaprompt", post_field: "SocialMediaPrompt", label: _("Social Media Prompt"), type: "textarea", doublesize: true, height: "200px",
+                            callout: _("The prompt template used to generate daily social media posts. Use {data} where the shelter activity data should be inserted. Leave blank to use the default prompt.") }
                     ]},
                     { id: "tab-watermark", title: _("Watermark"), fields: [
                         { id: "watermarkxoffset", post_field: "WatermarkXOffset", label: _("Watermark logo X offset"), type: "number", min: 0, max: 9999, callout: _("Relative to bottom right corner of the image") }, 
@@ -1053,9 +1055,14 @@ $(function() {
             // Toolbar buttons
             $("#button-save").button().click(async function() {
                 header.show_loading(_("Saving..."));
+                // Remember which tab was active so we can restore it after reload
+                let activeTab = $(".asm-tabs").tabs("option", "active");
+                if (typeof activeTab === "number") {
+                    window.sessionStorage.setItem("options_active_tab", activeTab);
+                }
                 validate.save(function() {
                     common.route_reload(true); // Needs full reload to get config.js to update
-                }); 
+                });
             });
 
             html.person_flag_options(null, controller.personflags, $("#defaultrotaflags"));
@@ -1193,6 +1200,12 @@ $(function() {
             // Set voice rate from config
             var rate = config.str("AIVoiceRate");
             if (rate) { $("#aivoicerate").select("value", rate); }
+            // Restore the active tab after a save/reload
+            let savedTab = window.sessionStorage.getItem("options_active_tab");
+            if (savedTab !== null) {
+                window.sessionStorage.removeItem("options_active_tab");
+                $(".asm-tabs").tabs("option", "active", parseInt(savedTab, 10));
+            }
         },
 
         delay: function() {

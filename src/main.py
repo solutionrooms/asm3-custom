@@ -48,6 +48,7 @@ import asm3.publishers.html
 import asm3.publishers.vetenvoy
 import asm3.reports
 import asm3.search
+import asm3.social_media
 import asm3.service
 import asm3.smcom
 import asm3.stock
@@ -2115,6 +2116,43 @@ class ai_assistant(JSONEndpoint):
         except Exception as err:
             asm3.al.error("AI feedback error: %s" % err, "main.ai_assistant", o.dbo)
             return asm3.utils.json({"success": False})
+
+class social_media(JSONEndpoint):
+    url = "social_media"
+    get_permissions = asm3.users.VIEW_SOCIAL_MEDIA
+
+    def controller(self, o):
+        return {
+            "rows": asm3.social_media.get_summaries(o.dbo),
+        }
+
+    def post_update(self, o):
+        self.check(asm3.users.EDIT_SOCIAL_MEDIA)
+        asm3.social_media.update_summary_text(o.dbo, o.session.user,
+            o.post.integer("id"), o.post["editedtext"])
+
+    def post_approve(self, o):
+        self.check(asm3.users.EDIT_SOCIAL_MEDIA)
+        asm3.social_media.update_summary_status(o.dbo, o.session.user,
+            o.post.integer("id"), asm3.social_media.STATUS_APPROVED)
+
+    def post_posted(self, o):
+        self.check(asm3.users.EDIT_SOCIAL_MEDIA)
+        asm3.social_media.update_summary_status(o.dbo, o.session.user,
+            o.post.integer("id"), asm3.social_media.STATUS_POSTED)
+
+    def post_delete(self, o):
+        self.check(asm3.users.EDIT_SOCIAL_MEDIA)
+        asm3.social_media.delete_summary(o.dbo, o.session.user, o.post.integer("id"))
+
+    def post_regenerate(self, o):
+        self.check(asm3.users.EDIT_SOCIAL_MEDIA)
+        self.content_type("application/json")
+        try:
+            text = asm3.social_media.regenerate_summary(o.dbo, o.session.user, o.post.integer("id"))
+            return asm3.utils.json({"success": True, "text": text})
+        except Exception as err:
+            return asm3.utils.json({"success": False, "message": str(err)})
 
 class accounts(JSONEndpoint):
     url = "accounts"
