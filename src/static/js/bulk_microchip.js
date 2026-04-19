@@ -39,11 +39,20 @@ $(function() {
                     '<input id="input-gallery" type="file" accept="image/*" multiple="multiple" style="display: none" />',
                 '</div>',
 
+                '<div id="orient-hint" style="display: none; margin-bottom: 0.5em; padding: 0.5em 0.75em; ' +
+                    'background: #fff8d8; border-left: 4px solid #d4a017; color: #6a4f00;">',
+                    '<b>' + _("Check the orientation before processing.") + '</b> ',
+                    _("Names should read left-to-right and top-to-bottom in each thumbnail. " +
+                      "Use the ↻ button to rotate any thumbnail until it's upright — extraction " +
+                      "is much more accurate when the image is the right way up."),
+                '</div>',
+
                 '<div id="thumbnails" style="margin-bottom: 1em;"></div>',
 
                 '<div id="processing" style="display: none; margin-bottom: 1em;">',
                     '<img src="static/images/wait/rolling_3a87cd.svg" style="height: 24px; vertical-align: middle;" /> ',
                     _("Extracting microchip data..."),
+                    ' <span id="processing-meta" style="color: #555; font-size: 0.9em;"></span>',
                 '</div>',
 
                 '<div id="results-wrap" style="display: none;">',
@@ -53,6 +62,7 @@ $(function() {
                         '<thead>',
                             '<tr>',
                                 '<th><input type="checkbox" id="check-all" /></th>',
+                                '<th>#</th>',
                                 '<th>' + _("Name (extracted)") + '</th>',
                                 '<th>' + _("Microchip") + '</th>',
                                 '<th>' + _("Implant date") + '</th>',
@@ -98,6 +108,7 @@ $(function() {
                         '</span>'
                     );
                     $("#btn-process").prop("disabled", false);
+                    $("#orient-hint").show();
                 };
                 reader.readAsDataURL(file);
             });
@@ -110,6 +121,7 @@ $(function() {
             const remaining = this.images.filter(function(v) { return v !== null; }).length;
             if (remaining === 0) {
                 $("#btn-process").prop("disabled", true);
+                $("#orient-hint").hide();
             }
         },
 
@@ -247,6 +259,7 @@ $(function() {
                 const check_attr = row.matched_animal_id ? 'checked="checked"' : '';
                 body.push('<tr data-ri="' + ri + '">');
                 body.push('<td><input type="checkbox" class="row-check" ' + check_attr + ' /></td>');
+                body.push('<td style="font-weight: bold; color: #555;">' + (ri + 1) + '</td>');
                 body.push('<td>' + html.title(row.name || "—") + '</td>');
                 body.push('<td>' + html.title(row.microchip || "—") + '</td>');
                 body.push('<td><input type="text" class="row-date asm-textbox-date" style="width: 100px;" value="' +
@@ -350,6 +363,21 @@ $(function() {
                 .map(function(img, i) { return { img: img, rot: bulk_microchip.rotations[i] || 0 }; })
                 .filter(function(p) { return p.img !== null; });
             if (!pairs.length) { return; }
+
+            // Show processing UI with model info + elapsed counter.
+            const model = controller.vision_model || _("(model not configured)");
+            const temp = controller.vision_temperature;
+            const started = Date.now();
+            const renderMeta = function() {
+                const secs = Math.floor((Date.now() - started) / 1000);
+                $("#processing-meta").text(
+                    _("model:") + " " + model + " · " +
+                    _("temperature:") + " " + temp + " · " +
+                    _("elapsed:") + " " + secs + "s");
+            };
+            renderMeta();
+            const tick = setInterval(renderMeta, 1000);
+
             $("#processing").show();
             $("#btn-process").prop("disabled", true);
             $("#apply-result").hide();
@@ -373,6 +401,7 @@ $(function() {
             } catch (err) {
                 header.show_error(_("Extraction failed:") + " " + err);
             } finally {
+                clearInterval(tick);
                 $("#processing").hide();
                 $("#btn-process").prop("disabled", false);
             }
@@ -452,6 +481,7 @@ $(function() {
             $("#results-body").empty();
             $("#results-wrap").hide();
             $("#apply-result").hide().empty();
+            $("#orient-hint").hide();
             $("#btn-process").prop("disabled", true);
             $("#input-camera, #input-gallery").val("");
         },
