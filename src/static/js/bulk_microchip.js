@@ -122,25 +122,33 @@ $(function() {
         },
 
         /**
-         * Given an image data URL and a rotation angle in degrees, returns a Promise
-         * that resolves to a rotated JPEG data URL. 0-deg just returns the original.
+         * Given an image data URL, returns a Promise resolving to a rotated + downscaled
+         * JPEG data URL. Max long-edge 1600px — Claude Vision gains nothing from higher
+         * resolution and phone photos are often 4000+px, which blows up the POST body.
          */
         apply_rotation: function(data_url, degrees) {
-            if (!degrees) { return Promise.resolve(data_url); }
-            return new Promise(function(resolve) {
+            const MAX_EDGE = 1600;
+            return new Promise(function(resolve, reject) {
                 const img = new Image();
                 img.onload = function() {
+                    // scale so the longer edge is at most MAX_EDGE
+                    const longEdge = Math.max(img.width, img.height);
+                    const scale = longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1;
+                    const sw = Math.round(img.width * scale);
+                    const sh = Math.round(img.height * scale);
+
                     const canvas = document.createElement("canvas");
                     const rad = degrees * Math.PI / 180;
                     const swap = (degrees === 90 || degrees === 270);
-                    canvas.width = swap ? img.height : img.width;
-                    canvas.height = swap ? img.width : img.height;
+                    canvas.width = swap ? sh : sw;
+                    canvas.height = swap ? sw : sh;
                     const ctx = canvas.getContext("2d");
                     ctx.translate(canvas.width / 2, canvas.height / 2);
-                    ctx.rotate(rad);
-                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                    resolve(canvas.toDataURL("image/jpeg", 0.9));
+                    if (degrees) { ctx.rotate(rad); }
+                    ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
+                    resolve(canvas.toDataURL("image/jpeg", 0.85));
                 };
+                img.onerror = function() { reject(new Error("image decode failed")); };
                 img.src = data_url;
             });
         },
