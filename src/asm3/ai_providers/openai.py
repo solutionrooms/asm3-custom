@@ -100,3 +100,32 @@ class OpenAIProvider(BaseProvider):
                     }
                 })
         return msg
+
+    def extract_from_images(self, system_prompt, user_prompt, images):
+        client = self._get_client()
+        content = []
+        for img in images:
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": "data:%s;base64,%s" % (img["media_type"], img["data"])
+                }
+            })
+        content.append({"type": "text", "text": user_prompt})
+
+        response = client.chat.completions.create(
+            model=self.vision_model,
+            max_completion_tokens=self.max_tokens,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content},
+            ],
+        )
+
+        choice = response.choices[0]
+        text = choice.message.content or ""
+        input_tokens = response.usage.prompt_tokens if response.usage else 0
+        output_tokens = response.usage.completion_tokens if response.usage else 0
+        return ChatResponse(text=text, model=response.model or self.vision_model,
+            input_tokens=input_tokens, output_tokens=output_tokens)

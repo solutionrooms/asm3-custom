@@ -2450,6 +2450,45 @@ class animal_bulk(JSONEndpoint):
     def post_delete(self, o):
         return asm3.animal.delete_animals_from_form(o.dbo, o.user, o.post)
 
+class bulk_microchip(JSONEndpoint):
+    url = "bulk_microchip"
+    get_permissions = asm3.users.BULK_UPDATE_MICROCHIP
+    post_permissions = asm3.users.BULK_UPDATE_MICROCHIP
+
+    def controller(self, o):
+        return {
+            "ai_enabled": AI_ENABLED and AI_API_KEY != "",
+        }
+
+    def post_extract(self, o):
+        self.content_type("application/json")
+        try:
+            import asm3.microchip_extract
+            images_json = o.post["images"]
+            images = asm3.utils.json_parse(images_json) if images_json else []
+            if not isinstance(images, list) or not images:
+                return asm3.utils.json({"success": False, "message": "No images provided"})
+            rows = asm3.microchip_extract.extract_rows(images)
+            matched = asm3.microchip_extract.match_rows(o.dbo, rows)
+            return asm3.utils.json({"success": True, "rows": matched})
+        except Exception as err:
+            asm3.al.error("bulk microchip extract error: %s" % err, "main.bulk_microchip", o.dbo)
+            return asm3.utils.json({"success": False, "message": str(err)})
+
+    def post_apply(self, o):
+        self.content_type("application/json")
+        try:
+            import asm3.microchip_extract
+            rows_json = o.post["rows"]
+            confirmed = asm3.utils.json_parse(rows_json) if rows_json else []
+            if not isinstance(confirmed, list) or not confirmed:
+                return asm3.utils.json({"success": False, "message": "No rows to apply"})
+            result = asm3.microchip_extract.apply_updates(o.dbo, o.user, confirmed)
+            return asm3.utils.json(dict(success=True, **result))
+        except Exception as err:
+            asm3.al.error("bulk microchip apply error: %s" % err, "main.bulk_microchip", o.dbo)
+            return asm3.utils.json({"success": False, "message": str(err)})
+
 class animal_clinic(JSONEndpoint):
     url = "animal_clinic"
     js_module = "clinic_appointment"

@@ -411,6 +411,7 @@ AI_ENABLED = get_boolean("ai_enabled", False)
 AI_PROVIDER = get_string("ai_provider", "anthropic")
 AI_API_KEY = get_string("ai_api_key", "")
 AI_MODEL = get_string("ai_model", "claude-sonnet-4-20250514")
+AI_VISION_MODEL = get_string("ai_vision_model", "")
 AI_MAX_TOKENS = get_integer("ai_max_tokens", 2048)
 AI_BASE_URL = get_string("ai_base_url", "")
 

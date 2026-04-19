@@ -303,6 +303,7 @@ $(function() {
                 cl(_("AI")),
                 cr("uaia", _("Use AI Assistant")),
                 cr("uaid", _("Record Induction Notes")),
+                cr("bumc", _("Bulk Update Microchips")),
                 cl(_("Social Media")),
                 cr("vsm", _("View Social Media Summaries")),
                 cr("esm", _("Edit Social Media Summaries")),
