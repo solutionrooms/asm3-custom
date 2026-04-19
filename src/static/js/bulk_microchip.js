@@ -39,6 +39,14 @@ $(function() {
                     '<input id="input-gallery" type="file" accept="image/*" multiple="multiple" style="display: none" />',
                 '</div>',
 
+                '<div id="orient-hint" style="display: none; margin-bottom: 0.5em; padding: 0.5em 0.75em; ' +
+                    'background: #fff8d8; border-left: 4px solid #d4a017; color: #6a4f00;">',
+                    '<b>' + _("Check the orientation before processing.") + '</b> ',
+                    _("Names should read left-to-right and top-to-bottom in each thumbnail. " +
+                      "Use the ↻ button to rotate any thumbnail until it's upright — extraction " +
+                      "is much more accurate when the image is the right way up."),
+                '</div>',
+
                 '<div id="thumbnails" style="margin-bottom: 1em;"></div>',
 
                 '<div id="processing" style="display: none; margin-bottom: 1em;">',
@@ -100,6 +108,7 @@ $(function() {
                         '</span>'
                     );
                     $("#btn-process").prop("disabled", false);
+                    $("#orient-hint").show();
                 };
                 reader.readAsDataURL(file);
             });
@@ -112,6 +121,7 @@ $(function() {
             const remaining = this.images.filter(function(v) { return v !== null; }).length;
             if (remaining === 0) {
                 $("#btn-process").prop("disabled", true);
+                $("#orient-hint").hide();
             }
         },
 
@@ -463,6 +473,7 @@ $(function() {
             $("#results-body").empty();
             $("#results-wrap").hide();
             $("#apply-result").hide().empty();
+            $("#orient-hint").hide();
             $("#btn-process").prop("disabled", true);
             $("#input-camera, #input-gallery").val("");
         },
