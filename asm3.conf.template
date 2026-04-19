@@ -71,6 +71,7 @@ ai_enabled = ${ASM3_AI_ENABLED}
 ai_provider = ${ASM3_AI_PROVIDER}
 ai_api_key = ${ASM3_AI_API_KEY}
 ai_model = ${ASM3_AI_MODEL}
+ai_vision_model = ${ASM3_AI_VISION_MODEL}
 ai_base_url = ${ASM3_AI_BASE_URL}
 
 # Multiple database support (optional)

@@ -222,6 +222,7 @@ CHANGE_LITTER                   = "cll"
 
 USE_AI_ASSISTANT                = "uaia"
 USE_AI_DICTATION                = "uaid"
+BULK_UPDATE_MICROCHIP           = "bumc"
 
 VIEW_SOCIAL_MEDIA               = "vsm"
 EDIT_SOCIAL_MEDIA               = "esm"

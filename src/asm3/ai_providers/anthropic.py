@@ -80,3 +80,34 @@ class AnthropicProvider(BaseProvider):
                 "input": tc["input"]
             })
         return {"role": "assistant", "content": content}
+
+    def extract_from_images(self, system_prompt, user_prompt, images):
+        client = self._get_client()
+        content = []
+        for img in images:
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": img["media_type"],
+                    "data": img["data"],
+                }
+            })
+        content.append({"type": "text", "text": user_prompt})
+
+        response = client.messages.create(
+            model=self.vision_model,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            system=system_prompt,
+            messages=[{"role": "user", "content": content}],
+        )
+
+        text = ""
+        for block in response.content:
+            if block.type == "text":
+                text += block.text
+        input_tokens = getattr(response.usage, "input_tokens", 0) if response.usage else 0
+        output_tokens = getattr(response.usage, "output_tokens", 0) if response.usage else 0
+        return ChatResponse(text=text, model=response.model,
+            input_tokens=input_tokens, output_tokens=output_tokens)

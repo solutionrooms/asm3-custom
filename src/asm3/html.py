@@ -569,6 +569,7 @@ def menu_structure(l: str, publisherlist: Dict, reports: MenuItems, mailmerges: 
             ( asm3.users.ADD_ANIMAL, "alt+shift+n", "", "animal_new", "asm-icon-animal-add", _("Add a new animal", l) ),
             ( asm3.users.ADD_LOG, "alt+shift+l", "", "log_new?mode=animal", "asm-icon-log", _("Add a log entry", l) ),
             ( asm3.users.CHANGE_ANIMAL, "", "", "animal_bulk", "asm-icon-blank", _("Bulk change animals", l) ),
+            ( asm3.users.BULK_UPDATE_MICROCHIP, "", "", "bulk_microchip", "asm-icon-microchip", _("Bulk microchip update", l) ),
             ( asm3.users.ADD_LOG, "", "taganimalobservations", "animal_observations", "asm-icon-blank", _("Daily observations", l) ),
             ( asm3.users.VIEW_FEEDING, "", "taganimalfeeding", "animal_feeding", "asm-icon-blank", _("Daily feeding", l) ),
             ( asm3.users.ADD_LITTER, "", "", "litters", "asm-icon-litter", _("Edit litters", l) ),

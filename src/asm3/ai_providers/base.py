@@ -35,11 +35,12 @@ class ChatResponse:
 class BaseProvider:
     """Abstract base class for AI providers."""
 
-    def __init__(self, api_key="", model="", max_tokens=4096, base_url=""):
+    def __init__(self, api_key="", model="", max_tokens=4096, base_url="", vision_model=""):
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
         self.base_url = base_url
+        self.vision_model = vision_model or model
 
     def convert_tools(self, tools):
         """Convert ASM tool definitions to the provider's API format.
@@ -85,5 +86,20 @@ class BaseProvider:
 
         Returns:
             A message dict ready to append to the conversation
+        """
+        raise NotImplementedError
+
+    def extract_from_images(self, system_prompt, user_prompt, images):
+        """Send one or more images plus a text prompt and return the text response.
+
+        Uses self.vision_model rather than self.model.
+
+        Args:
+            system_prompt: System prompt string
+            user_prompt: Text instruction sent alongside the images
+            images: List of dicts {"media_type": "image/jpeg", "data": <base64-string>}
+
+        Returns:
+            ChatResponse (tool_calls always empty for vision extraction)
         """
         raise NotImplementedError
