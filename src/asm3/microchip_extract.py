@@ -59,6 +59,10 @@ Rules:
   the implantation date). Assume 2-digit years are 20xx. If unreadable, use "".
 - sex: one of "M", "F", or "" if unclear.
 - Include every row you can see, even if some fields are blank.
+- CRITICAL: Return rows in the exact top-to-bottom order they appear on each
+  sheet. If multiple images are provided, process them in the order given —
+  image 1's rows first (in document order), then image 2's rows, and so on.
+  Do NOT sort, group, or reorder.
 - If a sheet appears blank or unreadable, return {"rows": []}.
 - Remember: empty string is ALWAYS better than an invented value.
 """

@@ -44,6 +44,7 @@ $(function() {
                 '<div id="processing" style="display: none; margin-bottom: 1em;">',
                     '<img src="static/images/wait/rolling_3a87cd.svg" style="height: 24px; vertical-align: middle;" /> ',
                     _("Extracting microchip data..."),
+                    ' <span id="processing-meta" style="color: #555; font-size: 0.9em;"></span>',
                 '</div>',
 
                 '<div id="results-wrap" style="display: none;">',
@@ -53,6 +54,7 @@ $(function() {
                         '<thead>',
                             '<tr>',
                                 '<th><input type="checkbox" id="check-all" /></th>',
+                                '<th>#</th>',
                                 '<th>' + _("Name (extracted)") + '</th>',
                                 '<th>' + _("Microchip") + '</th>',
                                 '<th>' + _("Implant date") + '</th>',
@@ -239,6 +241,7 @@ $(function() {
                 const check_attr = row.matched_animal_id ? 'checked="checked"' : '';
                 body.push('<tr data-ri="' + ri + '">');
                 body.push('<td><input type="checkbox" class="row-check" ' + check_attr + ' /></td>');
+                body.push('<td style="font-weight: bold; color: #555;">' + (ri + 1) + '</td>');
                 body.push('<td>' + html.title(row.name || "—") + '</td>');
                 body.push('<td>' + html.title(row.microchip || "—") + '</td>');
                 body.push('<td><input type="text" class="row-date asm-textbox-date" style="width: 100px;" value="' +
@@ -342,6 +345,21 @@ $(function() {
                 .map(function(img, i) { return { img: img, rot: bulk_microchip.rotations[i] || 0 }; })
                 .filter(function(p) { return p.img !== null; });
             if (!pairs.length) { return; }
+
+            // Show processing UI with model info + elapsed counter.
+            const model = controller.vision_model || _("(model not configured)");
+            const temp = controller.vision_temperature;
+            const started = Date.now();
+            const renderMeta = function() {
+                const secs = Math.floor((Date.now() - started) / 1000);
+                $("#processing-meta").text(
+                    _("model:") + " " + model + " · " +
+                    _("temperature:") + " " + temp + " · " +
+                    _("elapsed:") + " " + secs + "s");
+            };
+            renderMeta();
+            const tick = setInterval(renderMeta, 1000);
+
             $("#processing").show();
             $("#btn-process").prop("disabled", true);
             $("#apply-result").hide();
@@ -365,6 +383,7 @@ $(function() {
             } catch (err) {
                 header.show_error(_("Extraction failed:") + " " + err);
             } finally {
+                clearInterval(tick);
                 $("#processing").hide();
                 $("#btn-process").prop("disabled", false);
             }

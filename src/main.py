@@ -2456,8 +2456,11 @@ class bulk_microchip(JSONEndpoint):
     post_permissions = asm3.users.BULK_UPDATE_MICROCHIP
 
     def controller(self, o):
+        import asm3.sitedefs
         return {
             "ai_enabled": AI_ENABLED and AI_API_KEY != "",
+            "vision_model": asm3.sitedefs.AI_VISION_MODEL or asm3.sitedefs.AI_MODEL,
+            "vision_temperature": 0,
         }
 
     def post_extract(self, o):
