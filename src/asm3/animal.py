@@ -4270,6 +4270,75 @@ def clone_animal(dbo: Database, username: str, animalid: int) -> int:
     update_variable_animal_data(dbo, nid)
     return nid
 
+def insert_siblings(dbo: Database, username: str, animalid: int, rows: list) -> None:
+    """
+    Creates additional sibling animals by cloning animalid. `rows` is a list of
+    dicts each with keys 'name' and 'sex'; each entry becomes one new sibling.
+    The primary (animalid) is NOT modified — its own name/sex come from the form.
+    All siblings (including the primary) share the same AcceptanceNumber; a litter
+    record is auto-created if the primary has none.
+    """
+    if not rows or len(rows) < 1 or len(rows) > 20:
+        return
+    a = get_animal(dbo, animalid)
+    if a is None:
+        return
+    total = len(rows) + 1  # +1 for the primary
+
+    # Ensure a litter ID exists (on the primary and for new siblings)
+    litter_id = a.acceptancenumber
+    if not litter_id or litter_id.strip() == "":
+        litter_id = "L-%s-%s" % (dbo.today().strftime("%Y%m%d"), animalid)
+        dbo.insert("animallitter", {
+            "ParentAnimalID":   0,
+            "SpeciesID":        a.speciesid,
+            "Date":             a.dateofbirth or dbo.today(),
+            "AcceptanceNumber": litter_id,
+            "CachedAnimalsLeft": total,
+            "InvalidDate":      None,
+            "NumberInLitter":   total,
+            "Comments":         "Auto-created for sibling induction",
+            "RecordVersion":    dbo.get_recordversion()
+        }, username, setCreated=False)
+        # Link the primary to the new litter id
+        dbo.execute("UPDATE animal SET AcceptanceNumber = ? WHERE ID = ?", (litter_id, animalid))
+
+    # Clone and set name/sex for each additional sibling.
+    # If the proposed name collides with an existing animal, auto-append a letter suffix
+    # to keep it unique (common when re-using base names across litters).
+    for row in rows:
+        nid = clone_animal(dbo, username, animalid)
+        proposed = row.get("name", "") or ""
+        unique_name = _unique_animal_name(dbo, proposed, nid)
+        dbo.execute("UPDATE animal SET AnimalName = ?, Sex = ?, AcceptanceNumber = ?, IdentichipNumber = '', Identichip2Number = '' WHERE ID = ?",
+                     (unique_name,
+                      int(row.get("sex", 2)),
+                      litter_id, nid))
+
+    update_litter_count(dbo, litter_id)
+
+def _unique_animal_name(dbo: Database, base: str, exclude_id: int = 0) -> str:
+    """Return an animal name guaranteed not to collide with an existing animal.
+    If `base` is already unique, returns it unchanged. Otherwise appends a lowercase
+    letter suffix (b, c, ...) until the name is free. Falls back to numeric suffix
+    if all letters are taken."""
+    if not base:
+        return base
+    if dbo.query_int("SELECT COUNT(ID) FROM animal WHERE AnimalName = ? AND ID <> ?", (base, exclude_id)) == 0:
+        return base
+    import string
+    for c in string.ascii_lowercase[1:]:  # skip 'a' — save it for manual use
+        candidate = "%s%s" % (base, c)
+        if dbo.query_int("SELECT COUNT(ID) FROM animal WHERE AnimalName = ? AND ID <> ?", (candidate, exclude_id)) == 0:
+            return candidate
+    # Extremely unlikely fallback
+    i = 2
+    while True:
+        candidate = "%s-%d" % (base, i)
+        if dbo.query_int("SELECT COUNT(ID) FROM animal WHERE AnimalName = ? AND ID <> ?", (candidate, exclude_id)) == 0:
+            return candidate
+        i += 1
+
 def clone_from_template(dbo: Database, username: str, animalid: int, datebroughtin: datetime, dob: datetime, animaltypeid: int, speciesid: int, nonshelter: int) -> None:
     """
     Tries to locate a non-shelter animal called "TemplateType" with animaltypeid,

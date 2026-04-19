@@ -111,8 +111,18 @@ $(function() {
                     { post_field: "broughtinby", label: _("Brought In By"), type: "person" },
                     { post_field: "datebroughtin", label: _("Date Brought In"), type: "date" },
                     { post_field: "timebroughtin", label: _("Time Brought In"), type: "time" },
-                    { type: "additional", markup: additional.additional_new_fields(controller.additional) }
+                    { type: "additional", markup: additional.additional_new_fields(controller.additional) },
+                    { post_field: "siblings", label: _("Number of additional siblings"), type: "intnumber", halfsize: true,
+                        callout: _("Extra copies of this animal, linked as littermates") }
                 ], { full_width: false }),
+                '<table id="siblingrows" style="margin: 10px auto; max-width: 600px; display: none; border-collapse: collapse; width: 100%;">' +
+                '  <thead><tr style="background: #f0f0f0;">' +
+                '    <th style="padding: 6px; text-align: left; width: 40px;">#</th>' +
+                '    <th style="padding: 6px; text-align: left;">' + _("Name") + '</th>' +
+                '    <th style="padding: 6px; text-align: left; width: 160px;">' + _("Sex") + '</th>' +
+                '  </tr></thead>' +
+                '  <tbody></tbody>' +
+                '</table>',
                 tableform.buttons_render([
                    { id: "addedit", icon: "animal-add", text: _("Create and edit") },
                    { id: "add", icon: "animal-add", text: _("Create") },
@@ -126,21 +136,85 @@ $(function() {
          * Posts the animal details to the backend.
          * mode: "add" to stay on this screen after post, anything else to edit the created animal
          */
+        rebuild_sibling_rows: function() {
+            const count = parseInt($("#siblings").val() || "0", 10);
+            const $body = $("#siblingrows tbody");
+            const $table = $("#siblingrows");
+            if (isNaN(count) || count <= 0) {
+                $body.empty();
+                $table.hide();
+                return;
+            }
+            const baseName = $.trim($("#animalname").val() || "") || _("Sibling");
+            const existing = [];
+            $body.find("tr").each(function(i) {
+                existing.push({
+                    name: $(this).find("input.sibling-name").val(),
+                    sex: $(this).find("select.sibling-sex").val()
+                });
+            });
+            const sexOptions = (controller.sexes || []).map(function(s) {
+                return '<option value="' + s.ID + '">' + html.title(s.SEX) + '</option>';
+            }).join("");
+            const rows = [];
+            for (let i = 0; i < count; i++) {
+                const sibNumber = i + 2;
+                const defaultName = baseName + " " + sibNumber;
+                const prev = existing[i];
+                const nameVal = (prev && prev.name) ? prev.name : defaultName;
+                const sexVal = (prev && prev.sex !== undefined) ? prev.sex : "2";
+                rows.push(
+                    '<tr>' +
+                    '<td style="padding: 6px;">' + sibNumber + '</td>' +
+                    '<td style="padding: 6px;"><input type="text" class="sibling-name asm-textbox" style="width: 100%;" value="' + html.title(nameVal) + '"></td>' +
+                    '<td style="padding: 6px;"><select class="sibling-sex asm-selectbox" style="width: 100%;" data-default="' + sexVal + '">' + sexOptions + '</select></td>' +
+                    '</tr>'
+                );
+            }
+            $body.html(rows.join(""));
+            $body.find("select.sibling-sex").each(function() {
+                $(this).val($(this).data("default"));
+            });
+            $table.show();
+        },
+
+        serialize_sibling_rows: function() {
+            const $rows = $("#siblingrows tbody tr");
+            if (!$rows.length) { return ""; }
+            const data = [];
+            $rows.each(function() {
+                data.push({
+                    name: $.trim($(this).find("input.sibling-name").val() || ""),
+                    sex: parseInt($(this).find("select.sibling-sex").val() || "2", 10)
+                });
+            });
+            return JSON.stringify(data);
+        },
+
         add_animal: async function(mode) {
 
             if (!animal_new.validation()) { return; }
 
             $(".asm-content button").button("disable");
             header.show_loading(_("Creating..."));
-            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
+            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").not(".sibling-name").not(".sibling-sex").toPOST();
+            const siblingsJson = animal_new.serialize_sibling_rows();
+            if (siblingsJson) {
+                formdata += "&siblingrows=" + encodeURIComponent(siblingsJson);
+            }
             try {
                 const response = await common.ajax_post("animal_new", formdata);
                 const [createdID, newCode] = response.split(" ");
+                const hasSiblings = parseInt($("#siblings").val() || "0", 10) > 0;
                 if (mode == "add") {
                     header.show_info(_("Animal '{0}' created with code {1}").replace("{0}", $("#animalname").val()).replace("{1}", newCode));
                 }
                 else {
-                    if (createdID != "0") { common.route("animal?id=" + createdID); }
+                    if (createdID != "0") {
+                        // When siblings were created, route to induction page so the littermates banner is visible
+                        const target = hasSiblings ? "animal_induction?id=" : "animal?id=";
+                        common.route(target + createdID);
+                    }
                 }
             }
             finally {
@@ -317,7 +391,7 @@ $(function() {
 
         reset: function() {
 
-            $("#animalname, #dateofbirth, #weight, #weightlb").val("").change();
+            $("#animalname, #dateofbirth, #weight, #weightlb, #siblings").val("").change();
             $(".asm-checkbox").prop("checked", false).change();
             $(".asm-personchooser").personchooser("clear");
 
@@ -592,6 +666,23 @@ $(function() {
 
             $("#button-reset").button().click(function() {
                 animal_new.reset();
+            });
+
+            // Siblings table triggers
+            $("#siblings").on("change keyup input", function() { animal_new.rebuild_sibling_rows(); });
+            $("#animalname").on("change keyup input", function() {
+                if (parseInt($("#siblings").val() || "0", 10) > 0) {
+                    const baseName = $.trim($("#animalname").val() || "") || _("Sibling");
+                    $("#siblingrows tbody tr").each(function(i) {
+                        const $input = $(this).find("input.sibling-name");
+                        if ($input.data("custom") !== true) {
+                            $input.val(baseName + " " + (i + 2));
+                        }
+                    });
+                }
+            });
+            $("#siblingrows").on("input", "input.sibling-name", function() {
+                $(this).data("custom", true);
             });
 
             $("#button-animalname")

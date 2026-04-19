@@ -66,6 +66,7 @@ $(function() {
                 '  <textarea id="import-transcript-text" rows="10" style="width:100%; font-size:0.9em;"></textarea>',
                 '</div>',
                 html.content_header(_("Patient Admission")),
+                animal_induction.render_littermates_banner(),
                 '<div class="patient-induction-form">',
                 '<style>',
                 '.patient-induction-form {',
@@ -728,6 +729,24 @@ $(function() {
                 '    </div>',
                 '</div>',
 
+                '<!-- Siblings section — shows after first save, hidden by minimal mode -->',
+                '<div class="inspection-section" id="siblingsection">',
+                '    <h3>' + _("Siblings") + '</h3>',
+                '    <p style="margin: 0 0 15px 0; color: #555; text-align: center;">' + _("If more than one animal was admitted together, enter how many additional siblings. They inherit all the details above (species, breed, age, location, medical info, etc.) — you can customize each sibling\'s name and sex below.") + '</p>',
+                '    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px; justify-content: center;">',
+                '        <label for="siblings" style="font-weight: 600;">' + _("Number of additional siblings") + '</label>',
+                '        <input type="number" id="siblings" name="siblings" value="0" min="0" max="20" style="width: 80px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px;">',
+                '    </div>',
+                '    <table id="siblingrows" style="margin-top: 15px; display: none; border-collapse: collapse; width: 100%;">',
+                '      <thead><tr style="background: #f0f0f0;">',
+                '        <th style="padding: 8px; text-align: left; width: 40px;">#</th>',
+                '        <th style="padding: 8px; text-align: left;">' + _("Name") + '</th>',
+                '        <th style="padding: 8px; text-align: left; width: 180px;">' + _("Sex") + '</th>',
+                '      </tr></thead>',
+                '      <tbody></tbody>',
+                '    </table>',
+                '</div>',
+
                 '</div>',
                 tableform.buttons_render([
                    { id: "save", icon: "save", text: _("Save") },
@@ -738,6 +757,87 @@ $(function() {
                 ], { centered: true }),
                 html.content_footer()
             ].join("\n");
+        },
+
+        /**
+         * Rebuild the sibling rows table from the current count + base name.
+         * Preserves any manually edited row values when possible.
+         */
+        rebuild_sibling_rows: function() {
+            const count = parseInt($("#siblings").val() || "0", 10);
+            const $body = $("#siblingrows tbody");
+            const $table = $("#siblingrows");
+            if (isNaN(count) || count <= 0) {
+                $body.empty();
+                $table.hide();
+                return;
+            }
+            const baseName = $.trim($("#animalname").val() || "") || _("Sibling");
+            // Preserve existing row values keyed by index
+            const existing = [];
+            $body.find("tr").each(function(i) {
+                existing.push({
+                    name: $(this).find("input.sibling-name").val(),
+                    sex: $(this).find("select.sibling-sex").val()
+                });
+            });
+            const sexOptions = (controller.sexes || []).map(function(s) {
+                return '<option value="' + s.ID + '">' + html.title(s.SEX) + '</option>';
+            }).join("");
+            const rows = [];
+            // Rows represent ADDITIONAL siblings only (not the primary).
+            // Number them starting at 2 so the total litter reads as primary (1) + siblings (2..N+1).
+            for (let i = 0; i < count; i++) {
+                const sibNumber = i + 2;
+                const defaultName = baseName + " " + sibNumber;
+                const prev = existing[i];
+                const nameVal = (prev && prev.name) ? prev.name : defaultName;
+                const sexVal = (prev && prev.sex !== undefined) ? prev.sex : "2";
+                rows.push(
+                    '<tr>' +
+                    '<td style="padding: 6px;">' + sibNumber + '</td>' +
+                    '<td style="padding: 6px;"><input type="text" class="sibling-name asm-textbox" style="width: 100%;" value="' + html.title(nameVal) + '"></td>' +
+                    '<td style="padding: 6px;"><select class="sibling-sex asm-selectbox" style="width: 100%;" data-default="' + sexVal + '">' + sexOptions + '</select></td>' +
+                    '</tr>'
+                );
+            }
+            $body.html(rows.join(""));
+            $body.find("select.sibling-sex").each(function() {
+                $(this).val($(this).data("default"));
+            });
+            $table.show();
+        },
+
+        /**
+         * Serialize sibling rows into a JSON array for POST.
+         */
+        serialize_sibling_rows: function() {
+            const $rows = $("#siblingrows tbody tr");
+            if (!$rows.length) { return ""; }
+            const data = [];
+            $rows.each(function() {
+                data.push({
+                    name: $.trim($(this).find("input.sibling-name").val() || ""),
+                    sex: parseInt($(this).find("select.sibling-sex").val() || "2", 10)
+                });
+            });
+            return JSON.stringify(data);
+        },
+
+        /**
+         * Render the littermates banner at the top of the page.
+         * Only shows when the current animal has littermates (same AcceptanceNumber).
+         */
+        render_littermates_banner: function() {
+            const mates = controller.littermates || [];
+            if (!mates.length) { return ""; }
+            const links = mates.map(function(m) {
+                return '<a href="animal_induction?id=' + m.ID + '" class="littermate-link">' +
+                       html.title(m.ANIMALNAME) + '</a>';
+            }).join(" &nbsp; ");
+            return '<div id="littermates-banner" style="padding: 10px 15px; margin: 10px auto; max-width: 1200px; background: #e7f3ff; border: 1px solid #b3d7ff; border-radius: 6px; font-size: 0.95em;">' +
+                   '<strong>' + _("Littermates") + ':</strong> &nbsp; ' + links +
+                   '</div>';
         },
 
         /**
@@ -1447,6 +1547,17 @@ $(function() {
             const applyClass = function($el) {
                 const $item = $el.closest('.inspection-item');
                 $item.removeClass('default-ok default-mismatch inspection-no inspection-slight inspection-moderate inspection-severe');
+                const rawFtype = $el.data('ftype');
+                const ftype = (rawFtype === undefined || rawFtype === null) ? -1 : parseInt(rawFtype, 10);
+                // For yes/no checkboxes, color by current value: No/unchecked = green (all good),
+                // Yes/checked = red (flag raised). This overrides the default-match behaviour which
+                // would paint "No" red when the field's default happens to be "Yes".
+                if (ftype === 0) {
+                    if ($el.prop('checked')) { $item.addClass('default-mismatch'); }
+                    else { $item.addClass('default-ok'); }
+                    return;
+                }
+                // For text/select/severity fields keep the default-match coloring.
                 if (equalsDefault($el)) { $item.addClass('default-ok'); } else { $item.addClass('default-mismatch'); }
             };
 
@@ -1522,15 +1633,16 @@ $(function() {
 
             $(".asm-content button").button("disable");
             header.show_loading(controller.animal ? _("Updating...") : _("Creating..."));
-            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
-            
+            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").not(".sibling-name").not(".sibling-sex").toPOST();
+
             // Add animal ID if we're editing an existing animal
             if (controller.animal) {
                 formdata += "&id=" + controller.animal.ID;
                 formdata += "&recordversion=" + controller.animal.RECORDVERSION;
-                // Debug logging removed for production
-            } else {
-                // Debug logging removed for production
+            }
+            const siblingsJsonAddAnimal = animal_induction.serialize_sibling_rows();
+            if (siblingsJsonAddAnimal) {
+                formdata += "&siblingrows=" + encodeURIComponent(siblingsJsonAddAnimal);
             }
             // Debug logging removed for production
             
@@ -1617,19 +1729,24 @@ $(function() {
 
             $(".asm-content button").button("disable");
             header.show_loading(_("Saving progress..."));
-            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").toPOST();
-            
+            let formdata = "mode=save&" + $("input, textarea, select").not(".chooser").not(".sibling-name").not(".sibling-sex").toPOST();
+
             // Add animal ID if we're editing an existing animal
             if (controller.animal) {
                 formdata += "&id=" + controller.animal.ID;
                 formdata += "&recordversion=" + controller.animal.RECORDVERSION;
+            }
+            // Always include sibling rows if user has entered a count > 0
+            const siblingsJson = animal_induction.serialize_sibling_rows();
+            if (siblingsJson) {
+                formdata += "&siblingrows=" + encodeURIComponent(siblingsJson);
             }
             try {
                 const response = await common.ajax_post("animal_induction", formdata);
                 const parts = String(response || "").trim().split(/\s+/);
                 const animalID = parts[0] || "0";
                 const code = parts[1] || "";
-                
+
                 // Update record version after successful save to prevent "changed by another user" errors
                 if (controller.animal && animalID) {
                     controller.animal.RECORDVERSION = parseInt(controller.animal.RECORDVERSION) + 1;
@@ -2073,27 +2190,12 @@ $(function() {
 
         /** Show only the minimum fields for a new record (Name + Entry Age Range) */
         apply_minimal_mode: function() {
-            const isNew = !controller.animal || !controller.animal.ID;
-            // Always show everything for existing animals
-            if (!isNew) {
-                $(".form-group, .inspection-section").show();
-                $(".form-group .field-row").show();
-                // Force weight row visible when editing (even if config hides it)
-                $("#kilosrow").css("display", "grid");
-                return;
-            }
-            // Hide all groups except the first Basic Information group
-            const $groups = $(".patient-induction-form .form-group");
-            $groups.hide();
-            const $basic = $groups.first();
-            $basic.show();
-            // Hide all rows except Name and Entry Age Range for new records
-            $basic.find('.field-row').hide();
-            // Ensure weight row stays hidden until after the first save
-            $basic.find('#kilosrow').hide();
-            $basic.find('#namerow, #entryagerangerow').show();
-            // Hide other full-width sections
-            $(".inspection-section").hide();
+            // Single-page induction: show all sections and groups. Do NOT blanket-show
+            // individual field rows — bind() selectively hides rows (Code when auto-generated,
+            // optional rows when config disables them). Respect those hides.
+            $(".form-group, .inspection-section").show();
+            // Force weight row visible (useful field for animal entry)
+            $("#kilosrow").css("display", "grid");
         },
 
         /* Update the breed selects to only show the breeds for the selected species.
@@ -2404,7 +2506,17 @@ $(function() {
                 $("#sheltercode").addClass("asm-textbox");
                 $("#sheltercode").removeClass("asm-halftextbox");
             }
+            // Hide the Code row when:
+            //  - new animal AND auto-generated codes (server will generate on save — no value to show yet)
+            //  - existing animal AND auto-generated codes (keep backwards-compatible hide)
+            // Show when ManualCodes is enabled (user must enter it).
             if (!config.bool("ManualCodes")) { $("#coderow").hide(); }
+            // For existing animals the code is useful — show it read-only so the user can see/copy it.
+            if (controller.animal && controller.animal.ID && !config.bool("ManualCodes")) {
+                $("#coderow").show();
+                $("#sheltercode").prop("readonly", true).css({ background: "#f5f5f5" });
+                $("#shortcode").prop("readonly", true).css({ background: "#f5f5f5" });
+            }
 
 
             // Keep breed2 in sync with breed1 for non-crossbreeds
@@ -2519,6 +2631,25 @@ $(function() {
 
             $("#button-save").button().click(function() {
                 animal_induction.save_progress();
+            });
+
+            // Siblings table rebuild triggers
+            $("#siblings").on("change keyup input", function() { animal_induction.rebuild_sibling_rows(); });
+            $("#animalname").on("change keyup input", function() {
+                if (parseInt($("#siblings").val() || "0", 10) > 0) {
+                    const $body = $("#siblingrows tbody");
+                    const baseName = $.trim($("#animalname").val() || "") || _("Sibling");
+                    $body.find("tr").each(function(i) {
+                        const $input = $(this).find("input.sibling-name");
+                        if ($input.data("custom") !== true) {
+                            $input.val(baseName + " " + (i + 2));
+                        }
+                    });
+                }
+            });
+            // Track user edits to sibling names
+            $("#siblingrows").on("input", "input.sibling-name", function() {
+                $(this).data("custom", true);
             });
 
             $("#button-barcode").button().click(function() {

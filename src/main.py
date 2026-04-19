@@ -3300,6 +3300,14 @@ class animal_new(JSONEndpoint):
     def post_save(self, o):
         self.check(asm3.users.ADD_ANIMAL)
         animalid, code = asm3.animal.insert_animal_from_form(o.dbo, o.post, o.user)
+        rows_json = o.post["siblingrows"]
+        if rows_json:
+            try:
+                rows = asm3.utils.json_parse(rows_json)
+                if isinstance(rows, list) and len(rows) >= 1:
+                    asm3.animal.insert_siblings(o.dbo, o.user, animalid, rows)
+            except Exception as ex:
+                asm3.al.error("Failed to parse siblingrows: %s" % str(ex), "main.animal_new", o.dbo)
         return "%s %s" % (animalid, code)
 
     def post_recentnamecheck(self, o):
@@ -3332,8 +3340,14 @@ class animal_induction(JSONEndpoint):
             additional_target = 0
             asm3.al.debug("loaded lookups for new patient induction", "main.animal_induction", dbo)
         
+        littermates = []
+        if animal is not None and animal.ACCEPTANCENUMBER:
+            littermates = [r for r in asm3.animal.get_litter_animals_by_id(dbo, animal.ACCEPTANCENUMBER)
+                           if r.ID != animal.ID]
+
         c = {
             "animal": animal,  # Will be None for new animals
+            "littermates": littermates,
             "autolitters": asm3.animal.get_active_litters_brief(dbo),
             "additional": asm3.additional.get_additional_fields(dbo, additional_target, "animal"),
             "agegroups": asm3.configuration.age_groups(dbo),
@@ -3374,6 +3388,11 @@ class animal_induction(JSONEndpoint):
             if animalid != 0:
                 # Updating existing animal
                 self.check(asm3.users.CHANGE_ANIMAL)
+                # The induction form doesn't expose a litter field, so capture the
+                # current litter id and restore it after update to prevent accidental
+                # blanking when the form is saved.
+                _pre = asm3.animal.get_animal(o.dbo, animalid)
+                original_litter = (_pre and _pre.ACCEPTANCENUMBER) or ""
                 asm3.al.debug("updating existing animal %d" % animalid, "main.animal_induction", o.dbo)
                 asm3.al.debug("=== FORM DATA DEBUG ===", "main.animal_induction", o.dbo)
                 asm3.al.debug("form data keys: %s" % list(o.post.data.keys()), "main.animal_induction", o.dbo)
@@ -3421,6 +3440,21 @@ class animal_induction(JSONEndpoint):
                             except Exception:
                                 pass
                             asm3.al.warn("Foster movement not created for %d: %s" % (animalid, msg), "main.animal_induction", o.dbo)
+                # Restore litter id if the update blanked it (induction form has no litter field)
+                if original_litter:
+                    cur = asm3.animal.get_animal(o.dbo, animalid)
+                    if cur and (not cur.ACCEPTANCENUMBER or cur.ACCEPTANCENUMBER.strip() == ""):
+                        o.dbo.execute("UPDATE animal SET AcceptanceNumber = ? WHERE ID = ?",
+                                      (original_litter, animalid))
+                # If siblings were specified on this update, create them now
+                rows_json = o.post["siblingrows"]
+                if rows_json:
+                    try:
+                        rows = asm3.utils.json_parse(rows_json)
+                        if isinstance(rows, list) and len(rows) >= 1:
+                            asm3.animal.insert_siblings(o.dbo, o.user, animalid, rows)
+                    except Exception as ex:
+                        asm3.al.error("Failed to parse siblingrows: %s" % str(ex), "main.animal_induction", o.dbo)
                 # Get the animal code for response
                 a = asm3.animal.get_animal(o.dbo, animalid)
                 code = a and a.SHELTERCODE or ""
@@ -3432,6 +3466,14 @@ class animal_induction(JSONEndpoint):
                 asm3.al.debug("creating new animal", "main.animal_induction", o.dbo)
                 animalid, code = asm3.animal.insert_animal_from_form(o.dbo, o.post, o.user)
                 asm3.al.debug("created animal %d with code %s" % (animalid, code), "main.animal_induction", o.dbo)
+                rows_json = o.post["siblingrows"]
+                if rows_json:
+                    try:
+                        rows = asm3.utils.json_parse(rows_json)
+                        if isinstance(rows, list) and len(rows) >= 2:
+                            asm3.animal.insert_siblings(o.dbo, o.user, animalid, rows)
+                    except Exception as ex:
+                        asm3.al.error("Failed to parse siblingrows: %s" % str(ex), "main.animal_induction", o.dbo)
                 return "%s %s" % (animalid, code)
         except Exception as e:
             asm3.al.error("Error in animal_induction post_save: %s" % str(e), "main.animal_induction", o.dbo)
