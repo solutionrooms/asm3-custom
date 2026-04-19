@@ -261,7 +261,12 @@ $(function() {
                 body.push('<td><input type="checkbox" class="row-check" ' + check_attr + ' /></td>');
                 body.push('<td style="font-weight: bold; color: #555;">' + (ri + 1) + '</td>');
                 body.push('<td>' + html.title(row.name || "—") + '</td>');
-                body.push('<td>' + html.title(row.microchip || "—") + '</td>');
+                body.push('<td>' + html.title(row.microchip || "—"));
+                if (row.chip_source === "barcode") {
+                    body.push(' <span title="' + html.title(_("Read from barcode scanner")) +
+                        '" style="color: #080; font-size: 0.85em;">✓</span>');
+                }
+                body.push('</td>');
                 body.push('<td><input type="text" class="row-date asm-textbox-date" style="width: 100px;" value="' +
                     html.title(row.implant_date || "") + '" /></td>');
                 body.push('<td><input type="text" class="row-dob asm-textbox-date" style="width: 100px;" value="' +

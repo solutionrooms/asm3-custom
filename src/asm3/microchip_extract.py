@@ -7,7 +7,9 @@ Extraction is delegated to the configured AI provider's vision model. Matching i
 plain SQL lookup with no fuzzy logic — callers must confirm every applied row.
 """
 
+import base64
 import datetime
+import io
 import json
 import re
 
@@ -76,6 +78,58 @@ def _split_data_url(data_url):
     return m.group(1), m.group(2)
 
 
+def _decode_barcodes_in_image(image_bytes):
+    """ Decode 1D barcodes (microchip stickers) in a single image.
+
+    Returns a list of decoded digit strings in top-to-bottom order.
+    Silently returns [] if pyzbar/PIL are unavailable or decoding fails.
+    """
+    try:
+        from pyzbar.pyzbar import decode as zbar_decode
+        from PIL import Image
+    except ImportError:
+        asm3.al.warn("pyzbar or Pillow not installed — skipping barcode decode",
+                     "microchip_extract._decode_barcodes_in_image")
+        return []
+    try:
+        pil = Image.open(io.BytesIO(image_bytes))
+        decoded = zbar_decode(pil)
+    except Exception as err:
+        asm3.al.error("barcode decode failed: %s" % err,
+                      "microchip_extract._decode_barcodes_in_image")
+        return []
+    # Sort top-to-bottom using the bounding box top edge
+    decoded = sorted(decoded, key=lambda d: d.rect.top)
+    chips = []
+    for d in decoded:
+        try:
+            value = d.data.decode("utf-8").strip()
+        except (UnicodeDecodeError, AttributeError):
+            continue
+        # Only keep 15-digit numeric values (microchip format)
+        if value.isdigit() and len(value) == 15:
+            chips.append(value)
+    return chips
+
+
+def decode_barcodes(image_data_urls):
+    """ Decode barcodes in every image, returning a flat list preserving image
+    order and within-image top-to-bottom order.
+    """
+    out = []
+    for url in image_data_urls:
+        try:
+            _, b64 = _split_data_url(url)
+        except ValueError:
+            continue
+        try:
+            raw = base64.b64decode(b64)
+        except Exception:
+            continue
+        out.extend(_decode_barcodes_in_image(raw))
+    return out
+
+
 def _parse_json_response(text):
     """ Extract the first JSON object from the model's response, tolerating accidental fences. """
     if not text:
@@ -113,6 +167,13 @@ def extract_rows(image_data_urls, provider=None):
         media_type, b64 = _split_data_url(url)
         images.append({"media_type": media_type, "data": b64})
 
+    # Decode barcodes directly from pixels first — deterministic and handles blur
+    # much better than vision OCR. Order matches document flow (image 1 top-to-bottom,
+    # then image 2, etc.) so we can align positionally with the vision rows.
+    barcodes = decode_barcodes(image_data_urls)
+    asm3.al.info("pyzbar decoded %d barcodes: %s" % (len(barcodes), barcodes),
+                 "microchip_extract.extract_rows")
+
     response = provider.extract_from_images(EXTRACT_SYSTEM_PROMPT, EXTRACT_USER_PROMPT, images)
     asm3.al.info(
         "microchip_extract response (model=%s, in=%s, out=%s): %s" % (
@@ -133,7 +194,29 @@ def extract_rows(image_data_urls, provider=None):
             "implant_date": str(r.get("implant_date", "")).strip(),
             "date_of_birth": str(r.get("date_of_birth", "")).strip(),
             "sex": str(r.get("sex", "")).strip().upper(),
+            "chip_source": "vision",
         })
+
+    # Reconcile against the barcode scanner. Positional matching: vision row[i]
+    # lines up with barcode[i], since both are top-to-bottom in document order.
+    for i, row in enumerate(rows):
+        if i < len(barcodes) and row["microchip"] != barcodes[i]:
+            row["chip_vision"] = row["microchip"]
+            row["microchip"] = barcodes[i]
+            row["chip_source"] = "barcode"
+
+    # Append any barcodes the vision model missed entirely (more barcodes than
+    # rows returned). These come back with blank name/date so staff can fill in.
+    for bc in barcodes[len(rows):]:
+        rows.append({
+            "microchip": bc,
+            "name": "",
+            "implant_date": "",
+            "date_of_birth": "",
+            "sex": "",
+            "chip_source": "barcode",
+        })
+
     return rows
 
 
