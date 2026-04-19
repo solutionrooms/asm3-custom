@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     cron \
     procps \
     imagemagick \
+    libzbar0 \
     exuberant-ctags \
     texlive-latex-base \
     texlive-latex-extra \
@@ -76,7 +77,8 @@ RUN pip install --no-cache-dir \
     sphinx-rtd-theme \
     matplotlib \
     anthropic \
-    openai
+    openai \
+    pyzbar
 
 # Note: Customization script removed - using direct source approach
 

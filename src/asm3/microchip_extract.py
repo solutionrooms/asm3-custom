@@ -7,7 +7,9 @@ Extraction is delegated to the configured AI provider's vision model. Matching i
 plain SQL lookup with no fuzzy logic — callers must confirm every applied row.
 """
 
+import base64
 import datetime
+import io
 import json
 import re
 
@@ -76,6 +78,124 @@ def _split_data_url(data_url):
     return m.group(1), m.group(2)
 
 
+def _decode_barcodes_in_image(image_bytes):
+    """ Decode 1D barcodes (microchip stickers) in a single image.
+
+    Tries multiple strategies (original, 2x upscale, contrast-boosted, grayscale)
+    because pyzbar's single-shot detection often misses barcodes on phone photos
+    that are slightly blurry or low-contrast. Results are deduplicated on value
+    and returned in top-to-bottom document order using the bounding-box Y of the
+    first detection of each chip.
+
+    Silently returns [] if pyzbar/Pillow are unavailable or all strategies fail.
+    """
+    try:
+        from pyzbar.pyzbar import decode as zbar_decode
+        from PIL import Image, ImageOps, ImageFilter
+    except ImportError:
+        asm3.al.warn("pyzbar or Pillow not installed — skipping barcode decode",
+                     "microchip_extract._decode_barcodes_in_image")
+        return []
+    try:
+        pil = Image.open(io.BytesIO(image_bytes))
+    except Exception as err:
+        asm3.al.error("barcode image open failed: %s" % err,
+                      "microchip_extract._decode_barcodes_in_image")
+        return []
+
+    # value -> (y_top_in_original_coords, source_strategy)
+    seen = {}
+
+    def collect(img, scale, label):
+        try:
+            decoded = zbar_decode(img)
+        except Exception as err:
+            asm3.al.error("barcode decode pass %s failed: %s" % (label, err),
+                          "microchip_extract._decode_barcodes_in_image")
+            return 0
+        added = 0
+        for d in decoded:
+            try:
+                value = d.data.decode("utf-8").strip()
+            except (UnicodeDecodeError, AttributeError):
+                continue
+            if value.isdigit() and len(value) == 15 and value not in seen:
+                seen[value] = (d.rect.top / scale, label)
+                added += 1
+        return added
+
+    n_orig = collect(pil, 1.0, "orig")
+
+    # 2x upscale helps on smaller/softer barcodes that are below the
+    # decoder's sweet spot at native resolution.
+    if max(pil.width, pil.height) < 3500:
+        upscaled = pil.resize((pil.width * 2, pil.height * 2), Image.LANCZOS)
+        n_up = collect(upscaled, 2.0, "2x")
+    else:
+        n_up = 0
+
+    # Grayscale + autocontrast + sharpen recovers low-contrast / mildly blurry
+    # codes. Cutoff=2 clips the brightest/darkest 2% before stretching.
+    try:
+        enhanced = pil.convert("L")
+        enhanced = ImageOps.autocontrast(enhanced, cutoff=2)
+        enhanced = enhanced.filter(ImageFilter.SHARPEN)
+        n_enh = collect(enhanced, 1.0, "sharp")
+    except Exception as err:
+        asm3.al.error("enhance pass failed: %s" % err,
+                      "microchip_extract._decode_barcodes_in_image")
+        n_enh = 0
+
+    asm3.al.debug("barcode decode passes: orig=%d, 2x=%d, sharp=%d, total_unique=%d" %
+                  (n_orig, n_up, n_enh, len(seen)),
+                  "microchip_extract._decode_barcodes_in_image")
+
+    # Sort by Y position (top-to-bottom)
+    ordered = [v for v, _ in sorted(seen.items(), key=lambda kv: kv[1][0])]
+    return _filter_outlier_prefixes(ordered)
+
+
+def _filter_outlier_prefixes(chips):
+    """ Drop chips whose long prefix doesn't match the majority of chips in the
+    same image. Microchip batches from one supplier share 10+ digits of prefix,
+    so a lone outlier is almost certainly a barcode-decoder misread.
+    """
+    if len(chips) < 3:
+        return chips  # not enough to vote
+    PREFIX_LEN = 10
+    from collections import Counter
+    counts = Counter(c[:PREFIX_LEN] for c in chips)
+    majority_prefix, majority_count = counts.most_common(1)[0]
+    # Only filter if the majority is a clear winner (more than half of chips)
+    if majority_count * 2 <= len(chips):
+        return chips
+    kept = [c for c in chips if c.startswith(majority_prefix)]
+    dropped = [c for c in chips if not c.startswith(majority_prefix)]
+    if dropped:
+        asm3.al.info("dropped likely barcode misreads (prefix != %s): %s" %
+                     (majority_prefix, dropped),
+                     "microchip_extract._filter_outlier_prefixes")
+    return kept
+
+
+def decode_barcodes(image_data_urls):
+    """ Decode barcodes in every image, returning a flat list preserving image
+    order and within-image top-to-bottom order.
+    """
+    out = []
+    for url in image_data_urls:
+        try:
+            _, b64 = _split_data_url(url)
+        except ValueError:
+            continue
+        try:
+            raw = base64.b64decode(b64)
+        except Exception:
+            continue
+        out.extend(_decode_barcodes_in_image(raw))
+    return out
+
+
 def _parse_json_response(text):
     """ Extract the first JSON object from the model's response, tolerating accidental fences. """
     if not text:
@@ -113,6 +233,13 @@ def extract_rows(image_data_urls, provider=None):
         media_type, b64 = _split_data_url(url)
         images.append({"media_type": media_type, "data": b64})
 
+    # Decode barcodes directly from pixels first — deterministic and handles blur
+    # much better than vision OCR. Order matches document flow (image 1 top-to-bottom,
+    # then image 2, etc.) so we can align positionally with the vision rows.
+    barcodes = decode_barcodes(image_data_urls)
+    asm3.al.info("pyzbar decoded %d barcodes: %s" % (len(barcodes), barcodes),
+                 "microchip_extract.extract_rows")
+
     response = provider.extract_from_images(EXTRACT_SYSTEM_PROMPT, EXTRACT_USER_PROMPT, images)
     asm3.al.info(
         "microchip_extract response (model=%s, in=%s, out=%s): %s" % (
@@ -133,7 +260,44 @@ def extract_rows(image_data_urls, provider=None):
             "implant_date": str(r.get("implant_date", "")).strip(),
             "date_of_birth": str(r.get("date_of_birth", "")).strip(),
             "sex": str(r.get("sex", "")).strip().upper(),
+            "chip_source": "vision",
         })
+
+    # Reconcile against the barcode scanner.
+    #
+    # Phase 1 (value match): if vision's chip for a row is in the barcode set,
+    # mark that row as barcode-verified — both sources agree so we have high
+    # confidence. This is the primary signal users care about.
+    barcode_set = set(barcodes)
+    for row in rows:
+        if row["microchip"] and row["microchip"] in barcode_set:
+            row["chip_source"] = "barcode"
+
+    # Phase 2 (positional override): for any vision rows whose chip wasn't
+    # in the barcode set, see if pyzbar found a different value at roughly
+    # the same position. Match unused barcodes to still-unverified rows in
+    # document order — this catches cases where vision misread digits.
+    unused_barcodes = [b for b in barcodes if not any(r["microchip"] == b for r in rows)]
+    unused_idx = 0
+    for row in rows:
+        if row["chip_source"] == "vision" and unused_idx < len(unused_barcodes):
+            row["chip_vision"] = row["microchip"]
+            row["microchip"] = unused_barcodes[unused_idx]
+            row["chip_source"] = "barcode"
+            unused_idx += 1
+
+    # Phase 3: any leftover barcodes are real chips vision missed entirely —
+    # append them as blank-name rows so staff can identify the animal.
+    for bc in unused_barcodes[unused_idx:]:
+        rows.append({
+            "microchip": bc,
+            "name": "",
+            "implant_date": "",
+            "date_of_birth": "",
+            "sex": "",
+            "chip_source": "barcode",
+        })
+
     return rows
 
 

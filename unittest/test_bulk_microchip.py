@@ -216,6 +216,105 @@ class TestMatchRows(unittest.TestCase):
         self.assertEqual(matched[0]["candidates"][0]["existing_chip"], "900255003188000")
 
 
+class TestBarcodeReconciliation(unittest.TestCase):
+    """Verify pyzbar results override vision extraction when they disagree."""
+
+    def _patch_decode(self, chips):
+        """Replace decode_barcodes with a stub returning the given chips."""
+        self._orig = asm3.microchip_extract.decode_barcodes
+        asm3.microchip_extract.decode_barcodes = lambda urls: chips
+
+    def tearDown(self):
+        if hasattr(self, "_orig"):
+            asm3.microchip_extract.decode_barcodes = self._orig
+
+    def test_barcode_overrides_misread_chip(self):
+        # Vision misreads chip; pyzbar reads it correctly from the barcode
+        self._patch_decode(["900255003198960"])
+        provider = FakeProvider('{"rows":[{"microchip":"900255003198900","name":"Alice","date_of_birth":"","implant_date":"","sex":""}]}')
+        rows = asm3.microchip_extract.extract_rows(
+            ["data:image/jpeg;base64,xxxx"], provider=provider)
+        self.assertEqual(rows[0]["microchip"], "900255003198960")
+        self.assertEqual(rows[0]["chip_vision"], "900255003198900")
+        self.assertEqual(rows[0]["chip_source"], "barcode")
+
+    def test_barcode_agrees_marks_verified(self):
+        # When vision and pyzbar both produce the same chip, we have higher
+        # confidence — flag as barcode-verified so the UI can show a tick.
+        self._patch_decode(["900255003198960"])
+        provider = FakeProvider('{"rows":[{"microchip":"900255003198960","name":"Alice","date_of_birth":"","implant_date":"","sex":""}]}')
+        rows = asm3.microchip_extract.extract_rows(
+            ["data:image/jpeg;base64,xxxx"], provider=provider)
+        self.assertEqual(rows[0]["microchip"], "900255003198960")
+        self.assertEqual(rows[0]["chip_source"], "barcode")
+        # No replacement happened, so we don't carry chip_vision
+        self.assertNotIn("chip_vision", rows[0])
+
+    def test_partial_barcode_coverage_marks_only_decoded_rows(self):
+        # Real-world case: 5 vision rows, pyzbar only decodes 2 of them.
+        # The 2 matched rows get verified; the other 3 stay vision-sourced.
+        self._patch_decode(["900255003198952", "900255003198955"])
+        provider = FakeProvider(
+            '{"rows":['
+            '{"microchip":"900255003198952","name":"A","date_of_birth":"","implant_date":"","sex":""},'
+            '{"microchip":"900255003198948","name":"B","date_of_birth":"","implant_date":"","sex":""},'
+            '{"microchip":"900255003198955","name":"C","date_of_birth":"","implant_date":"","sex":""},'
+            '{"microchip":"900255003198851","name":"D","date_of_birth":"","implant_date":"","sex":""},'
+            '{"microchip":"900255003198960","name":"E","date_of_birth":"","implant_date":"","sex":""}'
+            ']}')
+        rows = asm3.microchip_extract.extract_rows(
+            ["data:image/jpeg;base64,xxxx"], provider=provider)
+        self.assertEqual(len(rows), 5)
+        self.assertEqual(rows[0]["chip_source"], "barcode")  # 952 matched
+        self.assertEqual(rows[1]["chip_source"], "vision")   # 948 not in pyzbar
+        self.assertEqual(rows[2]["chip_source"], "barcode")  # 955 matched
+        self.assertEqual(rows[3]["chip_source"], "vision")   # 851 not in pyzbar
+        self.assertEqual(rows[4]["chip_source"], "vision")   # 960 not in pyzbar
+
+    def test_extra_barcodes_appended_as_blank_rows(self):
+        # Vision returned 1 row, pyzbar found 3 barcodes — the other 2 become rows
+        self._patch_decode(["900255003198960", "900255003198954", "900255003198957"])
+        provider = FakeProvider('{"rows":[{"microchip":"900255003198960","name":"Alice","date_of_birth":"","implant_date":"","sex":""}]}')
+        rows = asm3.microchip_extract.extract_rows(
+            ["data:image/jpeg;base64,xxxx"], provider=provider)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[1]["microchip"], "900255003198954")
+        self.assertEqual(rows[1]["name"], "")
+        self.assertEqual(rows[1]["chip_source"], "barcode")
+
+    def test_no_barcodes_decoded_does_not_touch_vision(self):
+        self._patch_decode([])
+        provider = FakeProvider('{"rows":[{"microchip":"900255003198960","name":"Alice","date_of_birth":"","implant_date":"","sex":""}]}')
+        rows = asm3.microchip_extract.extract_rows(
+            ["data:image/jpeg;base64,xxxx"], provider=provider)
+        self.assertEqual(rows[0]["microchip"], "900255003198960")
+        self.assertEqual(rows[0]["chip_source"], "vision")
+
+
+class TestOutlierPrefixFilter(unittest.TestCase):
+
+    def test_drops_lone_outlier(self):
+        # 4 chips share prefix 9002550033, one has 9002550043 — drop it
+        chips = ["900255003386029", "900255003386030", "900255003386022",
+                 "900255043386105", "900255003386263"]
+        out = asm3.microchip_extract._filter_outlier_prefixes(chips)
+        self.assertEqual(len(out), 4)
+        self.assertNotIn("900255043386105", out)
+
+    def test_keeps_all_when_no_clear_majority(self):
+        # 2 vs 2 split — don't filter, return everything
+        chips = ["900255003386029", "900255003386030",
+                 "900255043386105", "900255043386106"]
+        out = asm3.microchip_extract._filter_outlier_prefixes(chips)
+        self.assertEqual(len(out), 4)
+
+    def test_keeps_all_when_too_few(self):
+        # Below 3 chips, no voting
+        chips = ["900255003386029", "900255043386105"]
+        out = asm3.microchip_extract._filter_outlier_prefixes(chips)
+        self.assertEqual(out, chips)
+
+
 class TestPermissionConstant(unittest.TestCase):
 
     def test_bumc_defined(self):
