@@ -12,9 +12,52 @@ $(function() {
         rotations: [],
         // extracted rows from the backend
         rows: [],
+        // processed (rotated + downscaled) images from the last extract run,
+        // cached here so we can send them with the apply call to attach as media
+        processed_images: [],
 
         render_page: function() {
             return [
+                // Mobile-friendly CSS: converts the results table into scrollable
+                // cards at narrow widths, and enlarges touch targets everywhere.
+                '<style>',
+                    '#bulkmc-page button { min-height: 44px; padding: 0.5em 1em; }',
+                    '#bulkmc-page input[type="text"], #bulkmc-page select { min-height: 40px; font-size: 15px; }',
+                    '#bulkmc-page .row-check { width: 22px; height: 22px; }',
+                    '#bulkmc-page .thumb-rotate, #bulkmc-page .thumb-remove { min-width: 32px; min-height: 32px; font-size: 1em; }',
+                    '@media (max-width: 900px) {',
+                        '#bulkmc-page h2 { margin: 0.3em 0; font-size: 1.3em; }',
+                        '#bulkmc-page p { font-size: 0.9em; margin: 0.3em 0; }',
+                        // Bigger main buttons with icon + label; wrap nicely
+                        '#bulkmc-page #image-controls { display: flex; flex-wrap: wrap; gap: 0.3em; }',
+                        '#bulkmc-page #image-controls button { flex: 1 1 45%; font-size: 0.95em; min-height: 40px; padding: 0.4em; }',
+                        '#bulkmc-page #btn-apply { width: 100%; font-size: 1em; min-height: 44px; }',
+                        // Inputs at least 16px to stop iOS auto-zoom on focus
+                        '#bulkmc-page input[type="text"], #bulkmc-page select { font-size: 16px; min-height: 30px; padding: 0 0.3em; margin: 0; line-height: 1.2; }',
+                        '#bulkmc-page .row-check { width: 22px; height: 22px; margin: 0; }',
+                        // Convert the results table into a vertical stack of cards
+                        '#results-table, #results-table tbody { display: block; width: 100%; }',
+                        '#results-table thead { display: none; }',
+                        '#results-table tr { display: block; background: #fafafa; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 0.5em; padding: 0.25em 0.4em; }',
+                        // Zero vertical padding, no borders between cells — compactness trumps separation
+                        '#results-table td { display: flex; align-items: center; gap: 0.4em; padding: 0; border: none !important; min-height: 26px; line-height: 1.2; margin: 0; }',
+                        '#results-table td::before { content: attr(data-label); font-weight: 600; color: #888; min-width: 90px; flex-shrink: 0; font-size: 0.78em; }',
+                        '#results-table td > :not(::before) { flex: 1; }',
+                        '#results-table input[type="text"], #results-table select { width: 100%; height: 28px; }',
+                        // Compact chooser widget — it ships with its own table + padding
+                        '#results-table .animalchooser table { margin: 0 !important; }',
+                        '#results-table .animalchooser td { padding: 0 !important; }',
+                        '#results-table .asm-chooser-container { width: 100%; }',
+                        '#results-table .animalchooser-display { font-size: 0.9em; padding: 0 !important; }',
+                        '#results-table .animalchooser-display a { display: inline; }',
+                        '#results-table .animalchooser-link-find, #results-table .animalchooser-link-clear { min-width: 30px; min-height: 26px; padding: 0 !important; }',
+                        // Status cell — allow wrapping, tighter line-height
+                        '#results-table .status-cell { align-items: flex-start; font-size: 0.82em; padding: 0.1em 0 0 0; }',
+                        '#results-table .status-cell > :not(::before) { line-height: 1.25; }',
+                    '}',
+                '</style>',
+
+                '<div id="bulkmc-page">',
                 '<h2>' + _("Bulk microchip update") + '</h2>',
                 '<p>' + _("Photograph or upload one or more microchip implant log sheets. Names and chip numbers will be extracted and matched against existing animals. You must confirm each row before changes are applied.") + '</p>',
 
@@ -82,7 +125,8 @@ $(function() {
                     '</div>',
                 '</div>',
 
-                '<div id="apply-result" style="display: none; margin-top: 1em;"></div>'
+                '<div id="apply-result" style="display: none; margin-top: 1em;"></div>',
+                '</div>' // #bulkmc-page
             ].join("\n");
         },
 
@@ -97,10 +141,10 @@ $(function() {
                     $("#thumbnails").append(
                         '<span class="thumb-wrap" data-idx="' + idx + '" data-rot="0" ' +
                             'style="display: inline-block; position: relative; margin-right: 8px; margin-bottom: 8px; vertical-align: top;">' +
-                            '<img class="thumb-img" style="max-height: 320px; max-width: 320px; border: 1px solid #ccc; cursor: zoom-in; transition: transform 0.2s;" ' +
+                            '<img class="thumb-img" style="max-height: 320px; max-width: min(320px, 90vw); border: 1px solid #ccc; cursor: zoom-in; transition: transform 0.2s;" ' +
                                 'title="' + html.title(_("Click to expand")) + '" ' +
                                 'src="' + data_url + '" />' +
-                            '<div style="position: absolute; top: 2px; right: 2px;">' +
+                            '<div style="position: absolute; top: 4px; right: 4px;">' +
                                 '<button type="button" class="thumb-rotate" data-idx="' + idx + '" ' +
                                     'title="' + html.title(_("Rotate")) + '">&#x21bb;</button> ' +
                                 '<button type="button" class="thumb-remove" data-idx="' + idx + '">x</button>' +
@@ -258,10 +302,10 @@ $(function() {
             $.each(rows, function(ri, row) {
                 const check_attr = row.matched_animal_id ? 'checked="checked"' : '';
                 body.push('<tr data-ri="' + ri + '">');
-                body.push('<td><input type="checkbox" class="row-check" ' + check_attr + ' /></td>');
-                body.push('<td style="font-weight: bold; color: #555;">' + (ri + 1) + '</td>');
-                body.push('<td>' + html.title(row.name || "—") + '</td>');
-                body.push('<td>' + html.title(row.microchip || "—"));
+                body.push('<td data-label="' + html.title(_("Include")) + '"><input type="checkbox" class="row-check" ' + check_attr + ' /></td>');
+                body.push('<td data-label="' + html.title(_("Row")) + '" style="font-weight: bold; color: #555;">' + (ri + 1) + '</td>');
+                body.push('<td data-label="' + html.title(_("Name (extracted)")) + '">' + html.title(row.name || "—") + '</td>');
+                body.push('<td data-label="' + html.title(_("Microchip")) + '">' + html.title(row.microchip || "—"));
                 if (row.chip_source === "barcode") {
                     body.push(' <span title="' + html.title(_("Verified by barcode scanner")) +
                         '" style="color: #080; font-size: 0.85em;">✓</span>');
@@ -270,18 +314,18 @@ $(function() {
                         '" style="color: #c80; font-size: 0.85em;">⚠</span>');
                 }
                 body.push('</td>');
-                body.push('<td><input type="text" class="row-date asm-textbox-date" style="width: 100px;" value="' +
+                body.push('<td data-label="' + html.title(_("Implant date")) + '"><input type="text" class="row-date asm-textbox-date" value="' +
                     html.title(row.implant_date || "") + '" /></td>');
-                body.push('<td><input type="text" class="row-dob asm-textbox-date" style="width: 100px;" value="' +
+                body.push('<td data-label="' + html.title(_("Date of Birth")) + '"><input type="text" class="row-dob asm-textbox-date" value="' +
                     html.title(row.date_of_birth || "") + '" /></td>');
-                body.push('<td>' +
+                body.push('<td data-label="' + html.title(_("Sex")) + '">' +
                     '<select class="row-sex asm-selectbox">' +
                         '<option value=""' + (row.sex ? '' : ' selected="selected"') + '></option>' +
                         '<option value="M"' + (row.sex === "M" ? ' selected="selected"' : '') + '>' + _("Male") + '</option>' +
                         '<option value="F"' + (row.sex === "F" ? ' selected="selected"' : '') + '>' + _("Female") + '</option>' +
                     '</select></td>');
-                body.push('<td>' + bulk_microchip.row_cell_animal(row, ri) + '</td>');
-                body.push('<td class="status-cell">' + bulk_microchip.row_cell_status(row) + '</td>');
+                body.push('<td data-label="' + html.title(_("Animal to update")) + '">' + bulk_microchip.row_cell_animal(row, ri) + '</td>');
+                body.push('<td class="status-cell" data-label="' + html.title(_("Status")) + '">' + bulk_microchip.row_cell_status(row) + '</td>');
                 body.push('</tr>');
             });
             $("#results-body").html(body.join("\n"));
@@ -393,6 +437,7 @@ $(function() {
                 const rotated = await Promise.all(pairs.map(function(p) {
                     return bulk_microchip.apply_rotation(p.img, p.rot);
                 }));
+                bulk_microchip.processed_images = rotated;
                 const body = "mode=extract&images=" + encodeURIComponent(JSON.stringify(rotated));
                 const resp = await common.ajax_post("bulk_microchip", body);
                 const data = typeof resp === "string" ? JSON.parse(resp) : resp;
@@ -443,24 +488,44 @@ $(function() {
             }
             $("#btn-apply").prop("disabled", true);
             try {
-                const body = "mode=apply&rows=" + encodeURIComponent(JSON.stringify(confirmed));
+                const body = "mode=apply" +
+                    "&rows=" + encodeURIComponent(JSON.stringify(confirmed)) +
+                    "&images=" + encodeURIComponent(JSON.stringify(bulk_microchip.processed_images || []));
                 const resp = await common.ajax_post("bulk_microchip", body);
                 const data = typeof resp === "string" ? JSON.parse(resp) : resp;
+                const applied_n = (data.applied || []).length;
+                const errors_n = data.errors ? data.errors.length : 0;
                 const parts = [];
                 if (data.success) {
-                    parts.push('<div>' + html.title(_("Updated:") + " " + (data.applied || []).length) + '</div>');
-                    if (data.errors && data.errors.length) {
-                        parts.push('<div>' + html.title(_("Errors:") + " " + data.errors.length) + '</div>');
-                        parts.push('<ul>');
+                    const bg = errors_n > 0 ? "#fff4d6" : "#dff5e0";
+                    const bd = errors_n > 0 ? "#d4a017" : "#2a8a3c";
+                    const fg = errors_n > 0 ? "#6a4f00" : "#17572a";
+                    const icon = errors_n > 0 ? "⚠" : "✓";
+                    parts.push('<div style="background: ' + bg + '; border: 2px solid ' + bd +
+                        '; color: ' + fg + '; border-radius: 8px; padding: 1em 1.25em; font-size: 1.2em; font-weight: bold; text-align: center;">');
+                    parts.push('<div style="font-size: 2em; margin-bottom: 0.2em;">' + icon + '</div>');
+                    parts.push('<div>' + html.title(_("Updated:") + " " + applied_n) + '</div>');
+                    if (errors_n > 0) {
+                        parts.push('<div style="margin-top: 0.4em; font-size: 0.9em;">' +
+                            html.title(_("Errors:") + " " + errors_n) + '</div>');
+                        parts.push('<ul style="text-align: left; font-size: 0.75em; font-weight: normal; margin: 0.5em 0 0 1em;">');
                         $.each(data.errors, function(i, e) {
                             parts.push('<li>' + html.title(_("Animal ID") + " " + e.animal_id + ": " + e.error) + '</li>');
                         });
                         parts.push('</ul>');
                     }
+                    parts.push('</div>');
                 } else {
+                    parts.push('<div style="background: #fbe1e1; border: 2px solid #c00; color: #700; border-radius: 8px; padding: 1em 1.25em; font-size: 1.15em; font-weight: bold; text-align: center;">');
+                    parts.push('<div style="font-size: 2em; margin-bottom: 0.2em;">✗</div>');
                     parts.push('<div>' + html.title(_("Apply failed:") + " " + (data.message || "")) + '</div>');
+                    parts.push('</div>');
                 }
-                $("#apply-result").html('<div class="asm-banner">' + parts.join("") + '</div>').show();
+                $("#apply-result").html(parts.join("")).show();
+                // Scroll the banner into view so mobile users see it immediately
+                if ($("#apply-result")[0] && $("#apply-result")[0].scrollIntoView) {
+                    $("#apply-result")[0].scrollIntoView({ behavior: "smooth", block: "center" });
+                }
                 // remove applied rows visually
                 if (data.success && data.applied) {
                     $("#results-body tr").each(function() {
@@ -485,6 +550,7 @@ $(function() {
             this.images = [];
             this.rotations = [];
             this.rows = [];
+            this.processed_images = [];
             $("#thumbnails").empty();
             $("#results-body").empty();
             $("#results-wrap").hide();
@@ -533,6 +599,7 @@ $(function() {
             bulk_microchip.images = [];
             bulk_microchip.rotations = [];
             bulk_microchip.rows = [];
+            bulk_microchip.processed_images = [];
         },
         destroy: function() { return false; },
 

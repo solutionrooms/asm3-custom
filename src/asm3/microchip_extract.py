@@ -367,12 +367,43 @@ def match_rows(dbo, rows):
     return out
 
 
-def apply_updates(dbo, username, confirmed):
+def _attach_image_to_animal(dbo, username, animal_id, data_url, image_number, total):
+    """ Attach a processed image (rotated/downscaled on the client) as media
+    against an animal record. Used to keep a permanent audit trail of where
+    the bulk microchip update got its data.
+    """
+    import asm3.media
+    import asm3.utils
+
+    # data_url looks like "data:image/jpeg;base64,..." — attach_file_from_form
+    # strips the data:mime prefix internally, so we pass it through unchanged.
+    label = "implant_log_%d_of_%d.jpg" % (image_number, total)
+    posted_data = asm3.utils.PostedData({
+        "filedata": data_url,
+        "filename": label,
+        "filetype": "image/jpeg",
+        "comments": "Bulk microchip update — source log sheet",
+        "flags": "",
+        "transformed": "1",  # already rotated + downscaled in the browser
+    }, dbo.locale)
+    try:
+        return asm3.media.attach_file_from_form(
+            dbo, username, asm3.media.ANIMAL, animal_id, 0, posted_data)
+    except Exception as err:
+        asm3.al.error("attach source image to animal %s failed: %s" % (animal_id, err),
+                      "microchip_extract._attach_image_to_animal", dbo)
+        return 0
+
+
+def apply_updates(dbo, username, confirmed, images=None):
     """ Apply confirmed rows to the animal table.
 
     Args:
         confirmed: list of dicts {animal_id, microchip, implant_date, date_of_birth, sex}.
                    The frontend has already confirmed each animal_id.
+        images: optional list of base64 data URLs (the processed log sheet photos).
+                When provided, every image is attached as media to every animal
+                whose update succeeded, giving staff a permanent source record.
 
     Returns dict with 'applied' (list of ids) and 'errors' (list of {animal_id, error}).
     """
@@ -421,6 +452,14 @@ def apply_updates(dbo, username, confirmed):
                 "%s=%s" % (k, updates[k]) for k in updates)
             asm3.audit.edit(dbo, username, "animal", animal_id, "", audit_text)
             applied.append(animal_id)
+
+            # Attach each source image as media on this animal for audit trail.
+            # Failures are logged but don't abort the overall apply (the chip
+            # update itself has already succeeded at this point).
+            if images:
+                for i, img in enumerate(images):
+                    if img:
+                        _attach_image_to_animal(dbo, username, animal_id, img, i + 1, len(images))
         except Exception as err:
             asm3.al.error("apply_updates failed for row %s: %s" % (r, err),
                           "microchip_extract.apply_updates", dbo)
