@@ -4303,17 +4303,24 @@ def insert_siblings(dbo: Database, username: str, animalid: int, rows: list) -> 
         # Link the primary to the new litter id
         dbo.execute("UPDATE animal SET AcceptanceNumber = ? WHERE ID = ?", (litter_id, animalid))
 
-    # Clone and set name/sex for each additional sibling.
+    # Clone and set name/sex/weight for each additional sibling.
     # If the proposed name collides with an existing animal, auto-append a letter suffix
     # to keep it unique (common when re-using base names across litters).
     for row in rows:
         nid = clone_animal(dbo, username, animalid)
         proposed = row.get("name", "") or ""
         unique_name = _unique_animal_name(dbo, proposed, nid)
-        dbo.execute("UPDATE animal SET AnimalName = ?, Sex = ?, AcceptanceNumber = ?, IdentichipNumber = '', Identichip2Number = '' WHERE ID = ?",
+        weight = row.get("weight")
+        try:
+            weight_val = float(weight) if weight is not None and weight != "" else 0
+        except (TypeError, ValueError):
+            weight_val = 0
+        dbo.execute("UPDATE animal SET AnimalName = ?, Sex = ?, Weight = ?, AcceptanceNumber = ?, IdentichipNumber = '', Identichip2Number = '' WHERE ID = ?",
                      (unique_name,
                       int(row.get("sex", 2)),
+                      weight_val,
                       litter_id, nid))
+        update_variable_animal_data(dbo, nid)
 
     update_litter_count(dbo, litter_id)
 

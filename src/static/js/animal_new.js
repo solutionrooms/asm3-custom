@@ -115,11 +115,12 @@ $(function() {
                     { post_field: "siblings", label: _("Number of additional siblings"), type: "intnumber", halfsize: true,
                         callout: _("Extra copies of this animal, linked as littermates") }
                 ], { full_width: false }),
-                '<table id="siblingrows" style="margin: 10px auto; max-width: 600px; display: none; border-collapse: collapse; width: 100%;">' +
+                '<table id="siblingrows" style="margin: 10px auto; max-width: 720px; display: none; border-collapse: collapse; width: 100%;">' +
                 '  <thead><tr style="background: #f0f0f0;">' +
                 '    <th style="padding: 6px; text-align: left; width: 40px;">#</th>' +
                 '    <th style="padding: 6px; text-align: left;">' + _("Name") + '</th>' +
-                '    <th style="padding: 6px; text-align: left; width: 160px;">' + _("Sex") + '</th>' +
+                '    <th style="padding: 6px; text-align: left; width: 140px;">' + _("Sex") + '</th>' +
+                '    <th style="padding: 6px; text-align: left; width: 120px;">' + _("Weight") + ' (g)</th>' +
                 '  </tr></thead>' +
                 '  <tbody></tbody>' +
                 '</table>',
@@ -150,7 +151,8 @@ $(function() {
             $body.find("tr").each(function(i) {
                 existing.push({
                     name: $(this).find("input.sibling-name").val(),
-                    sex: $(this).find("select.sibling-sex").val()
+                    sex: $(this).find("select.sibling-sex").val(),
+                    weight: $(this).find("input.sibling-weight").val()
                 });
             });
             const sexOptions = (controller.sexes || []).map(function(s) {
@@ -163,11 +165,13 @@ $(function() {
                 const prev = existing[i];
                 const nameVal = (prev && prev.name) ? prev.name : defaultName;
                 const sexVal = (prev && prev.sex !== undefined) ? prev.sex : "2";
+                const weightVal = (prev && prev.weight !== undefined) ? prev.weight : "";
                 rows.push(
                     '<tr>' +
                     '<td style="padding: 6px;">' + sibNumber + '</td>' +
                     '<td style="padding: 6px;"><input type="text" class="sibling-name asm-textbox" style="width: 100%;" value="' + html.title(nameVal) + '"></td>' +
                     '<td style="padding: 6px;"><select class="sibling-sex asm-selectbox" style="width: 100%;" data-default="' + sexVal + '">' + sexOptions + '</select></td>' +
+                    '<td style="padding: 6px;"><input type="number" class="sibling-weight asm-textbox" style="width: 100%;" step="any" min="0" value="' + html.title(weightVal) + '"></td>' +
                     '</tr>'
                 );
             }
@@ -183,9 +187,11 @@ $(function() {
             if (!$rows.length) { return ""; }
             const data = [];
             $rows.each(function() {
+                const rawWeight = $.trim($(this).find("input.sibling-weight").val() || "");
                 data.push({
                     name: $.trim($(this).find("input.sibling-name").val() || ""),
-                    sex: parseInt($(this).find("select.sibling-sex").val() || "2", 10)
+                    sex: parseInt($(this).find("select.sibling-sex").val() || "2", 10),
+                    weight: rawWeight === "" ? null : parseFloat(rawWeight)
                 });
             });
             return JSON.stringify(data);
