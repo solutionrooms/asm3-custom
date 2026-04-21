@@ -2483,10 +2483,14 @@ class bulk_microchip(JSONEndpoint):
         try:
             import asm3.microchip_extract
             rows_json = o.post["rows"]
+            images_json = o.post["images"]
             confirmed = asm3.utils.json_parse(rows_json) if rows_json else []
+            images = asm3.utils.json_parse(images_json) if images_json else []
             if not isinstance(confirmed, list) or not confirmed:
                 return asm3.utils.json({"success": False, "message": "No rows to apply"})
-            result = asm3.microchip_extract.apply_updates(o.dbo, o.user, confirmed)
+            if not isinstance(images, list):
+                images = []
+            result = asm3.microchip_extract.apply_updates(o.dbo, o.user, confirmed, images)
             return asm3.utils.json(dict(success=True, **result))
         except Exception as err:
             asm3.al.error("bulk microchip apply error: %s" % err, "main.bulk_microchip", o.dbo)
