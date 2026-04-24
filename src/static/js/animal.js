@@ -1361,6 +1361,7 @@ $(function() {
                 window.open(url, "_blank", "noopener");
             });
 
+
             $("#button-email").button().click(function() {
                 let defaultemail = "", defaultname = "", toaddresses = [];
                 // Use the future owner if the animal has a future adoption

@@ -10,6 +10,7 @@ sys.path.insert(0, PATH)
 
 import web062 as web
 
+import asm3.admission_extract
 import asm3.ai_assistant
 import asm3.al
 import asm3.additional
@@ -2397,6 +2398,105 @@ class animal(JSONEndpoint):
         self.check(asm3.users.CHANGE_MEDIA)
         asm3.animal.update_preferred_web_media_notes(o.dbo, o.user, o.post.integer("id"), o.post["comments"])
 
+    def post_checkform(self, o):
+        """Re-scan the animal's admission-form media and return a comparison of
+        extracted values against the current record. Nothing is changed — the
+        frontend will present the diff and ask the user which (if any) to apply
+        via post_applyform.
+
+        mediaid (optional): force-use a specific media record (used from the Media
+        tab when the user picks a form explicitly — important for re-admissions
+        where multiple admission form scans exist). If omitted, the backend
+        auto-finds the newest media whose filename starts with
+        'admission_form_scan'.
+        """
+        self.check(asm3.users.CHANGE_ANIMAL)
+        dbo = o.dbo
+        animal_id = o.post.integer("id")
+        if animal_id <= 0:
+            raise asm3.utils.ASMValidationError("missing animal id")
+
+        media_id = o.post.integer("mediaid")
+        media_row = None
+        if media_id > 0:
+            media_row = asm3.media.get_media_by_id(dbo, media_id)
+            if media_row is None or int(media_row.LINKID or 0) != animal_id \
+                    or int(media_row.LINKTYPEID or 0) != asm3.media.ANIMAL:
+                return asm3.utils.json({
+                    "found": False,
+                    "message": "That media record does not belong to this animal."
+                })
+        else:
+            media_row = asm3.admission_extract.find_admission_form_media(dbo, animal_id)
+        if media_row is None:
+            return asm3.utils.json({
+                "found": False,
+                "message": "No admission form scan found on this animal's media. "
+                           "Upload an image named 'admission_form_scan.jpg' first, "
+                           "or use the Check Against Record action on a specific "
+                           "media item in the Media tab."
+            })
+
+        _, _, mimetype, data_bytes = asm3.media.get_media_file_data(dbo, media_row.ID)
+        if not data_bytes:
+            return asm3.utils.json({"found": False, "message": "Could not read media file."})
+
+        import base64 as _b64
+        data_url = "data:%s;base64,%s" % (
+            mimetype or "image/jpeg",
+            _b64.b64encode(data_bytes).decode("ascii"))
+
+        additional_fields = asm3.additional.get_additional_fields(dbo, animal_id, "animal")
+        lookups = {
+            "agegroups": asm3.configuration.age_groups(dbo),
+            "colours": asm3.lookups.get_basecolours(dbo),
+            "entryreasons": asm3.lookups.get_entryreasons(dbo),
+        }
+        result = asm3.admission_extract.extract_form(data_url, additional_fields, lookups)
+        comparison = asm3.admission_extract.build_comparison(
+            dbo, animal_id, result.get("extracted") or {}, additional_fields)
+
+        asm3.al.debug(
+            "checkform animal=%d media=%d diffs=%d elapsed=%.1fs" % (
+                animal_id, media_row.ID, len(comparison), result.get("elapsed_seconds") or 0.0),
+            "main.animal.checkform", dbo)
+
+        return asm3.utils.json({
+            "found": True,
+            "mediaid": media_row.ID,
+            "filename": media_row.MEDIANAME,
+            "extracted": result.get("extracted"),
+            "model": result.get("model"),
+            "elapsed_seconds": result.get("elapsed_seconds"),
+            "comparison": comparison,
+        })
+
+    def post_applyform(self, o):
+        """Apply user-selected values from a form scan comparison to the animal.
+
+        Expects POST:
+          id: animal id
+          selections: JSON array of {"key": str, "scanned_raw": any}
+        Returns JSON {applied: int, errors: [str]}.
+        """
+        self.check(asm3.users.CHANGE_ANIMAL)
+        dbo = o.dbo
+        animal_id = o.post.integer("id")
+        if animal_id <= 0:
+            raise asm3.utils.ASMValidationError("missing animal id")
+        selections_raw = o.post["selections"]
+        try:
+            selections = asm3.utils.json_parse(selections_raw) if selections_raw else []
+        except Exception:
+            selections = []
+        if not isinstance(selections, list):
+            selections = []
+        applied, errors = asm3.admission_extract.apply_selected(dbo, o.user, animal_id, selections)
+        asm3.al.debug(
+            "applyform animal=%d applied=%d errors=%d" % (animal_id, applied, len(errors)),
+            "main.animal.applyform", dbo)
+        return asm3.utils.json({"applied": applied, "errors": errors})
+
 class animal_boarding(JSONEndpoint):
     url = "animal_boarding"
     js_module = "boarding"
@@ -3533,6 +3633,34 @@ class animal_induction(JSONEndpoint):
 
     def post_units(self, o):
         return "&&".join(asm3.animal.get_units_with_availability(o.dbo, o.post.integer("locationid")))
+
+    def post_scanform(self, o):
+        """Extract pre-fill values from a photographed admission / patient record form.
+
+        Expects a base64 data URL in the 'filedata' field (already client-rotated and
+        downscaled to <= 1600px long-edge). Returns JSON with:
+          - extracted: dict of field values keyed as per admission_extract prompt schema
+          - barcode: decoded microchip barcode if pyzbar found one, else ""
+          - model / input_tokens / output_tokens / elapsed_seconds for the UI
+        """
+        self.check(asm3.users.ADD_ANIMAL)
+        data_url = o.post["filedata"]
+        if not data_url:
+            raise asm3.utils.ASMValidationError("no image data supplied")
+        additional_fields = asm3.additional.get_additional_fields(o.dbo, 0, "animal")
+        lookups = {
+            "agegroups": asm3.configuration.age_groups(o.dbo),
+            "colours": asm3.lookups.get_basecolours(o.dbo),
+            "entryreasons": asm3.lookups.get_entryreasons(o.dbo),
+        }
+        result = asm3.admission_extract.extract_form(data_url, additional_fields, lookups)
+        asm3.al.debug(
+            "scanform extracted keys=%s barcode=%s elapsed=%.1fs" % (
+                list((result.get("extracted") or {}).keys()),
+                result.get("barcode") or "",
+                result.get("elapsed_seconds") or 0.0),
+            "main.animal_induction.scanform", o.dbo)
+        return asm3.utils.json(result)
 
 class animal_observations(JSONEndpoint):
     url = "animal_observations"
