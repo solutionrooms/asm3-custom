@@ -11,6 +11,11 @@ $(function() {
         /** Only attempt to set the non-shelter animal type once per reset */
         set_nonsheltertype_once: false,
 
+        /** Scan-form state: original data URL, current rotation, processed (rotated+downscaled) URL */
+        scan_form_raw: null,
+        scan_form_rotation: 0,
+        scan_form_processed: null,
+
         weight_in_grams: function() {
             return config.bool("ShowWeightInGrams");
         },
@@ -65,8 +70,109 @@ $(function() {
                 '  <p>' + _("Paste or type examination notes below. The AI will extract animal data to pre-fill the form.") + '</p>',
                 '  <textarea id="import-transcript-text" rows="10" style="width:100%; font-size:0.9em;"></textarea>',
                 '</div>',
+                '<div id="dialog-scan-form" style="display:none;" title="' + _("Scan Admission Form") + '">',
+                '  <style>',
+                '    #dialog-scan-form .scan-action-bar {',
+                '      position: sticky; top: 0; z-index: 5;',
+                '      display: flex; flex-wrap: wrap; gap: 8px;',
+                '      padding: 8px 0; margin: 0 0 10px 0;',
+                '      background: #fff; border-bottom: 1px solid #e5e7eb;',
+                '    }',
+                '    #dialog-scan-form .scan-action-bar button { flex: 1 1 auto; min-height: 44px; }',
+                '    #dialog-scan-form .scan-extract-btn {',
+                '      background: #1e5fb8; color: #fff; border: none; border-radius: 8px;',
+                '      font-weight: 600; padding: 10px 16px;',
+                '    }',
+                '    #dialog-scan-form .scan-extract-btn:hover { filter: brightness(1.08); }',
+                '    #dialog-scan-form .scan-extract-btn:disabled { background: #9aa4b1; cursor: not-allowed; }',
+                '    #dialog-scan-form .scan-secondary-btn {',
+                '      background: #f3f4f6; border: 1px solid #cfd6df; border-radius: 8px;',
+                '      padding: 10px 14px;',
+                '    }',
+                '    #dialog-scan-form p.scan-hint { margin: 0 0 8px 0; font-size: 0.9em; color: #555; }',
+                '    #dialog-scan-form #scan-form-status { font-size: 0.9em; color: #555; min-height: 1.3em; margin-top: 6px; }',
+                '  </style>',
+                '  <div class="scan-action-bar">',
+                '    <button type="button" id="scan-form-btn-camera" class="scan-secondary-btn">' + _("Take Photo") + '</button>',
+                '    <button type="button" id="scan-form-btn-library" class="scan-secondary-btn">' + _("Choose from Library") + '</button>',
+                '    <button type="button" id="scan-form-btn-extract" class="scan-extract-btn" style="display:none;">' + _("Extract & Fill") + '</button>',
+                '    <button type="button" id="scan-form-rotate" class="scan-secondary-btn" style="display:none;">&#x21bb; ' + _("Rotate") + '</button>',
+                '    <button type="button" id="scan-form-replace" class="scan-secondary-btn" style="display:none;">' + _("Replace") + '</button>',
+                '  </div>',
+                '  <input id="scan-form-file-camera" type="file" accept="image/*" capture="environment" style="display:none;" />',
+                '  <input id="scan-form-file-library" type="file" accept="image/*" style="display:none;" />',
+                '  <p class="scan-hint">' + _("Take a photo or choose an image of a handwritten patient record sheet. The AI will read the form and pre-fill as many fields as possible.") + '</p>',
+                '  <div id="scan-form-thumb-wrap" style="display:none; text-align:center; margin-bottom:10px;">',
+                '    <img id="scan-form-thumb" style="max-width:100%; max-height:60vh; border:1px solid #ccc; cursor:zoom-in;" alt="" />',
+                '  </div>',
+                '  <div id="scan-form-status"></div>',
+                '</div>',
                 html.content_header(_("Patient Admission")),
+                '<style>',
+                '.induction-top-actions {',
+                '  max-width: 1200px; margin: 12px auto 0; padding: 0 16px;',
+                '  display: flex; gap: 12px; flex-wrap: wrap;',
+                '}',
+                '.induction-top-actions .topaction-btn {',
+                '  flex: 1 1 260px;',
+                '  display: inline-flex; align-items: center; justify-content: center; gap: 10px;',
+                '  padding: 14px 20px;',
+                '  font-size: 16px; font-weight: 600; line-height: 1.2;',
+                '  color: #fff; background: linear-gradient(135deg, #2b7de9, #1e5fb8);',
+                '  border: none; border-radius: 10px; cursor: pointer;',
+                '  box-shadow: 0 3px 10px rgba(30,95,184,0.25);',
+                '  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;',
+                '  min-height: 52px;', // >= mobile touch target
+                '}',
+                '.induction-top-actions .topaction-btn:hover {',
+                '  transform: translateY(-1px);',
+                '  box-shadow: 0 6px 16px rgba(30,95,184,0.30);',
+                '  filter: brightness(1.05);',
+                '}',
+                '.induction-top-actions .topaction-btn:active { transform: translateY(0); filter: brightness(0.95); }',
+                '.induction-top-actions .topaction-btn .asm-icon {',
+                '  filter: brightness(0) invert(1);', // make the icon white to match text
+                '  opacity: 0.95;',
+                '}',
+                '.induction-top-actions .topaction-btn.secondary {',
+                '  background: linear-gradient(135deg, #6c757d, #495057);',
+                '  box-shadow: 0 3px 10px rgba(73,80,87,0.25);',
+                '}',
+                '@media (max-width: 640px) {',
+                '  .induction-top-actions { gap: 8px; padding: 0 10px; }',
+                '  .induction-top-actions .topaction-btn { flex-basis: 100%; font-size: 15px; padding: 14px 16px; }',
+                '}',
+                '</style>',
+                '<div class="induction-top-actions">',
+                '  <button type="button" id="button-top-scanform" class="topaction-btn">' +
+                     html.icon("document") + _("Scan Admission Form") + '</button>',
+                '  <button type="button" id="button-top-importtranscript" class="topaction-btn secondary">' +
+                     html.icon("message") + _("AI Import from Transcript") + '</button>',
+                '</div>',
                 animal_induction.render_littermates_banner(),
+                '<div id="scan-result-panel" style="display:none; max-width:1200px; margin:10px auto; padding:14px 16px; ',
+                    'background:#fff; border:1px solid #cfd6df; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.05); font-size:0.92em;">',
+                '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:10px;">',
+                '    <strong id="scan-result-title">' + _("Scan result") + '</strong>',
+                '    <button type="button" id="scan-result-close" style="font-size:0.85em;">' + _("Dismiss") + '</button>',
+                '  </div>',
+                '  <div id="scan-result-summary" style="color:#555; margin-bottom:8px;"></div>',
+                '  <details style="margin-bottom:0;"><summary style="cursor:pointer; color:#1e5fb8; font-weight:600; user-select:none;">&#9656; ' + _("Diagnostics") + ' <span id="scan-result-diag-counts" style="font-weight:400; color:#888;"></span></summary>',
+                '    <div style="margin-top:8px;">',
+                '      <details open style="margin-bottom:6px;"><summary style="cursor:pointer; color:#080;">',
+                '        <span id="scan-result-applied-count">0</span> ' + _("applied") + '</summary>',
+                '        <ul id="scan-result-applied" style="margin:6px 0 0 18px; color:#555;"></ul>',
+                '      </details>',
+                '      <details open style="margin-bottom:6px;"><summary style="cursor:pointer; color:#a60;">',
+                '        <span id="scan-result-unmapped-count">0</span> ' + _("not applied — review matching") + '</summary>',
+                '        <ul id="scan-result-unmapped" style="margin:6px 0 0 18px; color:#555;"></ul>',
+                '      </details>',
+                '      <details style="margin-bottom:0;"><summary style="cursor:pointer; color:#888;">' + _("Raw AI response") + '</summary>',
+                '        <pre id="scan-result-raw" style="max-height:300px; overflow:auto; font-size:0.8em; background:#f8f9fa; padding:8px; border-radius:6px;"></pre>',
+                '      </details>',
+                '    </div>',
+                '  </details>',
+                '</div>',
                 '<div class="patient-induction-form">',
                 '<style>',
                 '.patient-induction-form {',
@@ -752,6 +858,7 @@ $(function() {
                    { id: "save", icon: "save", text: _("Save") },
                    { id: "reset", icon: "delete", text: _("Reset") },
                    { id: "importtranscript", icon: "message", text: _("AI Import from Transcript") },
+                   { id: "scanform", icon: "document", text: _("Scan Admission Form") },
                    { id: "barcode", icon: "print", text: _("Print QR Label") },
                    { id: "delete", icon: "delete", text: _("Delete") }
                 ], { centered: true }),
@@ -1669,11 +1776,16 @@ $(function() {
                     // Debug logging removed for production
                 }
                 
+                // If a scan image is pending, attach it as media to the newly-created (or just-saved) animal
+                if (createdID && createdID !== "0" && animal_induction.scanned_form_image_data) {
+                    await animal_induction.upload_scan_form_image(createdID);
+                }
+
                 if (mode == "add") {
                     header.show_info(_("Animal '{0}' created with code {1}").replace("{0}", $("#animalname").val()).replace("{1}", newCode));
                 }
                 else {
-                    if (createdID != "0") { 
+                    if (createdID != "0") {
                         if (controller.animal) {
                             // Check if location was changed away from Induction
                             const currentLocation = $("#internallocation option:selected").text();
@@ -1753,7 +1865,12 @@ $(function() {
                 }
                 // Clear dirty flag after a successful save
                 if (typeof validate !== 'undefined' && validate.dirty) { validate.dirty(false); }
-                
+
+                // If a scan image is pending, attach it as media to the newly-saved animal
+                if (animalID && animalID !== "0" && animal_induction.scanned_form_image_data) {
+                    await animal_induction.upload_scan_form_image(animalID);
+                }
+
                 if (animalID && animalID !== "0") {
                     if (controller.animal) {
                         // Check if location was changed away from Induction
@@ -1984,8 +2101,9 @@ $(function() {
         load_media_list: async function() {
             try {
                 if (!controller.animal || !controller.animal.ID) {
-                    // Clear grid if no animal
+                    // Clear grid if no animal — but preserve any pending-scan preview
                     $("#media-grid .media-slot").each(function() {
+                        if ($(this).attr('data-pending-scan') === '1') { return; }
                         $(this).removeClass('filled default').attr('data-mid', '');
                         $(this).find('img').attr('src','').hide();
                         $(this).find('.media-actions').hide();
@@ -2022,8 +2140,11 @@ $(function() {
          * Renders given media array into the 4-slot grid and binds actions
          */
         render_media_grid: function(items) {
-            const $slots = $("#media-grid .media-slot");
-            // Reset all
+            // Preserve any slot occupied by the pending form scan preview.
+            const $slots = $("#media-grid .media-slot").filter(function() {
+                return $(this).attr('data-pending-scan') !== '1';
+            });
+            // Reset the non-pending slots
             $slots.each(function(){
                 $(this).removeClass('filled default').attr('data-mid', '');
                 $(this).find('img').attr('src','').hide();
@@ -2658,6 +2779,91 @@ $(function() {
                 window.open(url, "_blank", "noopener");
             });
 
+            // Scan Admission Form button — reuses the AI Dictation permission.
+            // The bottom-toolbar versions of scan/transcript are hidden because we
+            // also surface them in the top actions bar (see render()), but all the
+            // click logic is bound to the bottom buttons — the top buttons simply
+            // proxy-click them.
+            $("#button-top-scanform").off("click").on("click", function() { $("#button-scanform").click(); });
+            $("#button-top-importtranscript").off("click").on("click", function() { $("#button-importtranscript").click(); });
+            $("#button-scanform, #button-importtranscript").hide();
+            if (!common.has_permission("uaid")) {
+                $("#button-top-scanform, #button-top-importtranscript").hide();
+            }
+            // Toggle which action-bar buttons are visible based on whether an image
+            // has been chosen. The action bar stays sticky at the top of the dialog
+            // so mobile users can always tap Extract & Fill without scrolling past
+            // the full-size preview.
+            const scan_update_bar = function() {
+                const loaded = !!animal_induction.scan_form_raw;
+                $("#scan-form-btn-camera, #scan-form-btn-library").toggle(!loaded);
+                $("#scan-form-btn-extract, #scan-form-rotate, #scan-form-replace").toggle(loaded);
+                $("#scan-form-btn-extract").prop("disabled", !loaded);
+            };
+
+            $("#button-scanform").button().click(function() {
+                animal_induction.scan_form_raw = null;
+                animal_induction.scan_form_rotation = 0;
+                animal_induction.scan_form_processed = null;
+                $("#scan-form-thumb").attr("src", "").css("transform", "");
+                $("#scan-form-thumb-wrap").hide();
+                $("#scan-form-status").text("");
+                $("#scan-form-file-camera, #scan-form-file-library").val("");
+                scan_update_bar();
+                $("#dialog-scan-form").dialog({
+                    autoOpen: true, width: Math.min(700, $(window).width() - 40),
+                    modal: true, dialogClass: "dialogshadow",
+                    buttons: [{ text: _("Close"), click: function() { $(this).dialog("close"); } }]
+                });
+            });
+            $("#scan-form-btn-camera").off("click").on("click", function() { $("#scan-form-file-camera").trigger("click"); });
+            $("#scan-form-btn-library").off("click").on("click", function() { $("#scan-form-file-library").trigger("click"); });
+            $("#scan-form-btn-extract").off("click").on("click", function() {
+                if (!animal_induction.scan_form_raw) {
+                    $("#scan-form-status").text(_("Please choose or take a photo first."));
+                    return;
+                }
+                animal_induction.scan_form_process();
+            });
+            $("#scan-form-rotate").off("click").on("click", function() {
+                animal_induction.scan_form_rotation = (animal_induction.scan_form_rotation + 90) % 360;
+                animal_induction.scan_form_refresh_thumb();
+            });
+            $("#scan-form-replace").off("click").on("click", function() {
+                animal_induction.scan_form_raw = null;
+                animal_induction.scan_form_rotation = 0;
+                $("#scan-form-thumb-wrap").hide();
+                $("#scan-form-file-camera, #scan-form-file-library").val("");
+                $("#scan-form-status").text("");
+                scan_update_bar();
+            });
+            const onScanFileChange = async function(input) {
+                const f = input.files && input.files[0];
+                if (!f) { return; }
+                try {
+                    animal_induction.scan_form_raw = await animal_induction.scan_form_read_file(f);
+                    animal_induction.scan_form_rotation = 0;
+                    animal_induction.scan_form_refresh_thumb();
+                    $("#scan-form-thumb-wrap").show();
+                    $("#scan-form-status").text(_("Check the form is the right way up, then tap Extract & Fill."));
+                    scan_update_bar();
+                } catch (e) {
+                    $("#scan-form-status").text(_("Could not read that image."));
+                }
+            };
+            $("#scan-form-file-camera").off("change").on("change", function() { onScanFileChange(this); });
+            $("#scan-form-file-library").off("change").on("change", function() { onScanFileChange(this); });
+            $("#scan-form-thumb").off("click").on("click", function() {
+                const $img = $(this);
+                const expanded = $img.data("expanded");
+                if (expanded) {
+                    $img.css({ "max-height": "50vh", "max-width": "95%", "cursor": "zoom-in" }).data("expanded", false);
+                } else {
+                    $img.css({ "max-height": "none", "max-width": "95vw", "cursor": "zoom-out" }).data("expanded", true);
+                }
+            });
+            $("#scan-result-close").button().click(function() { $("#scan-result-panel").hide(); });
+
             // Import from Transcript button
             if (!common.has_permission("uaid")) {
                 $("#button-importtranscript").hide();
@@ -3099,6 +3305,597 @@ $(function() {
                 if (transcript) { comments.push("--- Original transcript ---\n" + transcript); }
                 if (comments.length > 0) { $("#comments").val(comments.join("\n\n")); }
             }, 300);
+        },
+
+        /**
+         * Display the scanned form as a preview in the first empty Photos slot,
+         * so the user sees it will be attached as media on save. Purely visual —
+         * the actual upload happens in upload_scan_form_image() after the animal
+         * record is created.
+         */
+        place_scan_in_media_grid: function(data_url) {
+            if (!data_url) { return; }
+            // If we previously placed a pending scan, remove it before placing the new one
+            const $prev = $("#media-grid .media-slot[data-pending-scan='1']");
+            if ($prev.length) {
+                $prev.removeAttr("data-pending-scan")
+                    .removeClass("filled")
+                    .find("img").attr("src", "").end()
+                    .find(".media-empty-hint").show().end()
+                    .find(".pending-scan-badge").remove();
+            }
+            const $slot = $("#media-grid .media-slot:not(.filled)").first();
+            if ($slot.length === 0) {
+                // Grid is full — leave a hint in the scan result panel instead.
+                try {
+                    const $hint = $('<div style="color:#a60; margin-top:6px;"></div>')
+                        .text(_("Photos grid is full — the scan will still be attached as media on save."));
+                    $("#scan-result-summary").append($hint);
+                } catch (e) {}
+                return;
+            }
+            $slot.attr("data-pending-scan", "1")
+                .addClass("filled")
+                .find("img").attr("src", data_url).show().end()
+                .find(".media-empty-hint").hide().end()
+                .find(".media-actions").show().end()
+                .find(".make-default").hide();  // not meaningful for a form scan
+            // Badge to make it clear this is the form scan, not a regular photo
+            if ($slot.find(".pending-scan-badge").length === 0) {
+                $slot.append(
+                    '<span class="pending-scan-badge" style="' +
+                    'position:absolute; top:4px; right:4px; background:#1e5fb8; color:#fff; ' +
+                    'font-size:10px; padding:2px 6px; border-radius:10px; z-index:2;">' +
+                    _("Form scan") + '</span>');
+            }
+            // Delete handler: clear the pending scan + nullify cached data URL
+            $slot.find(".delete").off("click.pendingscan").on("click.pendingscan", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!confirm(_("Remove the scanned form? It won't be attached on save."))) { return; }
+                animal_induction.clear_pending_scan();
+            });
+        },
+
+        /** Clear the pending-scan slot and forget the cached image */
+        clear_pending_scan: function() {
+            animal_induction.scanned_form_image_data = null;
+            const $slot = $("#media-grid .media-slot[data-pending-scan='1']");
+            if ($slot.length === 0) { return; }
+            $slot.removeAttr("data-pending-scan").removeClass("filled");
+            $slot.find("img").attr("src", "").hide();
+            $slot.find(".media-empty-hint").show();
+            $slot.find(".media-actions").hide();
+            $slot.find(".make-default").show();
+            $slot.find(".pending-scan-badge").remove();
+        },
+
+        /** Read a File into a data URL */
+        scan_form_read_file: function(file) {
+            return new Promise(function(resolve, reject) {
+                const reader = new FileReader();
+                reader.onload = function() { resolve(reader.result); };
+                reader.onerror = function() { reject(new Error("read failed")); };
+                reader.readAsDataURL(file);
+            });
+        },
+
+        /**
+         * Apply rotation and downscale to max 1600px long edge.
+         * Returns a JPEG data URL ready to send to the vision model.
+         */
+        scan_form_apply_rotation: function(data_url, degrees) {
+            const MAX_EDGE = 1600;
+            return new Promise(function(resolve, reject) {
+                const img = new Image();
+                img.onload = function() {
+                    const longEdge = Math.max(img.width, img.height);
+                    const scale = longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1;
+                    const sw = Math.round(img.width * scale);
+                    const sh = Math.round(img.height * scale);
+                    const canvas = document.createElement("canvas");
+                    const rad = degrees * Math.PI / 180;
+                    const swap = (degrees === 90 || degrees === 270);
+                    canvas.width = swap ? sh : sw;
+                    canvas.height = swap ? sw : sh;
+                    const ctx = canvas.getContext("2d");
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    if (degrees) { ctx.rotate(rad); }
+                    ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
+                    resolve(canvas.toDataURL("image/jpeg", 0.85));
+                };
+                img.onerror = function() { reject(new Error("image decode failed")); };
+                img.src = data_url;
+            });
+        },
+
+        /** Update the preview thumbnail with the current rotation */
+        scan_form_refresh_thumb: function() {
+            const raw = animal_induction.scan_form_raw;
+            if (!raw) { return; }
+            $("#scan-form-thumb").attr("src", raw)
+                .css("transform", "rotate(" + animal_induction.scan_form_rotation + "deg)");
+        },
+
+        /** Send the current scan image to the backend for extraction, then pre-fill */
+        scan_form_process: async function() {
+            if (!animal_induction.scan_form_raw) { return; }
+            $("#scan-form-status").text(_("Preparing image..."));
+            let rotated;
+            try {
+                rotated = await animal_induction.scan_form_apply_rotation(
+                    animal_induction.scan_form_raw, animal_induction.scan_form_rotation);
+            } catch (e) {
+                $("#scan-form-status").text(_("Could not process image."));
+                return;
+            }
+            animal_induction.scan_form_processed = rotated;
+            $("#scan-form-status").text(_("Reading form with AI — this may take up to a minute..."));
+            const started = Date.now();
+            try {
+                const response = await common.ajax_post(
+                    "animal_induction",
+                    "mode=scanform&filedata=" + encodeURIComponent(rotated));
+                let payload;
+                try { payload = JSON.parse(response); } catch(e) { payload = null; }
+                if (!payload || typeof payload !== "object") {
+                    $("#scan-form-status").text(_("AI returned an unexpected response."));
+                    return;
+                }
+                const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+                $("#dialog-scan-form").dialog("close");
+                const report = animal_induction.apply_scan_result(payload);
+                animal_induction.render_scan_result_panel(payload, report, elapsed);
+                try { console.log("[scan-form] payload:", payload, "report:", report); } catch (e) {}
+                const appliedCount = (report.applied || []).length;
+                const unmappedCount = (report.unmapped || []).length;
+                if (unmappedCount === 0) {
+                    header.show_info(
+                        _("Form pre-filled from scan ({0} fields applied, {1}s). Please review before saving.")
+                            .replace("{0}", String(appliedCount))
+                            .replace("{1}", elapsed));
+                } else {
+                    header.show_info(
+                        _("Form pre-filled from scan ({0} applied, {1} not applied — see panel below).")
+                            .replace("{0}", String(appliedCount))
+                            .replace("{1}", String(unmappedCount)));
+                }
+            } catch (err) {
+                const msg = (err && err.message) ? err.message : String(err || "");
+                $("#scan-form-status").text(_("Scan failed: ") + msg);
+            }
+        },
+
+        /** Parse an ISO date (YYYY-MM-DD) and return it in the locale's date format */
+        scan_form_format_date: function(iso) {
+            if (!iso) { return ""; }
+            // Prefer ASM's format helpers when the value looks like an ISO date
+            if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+                try {
+                    const parts = iso.split("-");
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    const d = parseInt(parts[2], 10);
+                    const dt = new Date(y, m, d);
+                    if (typeof format !== "undefined" && format.date) {
+                        return format.date(dt);
+                    }
+                } catch(e) {}
+            }
+            return iso;
+        },
+
+        /**
+         * Resolve a free-text value against the actual options of a <select>.
+         * Returns an option VALUE that can be passed to .val(), or null.
+         *
+         * Matching tries: exact value, exact text, substring on value, substring on text
+         * (both directions). This is robust to the AI returning a shorter label than the
+         * option (e.g. "Baby" for an option valued "Baby (<1 month)").
+         */
+        scan_form_match_select_option: function(selector, wanted) {
+            const $sel = $(selector);
+            if ($sel.length === 0 || !wanted) { return null; }
+            const needle = String(wanted).trim().toLowerCase();
+            let matched = null;
+            const options = $sel.find("option").toArray();
+
+            // Pass 1: exact value (case-insensitive)
+            for (let i = 0; i < options.length; i++) {
+                const v = $(options[i]).val();
+                if (v != null && String(v).toLowerCase() === needle) { matched = v; break; }
+            }
+            // Pass 2: exact text
+            if (!matched) {
+                for (let i = 0; i < options.length; i++) {
+                    const t = $(options[i]).text();
+                    if (t && String(t).toLowerCase().trim() === needle) {
+                        matched = $(options[i]).val(); break;
+                    }
+                }
+            }
+            // Pass 3: substring on value or text (either direction)
+            if (!matched) {
+                for (let i = 0; i < options.length; i++) {
+                    const v = String($(options[i]).val() || "").toLowerCase();
+                    const t = String($(options[i]).text() || "").toLowerCase();
+                    if (!v && !t) { continue; }
+                    if (v && (v.indexOf(needle) !== -1 || needle.indexOf(v) !== -1)) {
+                        matched = $(options[i]).val(); break;
+                    }
+                    if (t && (t.indexOf(needle) !== -1 || needle.indexOf(t) !== -1)) {
+                        matched = $(options[i]).val(); break;
+                    }
+                }
+            }
+            return matched || null;
+        },
+
+        /**
+         * Resolve a free-text value against a list of lookup rows. Returns the ID of
+         * the closest match (case-insensitive, trimmed, contains or startswith), or null.
+         */
+        scan_form_match_lookup: function(rows, nameKey, valueKey, wanted) {
+            if (!rows || !rows.length || !wanted) { return null; }
+            const target = String(wanted).trim().toLowerCase();
+            // Exact match first
+            for (let i = 0; i < rows.length; i++) {
+                const name = String(rows[i][nameKey] || "").trim().toLowerCase();
+                if (name === target) { return rows[i][valueKey]; }
+            }
+            // Contains either way
+            for (let i = 0; i < rows.length; i++) {
+                const name = String(rows[i][nameKey] || "").trim().toLowerCase();
+                if (name && (name.indexOf(target) !== -1 || target.indexOf(name) !== -1)) {
+                    return rows[i][valueKey];
+                }
+            }
+            return null;
+        },
+
+        /**
+         * Apply extracted values to the form. Standard fields map to fixed IDs;
+         * the 'additional' object keys match FIELDNAME and map to add_{ID}.
+         * Returns a report: { applied: [...], unmapped: [...] } so the caller can
+         * surface a diagnostic panel — the user iterates on matching from this.
+         */
+        apply_scan_result: function(payload) {
+            const data = (payload && payload.extracted) || {};
+            const additional_data = (data && typeof data.additional === "object" && data.additional) || {};
+            const applied = [];
+            const unmapped = [];
+            const applyOK = function(label, value) { applied.push({ field: label, value: value }); };
+            const noMatch = function(key, value, reason) {
+                unmapped.push({ key: key, value: value, reason: reason });
+            };
+
+            // Cache the scan image so we can upload it as media after save
+            animal_induction.scanned_form_image_data = animal_induction.scan_form_processed;
+            // Surface the scan in the Photos grid so the user can see what will be attached
+            animal_induction.place_scan_in_media_grid(animal_induction.scan_form_processed);
+
+            // Standard fields
+            if (data.animalname) { $("#animalname").val(data.animalname); applyOK("animalname", data.animalname); }
+            if (data.sex === "M" || data.sex === "F") {
+                $("#sex").val(data.sex === "M" ? "1" : "0").trigger("change");
+                applyOK("sex", data.sex);
+            } else if (data.sex != null && data.sex !== "") {
+                noMatch("sex", data.sex, _("expected \"M\" or \"F\""));
+            }
+            if (data.weight_grams != null && data.weight_grams !== "") {
+                $("#weight").val(String(data.weight_grams));
+                applyOK("weight (g)", data.weight_grams);
+            }
+            if (data.microchip_number) {
+                // The microchip row is hidden when AddAnimalsShowMicrochip=false.
+                // Unhide so the user can see and edit the extracted value.
+                $("#microchiprow").show();
+                $("#microchipnumber").val(String(data.microchip_number));
+                $("#microchipped").prop("checked", true);
+                if (data.microchip_source === "barcode") {
+                    $("#microchipnumber").attr("title", _("Verified by barcode scanner"));
+                }
+                applyOK("microchipnumber" + (data.microchip_source === "barcode" ? " (barcode)" : ""),
+                        data.microchip_number);
+            } else if (data.microchipped === "N") {
+                $("#microchipped").prop("checked", false);
+                applyOK("microchipped", "N");
+            } else if (data.microchipped === "Y") {
+                $("#microchipped").prop("checked", true);
+                applyOK("microchipped", "Y");
+            }
+
+            // Dates
+            if (data.date_brought_in) {
+                const ds = animal_induction.scan_form_format_date(data.date_brought_in);
+                if (ds) { $("#datebroughtin").val(ds); applyOK("datebroughtin", ds); }
+                else { noMatch("date_brought_in", data.date_brought_in, _("could not parse as date")); }
+            }
+            if (data.date_of_birth) {
+                const ds = animal_induction.scan_form_format_date(data.date_of_birth);
+                if (ds) { $("#dateofbirth").val(ds); applyOK("dateofbirth", ds); }
+                else { noMatch("date_of_birth", data.date_of_birth, _("could not parse as date")); }
+            }
+
+            // Age group — match against the actual <select>'s option values (NOT
+            // controller.agegroups, which is a separate config list and can disagree
+            // with the additional field's LOOKUPVALUES used to populate the select).
+            if (data.age_group) {
+                const ag = String(data.age_group).trim();
+                const matched = animal_induction.scan_form_match_select_option("#entryagerange", ag);
+                if (matched) {
+                    $("#entryagerange").val(matched).trigger("change");
+                    // Direct sync of the hidden mirror — the change handler syncs it too
+                    // but rely-and-verify is safer (and cheap).
+                    $("#entryagerange_post").val(matched);
+                    applyOK("entryagerange", matched);
+                } else {
+                    const opts = $("#entryagerange option").map(function() {
+                        return $(this).val() || $(this).text();
+                    }).get().filter(Boolean);
+                    noMatch("age_group", ag, _("no matching option in ") + "[" + opts.join(", ") + "]");
+                }
+            }
+
+            // Base colour
+            if (data.base_colour) {
+                const cid = animal_induction.scan_form_match_lookup(
+                    controller.colours || [], "BASECOLOUR", "ID", data.base_colour);
+                if (cid) {
+                    $("#basecolour").val(cid).trigger("change");
+                    applyOK("basecolour", data.base_colour + " (ID " + cid + ")");
+                } else {
+                    noMatch("base_colour", data.base_colour, _("no matching colour in lookup"));
+                }
+            }
+
+            // Entry reason
+            if (data.entry_reason) {
+                const rid = animal_induction.scan_form_match_lookup(
+                    controller.entryreasons || [], "REASONNAME", "ID", data.entry_reason);
+                if (rid) {
+                    $("#entryreason").val(rid).trigger("change");
+                    applyOK("entryreason", data.entry_reason + " (ID " + rid + ")");
+                } else {
+                    noMatch("entry_reason", data.entry_reason, _("no matching entry reason in lookup"));
+                }
+            }
+
+            if (data.where_found) {
+                $("#entrylocationdescription").val(data.where_found);
+                applyOK("entrylocationdescription", String(data.where_found).substring(0, 80));
+            }
+
+            if (data.comments) {
+                const existing = $("#comments").val() || "";
+                const joined = existing ? existing + "\n\n" + data.comments : data.comments;
+                $("#comments").val(joined);
+                applyOK("comments (appended)", String(data.comments).substring(0, 80));
+            }
+
+            // Catch any top-level keys we didn't consume. "additional",
+            // "microchip_source", barcode etc. are expected metadata.
+            const knownTop = {
+                "animalname": 1, "sex": 1, "weight_grams": 1, "microchip_number": 1,
+                "microchipped": 1, "microchip_source": 1, "date_brought_in": 1,
+                "date_of_birth": 1, "age_group": 1, "base_colour": 1, "entry_reason": 1,
+                "where_found": 1, "comments": 1, "additional": 1
+            };
+            $.each(data, function(k, v) {
+                if (knownTop[k]) { return; }
+                if (v == null || v === "") { return; }
+                noMatch(k, v, _("unknown top-level key"));
+            });
+
+            // Additional (custom) fields
+            if (controller.additional && typeof additional_data === "object") {
+                $.each(additional_data, function(fname, value) {
+                    if (value == null || value === "") { return; }
+                    let field = null;
+                    for (let i = 0; i < controller.additional.length; i++) {
+                        if (String(controller.additional[i].FIELDNAME || "").toLowerCase() ===
+                                String(fname).toLowerCase()) {
+                            field = controller.additional[i];
+                            break;
+                        }
+                    }
+                    if (!field) {
+                        noMatch("additional." + fname, value, _("no FIELDNAME matches in controller.additional"));
+                        return;
+                    }
+                    // Some additional fields are surfaced with a plain-name UI widget
+                    // (e.g. #entrylocationweather) rather than the generic #add_{ID} —
+                    // main.py post_save re-maps them back to the additional system. Prefer
+                    // the plain selector when it exists.
+                    let selector = "#" + field.FIELDNAME;
+                    let $el = $(selector);
+                    if ($el.length === 0) {
+                        selector = "#add_" + field.ID;
+                        $el = $(selector);
+                    }
+                    if ($el.length === 0) {
+                        noMatch("additional." + fname, value,
+                            _("FIELDNAME found but neither #") + field.FIELDNAME +
+                            _(" nor #add_") + field.ID + _(" is in the DOM"));
+                        return;
+                    }
+                    const ftype = field.FIELDTYPE;
+                    const label = "additional." + fname + " → " + selector;
+                    if (ftype === 0) {
+                        const on = (String(value).toUpperCase() === "Y" ||
+                                    String(value) === "1" ||
+                                    String(value).toLowerCase() === "true");
+                        $el.prop("checked", on).trigger("change");
+                        applyOK(label, on ? "Y" : "N");
+                    } else if (ftype === 4) {
+                        const ds = animal_induction.scan_form_format_date(value);
+                        $el.val(ds);
+                        applyOK(label, ds);
+                    } else if (ftype === 6) {
+                        // LOOKUP — match against the actual <select>'s options (robust
+                        // to label variations and Y/N abbreviations).
+                        const v = String(value).trim();
+                        let hit = animal_induction.scan_form_match_select_option(selector, v);
+                        if (!hit) {
+                            // Y/N → Yes/No fallback
+                            const vu = v.toUpperCase();
+                            if (vu === "Y" || vu === "YES") {
+                                hit = animal_induction.scan_form_match_select_option(selector, "Yes");
+                            } else if (vu === "N" || vu === "NO") {
+                                hit = animal_induction.scan_form_match_select_option(selector, "No");
+                            }
+                        }
+                        if (hit) {
+                            $el.val(hit).trigger("change");
+                            if ($el.val() === hit) { applyOK(label, hit); }
+                            else { noMatch(label, v, _("assignment did not stick — option value mismatch")); }
+                        } else {
+                            const opts = $el.find("option").map(function() {
+                                return $(this).val() || $(this).text();
+                            }).get().filter(Boolean);
+                            if (opts.length === 0) {
+                                $el.val(v).trigger("change");
+                                applyOK(label + " (no lookup defined)", v);
+                            } else {
+                                noMatch(label, v, _("no matching option: ") + "[" + opts.join(", ") + "]");
+                            }
+                        }
+                    } else if (ftype === 7) {
+                        let arr = value;
+                        if (typeof value === "string") {
+                            arr = value.split("|").map(function(s) { return s.trim(); }).filter(Boolean);
+                        }
+                        if (Array.isArray(arr)) {
+                            $el.val(arr).trigger("change");
+                            if (typeof $el.bsmSelect === "function") { $el.change(); }
+                            applyOK(label, arr.join(" | "));
+                        } else {
+                            noMatch(label, value, _("expected array or pipe-separated string"));
+                        }
+                    } else {
+                        $el.val(String(value)).trigger("change");
+                        applyOK(label, String(value));
+                    }
+                });
+                // Refresh Y/N card visuals
+                setTimeout(function() {
+                    $(".yesno-field").each(function() {
+                        const $card = $(this);
+                        const $checkbox = $card.find('input[type="checkbox"]');
+                        const $status = $card.find('.yesno-status');
+                        if ($checkbox.prop('checked')) {
+                            $card.addClass('checked');
+                            $status.text('Yes');
+                        } else {
+                            $card.removeClass('checked');
+                            $status.text('No');
+                        }
+                    });
+                }, 50);
+            } else if (additional_data && Object.keys(additional_data).length > 0) {
+                $.each(additional_data, function(fname, value) {
+                    if (value == null || value === "") { return; }
+                    noMatch("additional." + fname, value, _("no controller.additional defined"));
+                });
+            }
+
+            return { applied: applied, unmapped: unmapped };
+        },
+
+        /**
+         * Render the diagnostic panel with the extract/apply report, raw payload,
+         * and model/timing metadata. Users dismiss it when they're done reviewing.
+         */
+        render_scan_result_panel: function(payload, report, elapsed_seconds) {
+            const renderValue = function(v) {
+                if (typeof v === "object") { return JSON.stringify(v); }
+                return String(v);
+            };
+            const extracted = (payload && payload.extracted) || {};
+            const extractedKeys = Object.keys(extracted).length +
+                (extracted.additional ? Object.keys(extracted.additional).length - 1 : 0);
+            const summary = _("Extracted {0} fields. Model: {1}. Elapsed: {2}s. Tokens: {3} in / {4} out.")
+                .replace("{0}", String(extractedKeys))
+                .replace("{1}", payload.model || "?")
+                .replace("{2}", String(elapsed_seconds))
+                .replace("{3}", String(payload.input_tokens || 0))
+                .replace("{4}", String(payload.output_tokens || 0));
+            $("#scan-result-summary").text(summary);
+
+            const appliedHtml = (report.applied || []).map(function(a) {
+                return '<li><code>' + html.title(a.field) + '</code> = ' + html.title(renderValue(a.value)) + '</li>';
+            }).join("");
+            $("#scan-result-applied").html(appliedHtml || '<li style="color:#888;">' + _("(none)") + '</li>');
+            $("#scan-result-applied-count").text(String((report.applied || []).length));
+
+            const unmappedHtml = (report.unmapped || []).map(function(u) {
+                return '<li><code>' + html.title(u.key) + '</code> = ' + html.title(renderValue(u.value)) +
+                    ' <span style="color:#a60;">— ' + html.title(u.reason) + '</span></li>';
+            }).join("");
+            $("#scan-result-unmapped").html(unmappedHtml || '<li style="color:#888;">' + _("(none)") + '</li>');
+            $("#scan-result-unmapped-count").text(String((report.unmapped || []).length));
+
+            const nApplied = (report.applied || []).length;
+            const nUnmapped = (report.unmapped || []).length;
+            $("#scan-result-diag-counts").text(
+                "(" + nApplied + " " + _("applied") + ", " + nUnmapped + " " + _("not applied") + ")");
+
+            try {
+                $("#scan-result-raw").text(JSON.stringify(payload, null, 2));
+            } catch (e) {
+                $("#scan-result-raw").text(String(payload));
+            }
+
+            $("#scan-result-panel").show();
+            try { $("html, body").animate({ scrollTop: $("#scan-result-panel").offset().top - 80 }, 300); } catch (e) {}
+        },
+
+        /**
+         * If a scan image was captured, upload it as media to the newly-created animal.
+         * Called from add_animal() after a successful save; silently no-ops if no scan.
+         * Uses callback-style ajax (wrapped in a Promise) because jqXHR's thenable
+         * semantics aren't always await-safe across jQuery versions.
+         */
+        upload_scan_form_image: function(animalID) {
+            return new Promise(function(resolve) {
+                const data_url = animal_induction.scanned_form_image_data;
+                if (!data_url || !animalID || animalID === "0") {
+                    try { console.log("[scan-form] upload skipped", { animalID: animalID, hasImage: !!data_url }); } catch (e) {}
+                    resolve();
+                    return;
+                }
+                try { console.log("[scan-form] uploading scan image", { animalID: animalID, bytes: data_url.length }); } catch (e) {}
+                const formdata = "animalid=" + animalID +
+                    "&type=gallery" +
+                    "&filename=" + encodeURIComponent("admission_form_scan.jpg") +
+                    "&filedata=" + encodeURIComponent(data_url);
+                $.ajax({
+                    method: "POST",
+                    url: "mobile_photo_upload",
+                    data: formdata,
+                    dataType: "text",
+                    mimeType: "textPlain",
+                    success: function(mid) {
+                        try { console.log("[scan-form] upload success, mid=", mid); } catch (e) {}
+                        animal_induction.scanned_form_image_data = null;
+                        // Demote the slot marker so a subsequent load_media_list can pick up
+                        // the server-side version of this same image.
+                        $("#media-grid .media-slot[data-pending-scan='1']")
+                            .removeAttr("data-pending-scan")
+                            .find(".pending-scan-badge").remove();
+                        resolve();
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        try {
+                            console.error("[scan-form] upload failed",
+                                { status: jqXHR && jqXHR.status, textStatus: textStatus, error: errorThrown,
+                                  responseText: (jqXHR && jqXHR.responseText || "").substring(0, 200) });
+                        } catch (e) {}
+                        try { header.show_error(_("Animal saved but form scan image could not be attached.")); } catch (e2) {}
+                        resolve();
+                    }
+                });
+            });
         },
 
         destroy: function() {

@@ -178,6 +178,7 @@ $(function() {
                 { id: "sign", text: _("Sign"), type: "buttonmenu", icon: "signature" },
                 { id: "move", text: _("Move/Copy"), type: "buttonmenu", icon: "copy" },
                 { id: "video", icon: "video", enabled: "one", perm: "cam", tooltip: _("Default video link") },
+                { id: "checkform", text: _("Check Form"), icon: "document", enabled: "one", perm: "uaid", tooltip: _("Use this image as an admission form and compare against the animal record") },
                 { type: "raw", markup: '<div class="asm-mediadroptarget mode-table"><p>' + _("Drop files here...") + '</p></div>',
                     hideif: function() { 
                         return common.browser_is.mobile;
@@ -1027,6 +1028,28 @@ $(function() {
                 $("#button-include").hide();
                 $("#button-exclude").hide();
             }
+
+            // Check Form is animal-specific — hide everywhere else
+            if (controller.name != "animal_media") {
+                $("#button-checkform").hide();
+            }
+            $("#button-checkform").click(function() {
+                const selectedIds = tableform.table_ids(media.table);
+                if (!selectedIds) {
+                    header.show_error(_("Select one media row first."));
+                    return;
+                }
+                const firstId = parseInt(String(selectedIds).split(",")[0], 10);
+                if (!firstId) {
+                    header.show_error(_("Select one media row first."));
+                    return;
+                }
+                const animalID = controller.animal && controller.animal.ID ? controller.animal.ID : controller.linkid;
+                if (!animalID) { return; }
+                if (window.check_form && window.check_form.open) {
+                    window.check_form.open(animalID, firstId);
+                }
+            });
 
             $("#button-web").click(function() {
                 let formdata = "mode=web&ids=" + tableform.table_ids(media.table);
