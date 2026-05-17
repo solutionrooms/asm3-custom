@@ -11,6 +11,11 @@ $(function() {
         /** Only attempt to set the non-shelter animal type once per reset */
         set_nonsheltertype_once: false,
 
+        /** True once the user has manually changed the internal location.
+         *  Used to stop the "default to Induction" timer from clobbering a
+         *  location the user deliberately chose. */
+        location_touched: false,
+
         /** Scan-form state: original data URL, current rotation, processed (rotated+downscaled) URL */
         scan_form_raw: null,
         scan_form_rotation: 0,
@@ -1890,11 +1895,24 @@ $(function() {
                             }, 1000);
                         }
                     } else {
-                        // First save successful - reload page in edit mode to prevent duplicate name errors
-                        header.show_info(_("Animal '{0}' saved with code {1}. Reloading to continue editing...").replace("{0}", $("#animalname").val()).replace("{1}", code));
-                        setTimeout(function() {
-                            common.route("animal_induction?id=" + animalID);
-                        }, 1000);
+                        // First save of a new animal. If the location was set
+                        // away from Induction, this animal isn't an induction
+                        // case any more - go straight to the normal animal
+                        // screen (matching the behaviour of a later save).
+                        const currentLocation = $("#internallocation option:selected").text();
+                        if (currentLocation && !currentLocation.toLowerCase().includes("induction")) {
+                            header.show_info(_("Animal '{0}' saved with code {1}.").replace("{0}", $("#animalname").val()).replace("{1}", code));
+                            setTimeout(function() {
+                                common.route("animal?id=" + animalID);
+                            }, 1000);
+                        } else {
+                            // Still an induction - reload in edit mode to
+                            // prevent duplicate name errors on the next save.
+                            header.show_info(_("Animal '{0}' saved with code {1}. Reloading to continue editing...").replace("{0}", $("#animalname").val()).replace("{1}", code));
+                            setTimeout(function() {
+                                common.route("animal_induction?id=" + animalID);
+                            }, 1000);
+                        }
                     }
                 } else {
                     header.show_info(_("Progress saved successfully"));
@@ -2421,6 +2439,7 @@ $(function() {
             // Set select box default values
             $("#animaltype").select("value", config.str("AFDefaultType"));
             animal_induction.set_nonsheltertype_once = false;
+            animal_induction.location_touched = false;
             $("#species").select("value", config.str("AFDefaultSpecies"));
             $("#species").change();
             animal_induction.update_breed_select();
@@ -2470,7 +2489,7 @@ $(function() {
             header.hide_error();
             validate.reset();
 
-            // Helper to validate the weight field in grams range (50-2000)
+            // Helper to validate the weight field in grams range (1-2500)
             const validate_weight_field = animal_induction.validate_weight_field;
 
             // Minimal mode: new record — only require Name and Entry Age Range
@@ -2527,9 +2546,9 @@ $(function() {
             const weightValStr = common.trim($("#weight").val());
             if (weightValStr === "") { return true; }
             const w = format.to_float(weightValStr);
-            const ok = !(isNaN(w) || w < 50 || w > 2000);
+            const ok = !(isNaN(w) || w < 1 || w > 2500);
             if (!ok && showError) {
-                header.show_error(_("Weight must be between 50 and 2000 grams"));
+                header.show_error(_("Weight must be between 1 and 2500 grams"));
                 validate.highlight("weight");
             } else if (ok && showError) {
                 // Clear any prior weight error when the field becomes valid
@@ -2707,6 +2726,11 @@ $(function() {
             });
 
             $("#internallocation").change(animal_induction.update_units);
+            // Track genuine user changes (jQuery sets e.isTrigger for programmatic
+            // .trigger('change') calls, so those are ignored here).
+            $("#internallocation").on("change", function(e) {
+                if (!e.isTrigger) { animal_induction.location_touched = true; }
+            });
             $("#crossbreed").change(animal_induction.enable_widgets);
             $("#nonshelter").change(animal_induction.enable_widgets);
             $("#transferin").change(animal_induction.enable_widgets);
@@ -2725,25 +2749,37 @@ $(function() {
             $("#breed1").val(config.str("AFDefaultBreed"));
             $("#breed2").val(config.str("AFDefaultBreed"));
 
-            // Set default location to Induction for Patient Induction screen
-            // Try multiple approaches to ensure it works
-            setTimeout(function() {
-                // Method 1: Find by text content
-                var inductionOption = $("#internallocation option").filter(function() {
-                    return $(this).text().trim() === 'Induction';
-                });
-                if (inductionOption.length > 0) {
-                    $("#internallocation").val(inductionOption.val()).trigger('change');
-                } else {
-                    // Method 2: Try to find by partial text match
-                    $("#internallocation option").each(function() {
-                        if ($(this).text().toLowerCase().indexOf('induction') !== -1) {
-                            $("#internallocation").val($(this).val()).trigger('change');
-                            return false;
-                        }
+            // Set default location to Induction, but ONLY for a brand-new
+            // induction (not when editing an existing animal — sync() sets the
+            // location from the saved record there) and ONLY if the user
+            // hasn't already chosen a location. Without these guards this timer
+            // clobbers the user's location 500ms after load and on every
+            // reload, causing their change (and the animal's location) to be
+            // lost on the first save.
+            if (!controller.animal) {
+                setTimeout(function() {
+                    // Only skip if the user has already picked a location
+                    // themselves; otherwise force the Induction default even
+                    // though the select already holds a config/first-option
+                    // default value.
+                    if (animal_induction.location_touched) { return; }
+                    // Method 1: Find by text content
+                    var inductionOption = $("#internallocation option").filter(function() {
+                        return $(this).text().trim() === 'Induction';
                     });
-                }
-            }, 500);
+                    if (inductionOption.length > 0) {
+                        $("#internallocation").val(inductionOption.val()).trigger('change');
+                    } else {
+                        // Method 2: Try to find by partial text match
+                        $("#internallocation option").each(function() {
+                            if ($(this).text().toLowerCase().indexOf('induction') !== -1) {
+                                $("#internallocation").val($(this).val()).trigger('change');
+                                return false;
+                            }
+                        });
+                    }
+                }, 500);
+            }
 
             // Buttons
             $("#button-reset").button().click(function() {
