@@ -1895,11 +1895,24 @@ $(function() {
                             }, 1000);
                         }
                     } else {
-                        // First save successful - reload page in edit mode to prevent duplicate name errors
-                        header.show_info(_("Animal '{0}' saved with code {1}. Reloading to continue editing...").replace("{0}", $("#animalname").val()).replace("{1}", code));
-                        setTimeout(function() {
-                            common.route("animal_induction?id=" + animalID);
-                        }, 1000);
+                        // First save of a new animal. If the location was set
+                        // away from Induction, this animal isn't an induction
+                        // case any more - go straight to the normal animal
+                        // screen (matching the behaviour of a later save).
+                        const currentLocation = $("#internallocation option:selected").text();
+                        if (currentLocation && !currentLocation.toLowerCase().includes("induction")) {
+                            header.show_info(_("Animal '{0}' saved with code {1}.").replace("{0}", $("#animalname").val()).replace("{1}", code));
+                            setTimeout(function() {
+                                common.route("animal?id=" + animalID);
+                            }, 1000);
+                        } else {
+                            // Still an induction - reload in edit mode to
+                            // prevent duplicate name errors on the next save.
+                            header.show_info(_("Animal '{0}' saved with code {1}. Reloading to continue editing...").replace("{0}", $("#animalname").val()).replace("{1}", code));
+                            setTimeout(function() {
+                                common.route("animal_induction?id=" + animalID);
+                            }, 1000);
+                        }
                     }
                 } else {
                     header.show_info(_("Progress saved successfully"));
