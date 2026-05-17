@@ -2745,8 +2745,11 @@ $(function() {
             // lost on the first save.
             if (!controller.animal) {
                 setTimeout(function() {
+                    // Only skip if the user has already picked a location
+                    // themselves; otherwise force the Induction default even
+                    // though the select already holds a config/first-option
+                    // default value.
                     if (animal_induction.location_touched) { return; }
-                    if ($("#internallocation").val()) { return; }
                     // Method 1: Find by text content
                     var inductionOption = $("#internallocation option").filter(function() {
                         return $(this).text().trim() === 'Induction';
