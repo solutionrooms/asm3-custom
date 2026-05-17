@@ -11,6 +11,11 @@ $(function() {
         /** Only attempt to set the non-shelter animal type once per reset */
         set_nonsheltertype_once: false,
 
+        /** True once the user has manually changed the internal location.
+         *  Used to stop the "default to Induction" timer from clobbering a
+         *  location the user deliberately chose. */
+        location_touched: false,
+
         /** Scan-form state: original data URL, current rotation, processed (rotated+downscaled) URL */
         scan_form_raw: null,
         scan_form_rotation: 0,
@@ -2421,6 +2426,7 @@ $(function() {
             // Set select box default values
             $("#animaltype").select("value", config.str("AFDefaultType"));
             animal_induction.set_nonsheltertype_once = false;
+            animal_induction.location_touched = false;
             $("#species").select("value", config.str("AFDefaultSpecies"));
             $("#species").change();
             animal_induction.update_breed_select();
@@ -2707,6 +2713,11 @@ $(function() {
             });
 
             $("#internallocation").change(animal_induction.update_units);
+            // Track genuine user changes (jQuery sets e.isTrigger for programmatic
+            // .trigger('change') calls, so those are ignored here).
+            $("#internallocation").on("change", function(e) {
+                if (!e.isTrigger) { animal_induction.location_touched = true; }
+            });
             $("#crossbreed").change(animal_induction.enable_widgets);
             $("#nonshelter").change(animal_induction.enable_widgets);
             $("#transferin").change(animal_induction.enable_widgets);
@@ -2725,25 +2736,34 @@ $(function() {
             $("#breed1").val(config.str("AFDefaultBreed"));
             $("#breed2").val(config.str("AFDefaultBreed"));
 
-            // Set default location to Induction for Patient Induction screen
-            // Try multiple approaches to ensure it works
-            setTimeout(function() {
-                // Method 1: Find by text content
-                var inductionOption = $("#internallocation option").filter(function() {
-                    return $(this).text().trim() === 'Induction';
-                });
-                if (inductionOption.length > 0) {
-                    $("#internallocation").val(inductionOption.val()).trigger('change');
-                } else {
-                    // Method 2: Try to find by partial text match
-                    $("#internallocation option").each(function() {
-                        if ($(this).text().toLowerCase().indexOf('induction') !== -1) {
-                            $("#internallocation").val($(this).val()).trigger('change');
-                            return false;
-                        }
+            // Set default location to Induction, but ONLY for a brand-new
+            // induction (not when editing an existing animal — sync() sets the
+            // location from the saved record there) and ONLY if the user
+            // hasn't already chosen a location. Without these guards this timer
+            // clobbers the user's location 500ms after load and on every
+            // reload, causing their change (and the animal's location) to be
+            // lost on the first save.
+            if (!controller.animal) {
+                setTimeout(function() {
+                    if (animal_induction.location_touched) { return; }
+                    if ($("#internallocation").val()) { return; }
+                    // Method 1: Find by text content
+                    var inductionOption = $("#internallocation option").filter(function() {
+                        return $(this).text().trim() === 'Induction';
                     });
-                }
-            }, 500);
+                    if (inductionOption.length > 0) {
+                        $("#internallocation").val(inductionOption.val()).trigger('change');
+                    } else {
+                        // Method 2: Try to find by partial text match
+                        $("#internallocation option").each(function() {
+                            if ($(this).text().toLowerCase().indexOf('induction') !== -1) {
+                                $("#internallocation").val($(this).val()).trigger('change');
+                                return false;
+                            }
+                        });
+                    }
+                }, 500);
+            }
 
             // Buttons
             $("#button-reset").button().click(function() {
