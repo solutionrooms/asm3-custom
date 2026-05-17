@@ -2476,7 +2476,7 @@ $(function() {
             header.hide_error();
             validate.reset();
 
-            // Helper to validate the weight field in grams range (50-2000)
+            // Helper to validate the weight field in grams range (1-2500)
             const validate_weight_field = animal_induction.validate_weight_field;
 
             // Minimal mode: new record — only require Name and Entry Age Range
@@ -2533,9 +2533,9 @@ $(function() {
             const weightValStr = common.trim($("#weight").val());
             if (weightValStr === "") { return true; }
             const w = format.to_float(weightValStr);
-            const ok = !(isNaN(w) || w < 50 || w > 2000);
+            const ok = !(isNaN(w) || w < 1 || w > 2500);
             if (!ok && showError) {
-                header.show_error(_("Weight must be between 50 and 2000 grams"));
+                header.show_error(_("Weight must be between 1 and 2500 grams"));
                 validate.highlight("weight");
             } else if (ok && showError) {
                 // Clear any prior weight error when the field becomes valid
