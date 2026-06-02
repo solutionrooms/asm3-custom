@@ -3662,6 +3662,40 @@ class animal_induction(JSONEndpoint):
             "main.animal_induction.scanform", o.dbo)
         return asm3.utils.json(result)
 
+class quick_induction(JSONEndpoint):
+    """Minimal new-animal screen: name, sex, weight, date of birth/age and
+    location (with optional unit). Reuses insert_animal_from_form on the
+    backend; the JS module fills in sensible defaults (species, breed, type,
+    etc.) from configuration so the user only has to enter the essentials."""
+    url = "quick_induction"
+    get_permissions = asm3.users.ACCESS_HEDGHOG
+
+    def controller(self, o):
+        dbo = o.dbo
+        return {
+            "sexes": asm3.lookups.get_sexes(dbo),
+            "internallocations": asm3.lookups.get_internal_locations(dbo, o.lf),
+            "agegroups": asm3.configuration.age_groups(dbo),
+        }
+
+    def post_save(self, o):
+        self.check(asm3.users.ADD_ANIMAL)
+        try:
+            asm3.al.debug("quick_induction post_save keys=%s" % list(o.post.data.keys()),
+                          "main.quick_induction", o.dbo)
+            animalid, code = asm3.animal.insert_animal_from_form(o.dbo, o.post, o.user)
+            asm3.al.debug("quick_induction created animal %d (%s)" % (animalid, code),
+                          "main.quick_induction", o.dbo)
+            return "%s %s" % (animalid, code)
+        except Exception as e:
+            import traceback
+            asm3.al.error("quick_induction post_save failed: %s\n%s" % (str(e), traceback.format_exc()),
+                          "main.quick_induction", o.dbo)
+            raise
+
+    def post_units(self, o):
+        return "&&".join(asm3.animal.get_units_with_availability(o.dbo, o.post.integer("locationid")))
+
 class animal_observations(JSONEndpoint):
     url = "animal_observations"
     get_permissions = asm3.users.ADD_LOG
