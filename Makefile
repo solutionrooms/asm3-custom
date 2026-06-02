@@ -219,6 +219,30 @@ restart:
 	docker-compose restart
 	@echo "Note: For .env changes, use 'make stop && make start' instead"
 
+# Point local Docker at THIS worktree. Symlinks .env from the main repo if
+# missing (each worktree has its own checkout but .env is gitignored), then
+# recreates the stack. The DB and other named volumes persist across
+# switches because COMPOSE_PROJECT_NAME is pinned via .env to asm3-custom.
+use-here:
+	@MAIN_REPO=$$(cd "$$(dirname "$$(git rev-parse --git-common-dir)")" && pwd); \
+	HERE=$$(pwd); \
+	if [ ! -e .env ]; then \
+		echo "No .env in $$HERE - symlinking from $$MAIN_REPO/.env"; \
+		ln -sf $$MAIN_REPO/.env .env; \
+	fi; \
+	if ! grep -q "^COMPOSE_PROJECT_NAME=" .env 2>/dev/null; then \
+		echo "WARNING: COMPOSE_PROJECT_NAME is not set in .env - volumes will not be shared with other worktrees."; \
+		echo "Add 'COMPOSE_PROJECT_NAME=asm3-custom' to .env to fix this."; \
+	fi; \
+	echo "Stopping current Docker stack..."; \
+	docker-compose down --remove-orphans; \
+	echo "Regenerating nginx-processed.conf..."; \
+	rm -rf nginx-processed.conf; \
+	./scripts/process-nginx-config.sh || true; \
+	echo "Starting stack from $$HERE..."; \
+	docker-compose up -d; \
+	echo "Done. Local Docker now serves $$HERE"
+
 # Show logs (follow mode)
 logs:
 	docker-compose logs -f asm3
