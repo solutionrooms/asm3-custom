@@ -3680,10 +3680,18 @@ class quick_induction(JSONEndpoint):
 
     def post_save(self, o):
         self.check(asm3.users.ADD_ANIMAL)
-        animalid, code = asm3.animal.insert_animal_from_form(o.dbo, o.post, o.user)
-        asm3.al.debug("quick_induction created animal %d (%s)" % (animalid, code),
-                      "main.quick_induction", o.dbo)
-        return "%s %s" % (animalid, code)
+        try:
+            asm3.al.debug("quick_induction post_save keys=%s" % list(o.post.data.keys()),
+                          "main.quick_induction", o.dbo)
+            animalid, code = asm3.animal.insert_animal_from_form(o.dbo, o.post, o.user)
+            asm3.al.debug("quick_induction created animal %d (%s)" % (animalid, code),
+                          "main.quick_induction", o.dbo)
+            return "%s %s" % (animalid, code)
+        except Exception as e:
+            import traceback
+            asm3.al.error("quick_induction post_save failed: %s\n%s" % (str(e), traceback.format_exc()),
+                          "main.quick_induction", o.dbo)
+            raise
 
     def post_units(self, o):
         return "&&".join(asm3.animal.get_units_with_availability(o.dbo, o.post.integer("locationid")))
