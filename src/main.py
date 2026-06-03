@@ -7951,6 +7951,131 @@ class onlineform_incoming(JSONEndpoint):
             if asm3.configuration.onlineform_delete_on_process(o.dbo): asm3.onlineform.delete_onlineformincoming(o.dbo, user, collationid)
         return "^$".join(rv)
 
+    def post_createsystemaccount(self, o):
+        """Bulk-create Low Access Volunteer system accounts from incoming form rows.
+
+        For each selected collation:
+          1. Ensure a person record exists (creates via the standard
+             onlineform.create_person path so all field mappings are applied)
+          2. Flag the person as Staff so it can be linked as a user's staff record
+          3. Read 'preferredusername', 'firstname', 'lastname' and
+             'emailaddress' from the form fields
+          4. Create the user via insert_user_from_form with role
+             "Low Access Volunteer", a default password and a fixed IP
+             restriction - the email-credentials path inside that helper
+             sends the welcome email when SMTP is configured.
+
+        Response format per row (joined by ^$, fields by |) mirrors the
+        existing create_record JS helper: collationid|personid|displayname|status.
+        Status text starts with 'OK:' or 'ERROR:' so the JS can summarise.
+
+        These three constants are organisation-specific. Centralised here so
+        they're easy to find when the rescue's static IP or default password
+        needs to change.
+        """
+        LOW_ACCESS_ROLE = "Low Access Volunteer"
+        DEFAULT_PASSWORD = "changemenow"
+        IP_RESTRICTION = "90.251.152.228"
+
+        self.check(asm3.users.ADD_USER)
+        dbo = o.dbo
+        user = "form/%s" % o.user
+
+        # Resolve the Low Access Volunteer role id once.
+        role_id = 0
+        for r in asm3.users.get_roles(dbo):
+            if r.ROLENAME == LOW_ACCESS_ROLE:
+                role_id = r.ID
+                break
+        if role_id == 0:
+            raise asm3.utils.ASMValidationError(
+                "Role '%s' not found - create it first under Settings > User accounts > Roles." % LOW_ACCESS_ROLE)
+
+        rv = []
+        existing_usernames = set([u.USERNAME.lower() for u in dbo.query("SELECT UserName FROM users")])
+
+        for collationid in o.post.integer_list("ids"):
+            try:
+                # 1. Person (creates or merges)
+                _, personid, personname, _ = asm3.onlineform.create_person(dbo, user, collationid)
+                if not personid:
+                    rv.append("%d|0||ERROR: could not create person" % collationid)
+                    continue
+
+                # 2. Mark as Staff so it can be linked as a user's staff record
+                dbo.update("owner", personid, { "IsStaff": 1 }, o.user)
+
+                # 3. Pull field values from the submission
+                fields = {}
+                for row in asm3.onlineform.get_onlineformincoming_detail(dbo, collationid):
+                    fields[row.FIELDNAME.lower()] = (row.VALUE or "").strip()
+
+                preferred = fields.get("preferredusername", "")
+                firstname = fields.get("firstname", "")
+                lastname = fields.get("lastname", "")
+                emailaddr = fields.get("emailaddress", "")
+
+                if not preferred:
+                    rv.append("%d|%d|%s|ERROR: form has no Preferred User Name" % (collationid, personid, personname))
+                    continue
+
+                # Username collision: try preferred, preferred2, preferred3, ...
+                base = preferred
+                candidate = base
+                suffix = 2
+                while candidate.lower() in existing_usernames:
+                    candidate = "%s%d" % (base, suffix)
+                    suffix += 1
+                    if suffix > 99:
+                        rv.append("%d|%d|%s|ERROR: too many collisions for username '%s'" % (collationid, personid, personname, base))
+                        candidate = None
+                        break
+                if candidate is None:
+                    continue
+
+                realname = ("%s %s" % (firstname, lastname)).strip() or personname
+
+                # 4. Build the post payload and create the user
+                # Note: emailcred is intentionally "off" here. The bulk
+                # creation step does NOT send credentials; staff review the
+                # account first and then use the "Resend Instructions"
+                # button on /systemusers to send the welcome email.
+                upost = asm3.utils.PostedData({
+                    "username":         candidate,
+                    "password":         DEFAULT_PASSWORD,
+                    "realname":         realname,
+                    "email":            emailaddr,
+                    "superuser":        "0",
+                    "disablelogin":     "0",
+                    "person":           str(personid),
+                    "site":             "0",
+                    "locationfilter":   "",
+                    "iprestriction":    IP_RESTRICTION,
+                    "roles":            str(role_id),
+                    "emailcred":        "off"
+                }, dbo.locale)
+                userid = asm3.users.insert_user_from_form(dbo, o.user, upost)
+                existing_usernames.add(candidate.lower())
+
+                asm3.al.debug("created Low Access Volunteer user %d (%s) for person %d from collation %d" %
+                              (userid, candidate, personid, collationid),
+                              "main.onlineform_incoming.createsystemaccount", dbo)
+
+                rv.append("%d|%d|%s|OK: %s" % (collationid, personid, personname, candidate))
+
+                if asm3.configuration.onlineform_delete_on_process(dbo):
+                    asm3.onlineform.delete_onlineformincoming(dbo, user, collationid)
+
+            except Exception as e:
+                import traceback
+                asm3.al.error("createsystemaccount failed for collation %d: %s\n%s" %
+                              (collationid, str(e), traceback.format_exc()),
+                              "main.onlineform_incoming.createsystemaccount", dbo)
+                # Try to keep a personid in the row if we got that far
+                rv.append("%d|0||ERROR: %s" % (collationid, str(e)))
+
+        return "^$".join(rv)
+
 class onlineform_incoming_csv(ASMEndpoint):
     url = "onlineform_incoming_csv"
     get_permissions = asm3.users.VIEW_INCOMING_FORMS
@@ -9871,6 +9996,33 @@ class systemusers(JSONEndpoint):
         self.check(asm3.users.EDIT_USER)
         for uid in o.post.integer_list("ids"):
             asm3.users.reset_password(o.dbo, uid, o.post["password"])
+
+    def post_renameusername(self, o):
+        """Rename a single system account. Posts: userid, newusername.
+        Returns the new username on success; raises ASMValidationError
+        (surfaced to the user) on collision / self-rename / blank input."""
+        self.check(asm3.users.EDIT_USER)
+        return asm3.users.rename_user(o.dbo, o.user,
+                                      o.post.integer("userid"),
+                                      o.post["newusername"])
+
+    def post_resendinstructions(self, o):
+        """Bulk-reset password to a fixed value and re-send the welcome
+        email to each selected user. Per-row failures (e.g. no email
+        address) don't stop the rest. Response is ^$-separated, each row
+        userid|username|status with status starting OK: or ERROR:."""
+        DEFAULT_PASSWORD = "changemenow"
+        self.check(asm3.users.EDIT_USER)
+        rv = []
+        for uid in o.post.integer_list("ids"):
+            try:
+                uname = asm3.users.resend_credentials(o.dbo, o.user, uid, DEFAULT_PASSWORD)
+                rv.append("%d|%s|OK: %s" % (uid, uname, uname))
+            except Exception as e:
+                asm3.al.error("resendinstructions failed for user %d: %s" % (uid, str(e)),
+                              "main.systemusers.resendinstructions", o.dbo)
+                rv.append("%d||ERROR: %s" % (uid, str(e)))
+        return "^$".join(rv)
 
 class task(JSONEndpoint):
     url = "task"
