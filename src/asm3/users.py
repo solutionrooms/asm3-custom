@@ -715,50 +715,114 @@ def insert_user_from_form(dbo: Database, username: str, post: PostedData) -> int
     asm3.cachemem.delete("usernames_%s" % dbo.name())
 
     # If the option was set, email these new credentials to the user
-    # Note: we do not audit the actual email content to prevent plaintext passwords appearing in the audit log
     if post.boolean("emailcred") and post["email"] != "":
-        fromaddress = asm3.configuration.email(dbo)
-        subject_template = asm3.configuration.new_user_email_subject(dbo)
-        body_template = asm3.configuration.new_user_email_body(dbo)
-        base_url = BASE_URL.rstrip("/")
-        login_url = "%s/login" % base_url
-        if asm3.smcom.active():
-            login_url = asm3.smcom.get_login_url(dbo)
-            # Derive base url from the login url if possible
-            if "/login" in login_url:
-                base_url = login_url.split("/login", 1)[0].rstrip("/")
-            else:
-                base_url = login_url.rstrip("/")
-        replacements = {
-            "{url}": base_url,
-            "{login_url}": login_url,
-            "{user}": post["username"],
-            "{pass}": post["password"]
-        }
-        redacted_replacements = dict(replacements)
-        redacted_replacements["{pass}"] = asm3.i18n._("(password redacted)", l)
-
-        subject = subject_template
-        for token, value in replacements.items():
-            subject = subject.replace(token, value)
-
-        subjectlog = subject_template
-        for token, value in redacted_replacements.items():
-            subjectlog = subjectlog.replace(token, value)
-
-        body = body_template
-        for token, value in replacements.items():
-            body = body.replace(token, value)
-
-        bodynopass = body_template
-        for token, value in redacted_replacements.items():
-            bodynopass = bodynopass.replace(token, value)
-
-        asm3.utils.send_email(dbo, fromaddress, post["email"], "", "", subject, body, "plain", exceptions=False)
-        if asm3.configuration.audit_on_send_email(dbo): 
-            asm3.audit.email(dbo, username, fromaddress, post["email"], "", "", subjectlog, bodynopass)
+        send_credentials_email(dbo, username, post["username"], post["password"], post["email"])
 
     return nuserid
+
+def send_credentials_email(dbo: Database, sendinguser: str, accountusername: str, password: str, email: str) -> None:
+    """
+    Sends the configured new-user credentials email to `email`.
+    Used both when a user is first created (insert_user_from_form) and when
+    instructions are re-sent (resend_credentials). The actual email body
+    is not audited so the plaintext password never appears in the audit
+    log; a redacted copy is audited instead.
+    """
+    if not email:
+        return
+    l = dbo.locale
+    fromaddress = asm3.configuration.email(dbo)
+    subject_template = asm3.configuration.new_user_email_subject(dbo)
+    body_template = asm3.configuration.new_user_email_body(dbo)
+    base_url = BASE_URL.rstrip("/")
+    login_url = "%s/login" % base_url
+    if asm3.smcom.active():
+        login_url = asm3.smcom.get_login_url(dbo)
+        if "/login" in login_url:
+            base_url = login_url.split("/login", 1)[0].rstrip("/")
+        else:
+            base_url = login_url.rstrip("/")
+    replacements = {
+        "{url}":       base_url,
+        "{login_url}": login_url,
+        "{user}":      accountusername,
+        "{pass}":      password,
+    }
+    redacted_replacements = dict(replacements)
+    redacted_replacements["{pass}"] = asm3.i18n._("(password redacted)", l)
+
+    def apply(tpl, repls):
+        out = tpl
+        for token, value in repls.items():
+            out = out.replace(token, value)
+        return out
+
+    subject = apply(subject_template, replacements)
+    subjectlog = apply(subject_template, redacted_replacements)
+    body = apply(body_template, replacements)
+    bodynopass = apply(body_template, redacted_replacements)
+
+    asm3.utils.send_email(dbo, fromaddress, email, "", "", subject, body, "plain", exceptions=False)
+    if asm3.configuration.audit_on_send_email(dbo):
+        asm3.audit.email(dbo, sendinguser, fromaddress, email, "", "", subjectlog, bodynopass)
+
+def rename_user(dbo: Database, sendinguser: str, userid: int, newusername: str) -> str:
+    """
+    Renames the user account `userid` to `newusername`.
+    - Updates users.UserName
+    - Rewrites audittrail.UserName so historical audit rows stay attributed
+      to the same person under their new name
+    - Invalidates the cached username list
+    - Refuses to rename the user that is making the request (would break
+      their active session and lock them out)
+    Returns the new username on success.
+    """
+    l = dbo.locale
+    newusername = (newusername or "").strip()
+    if newusername == "":
+        raise asm3.utils.ASMValidationError(asm3.i18n._("Username cannot be blank", l))
+    if " " in newusername:
+        raise asm3.utils.ASMValidationError(asm3.i18n._("Username cannot contain spaces", l))
+
+    user = dbo.first_row(dbo.query("SELECT UserName FROM users WHERE ID = ?", [userid]))
+    if user is None:
+        raise asm3.utils.ASMValidationError(asm3.i18n._("User {0} not found", l).format(userid))
+
+    oldusername = user.USERNAME
+    if oldusername == newusername:
+        return oldusername  # No-op
+    if oldusername.lower() == sendinguser.lower():
+        raise asm3.utils.ASMValidationError(asm3.i18n._("You cannot rename your own account", l))
+
+    if 0 != dbo.query_int("SELECT COUNT(*) FROM users WHERE LOWER(UserName) = LOWER(?) AND ID <> ?",
+                          [newusername, userid]):
+        raise asm3.utils.ASMValidationError(asm3.i18n._("Username '{0}' already exists", l).format(newusername))
+
+    dbo.update("users", userid, { "UserName": newusername }, sendinguser, setLastChanged=False)
+    dbo.execute("UPDATE audittrail SET UserName = ? WHERE UserName = ?", [newusername, oldusername])
+    asm3.cachemem.delete("usernames_%s" % dbo.name())
+    asm3.al.info("renamed user %d from '%s' to '%s'" % (userid, oldusername, newusername),
+                 "users.rename_user", dbo)
+    return newusername
+
+
+def resend_credentials(dbo: Database, sendinguser: str, userid: int, password: str) -> str:
+    """
+    Resets the given user's password to `password`, clears 2FA, and re-sends
+    the configured new-user credentials email. Returns the user's username
+    on success. Raises ASMValidationError if the user is missing or has no
+    email address.
+    """
+    l = dbo.locale
+    user = dbo.first_row(dbo.query("SELECT UserName, EmailAddress FROM users WHERE ID = ?", [userid]))
+    if user is None:
+        raise asm3.utils.ASMValidationError(asm3.i18n._("User {0} not found", l).format(userid))
+    if not user.EMAILADDRESS or user.EMAILADDRESS.strip() == "":
+        raise asm3.utils.ASMValidationError(asm3.i18n._("User {0} has no email address - cannot resend instructions", l).format(user.USERNAME))
+    reset_password(dbo, userid, password)
+    send_credentials_email(dbo, sendinguser, user.USERNAME, password, user.EMAILADDRESS)
+    asm3.al.info("resent credentials to user %s (%d)" % (user.USERNAME, userid), "users.resend_credentials", dbo)
+    return user.USERNAME
 
 def update_user_settings(dbo: Database, username: str, email: str = "", realname: str = "", locale: str = "", 
                          theme: str = "", signature: str = "", twofavalidcode: str = "", twofavalidpassword: str = "", defaultstocklocationid: int = 0, defaultstockusagetypeid: int = 0) -> None:

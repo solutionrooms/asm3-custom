@@ -176,10 +176,69 @@ $(function() {
                         tableform.table_update(table);
                     } 
                 },
-                { id: "reset", text: _("Reset Password"), icon: "auth", enabled: "multi", 
-                    click: function() { 
+                { id: "reset", text: _("Reset Password"), icon: "auth", enabled: "multi",
+                    click: function() {
                         $("#dialog-reset").dialog("open");
-                    } 
+                    }
+                },
+                { id: "rename", text: _("Rename Username"), icon: "edit", enabled: "one",
+                    tooltip: _("Change the username for the selected account. You cannot rename your own account."),
+                    click: async function() {
+                        const ids = tableform.table_ids(table).split(",").filter(Boolean);
+                        if (ids.length !== 1) { return; }
+                        const userid = ids[0];
+                        const row = $.grep(controller.rows, function(r) { return String(r.ID) === String(userid); })[0];
+                        if (!row) { return; }
+                        if (row.USERNAME.toLowerCase() === String(asm.user || "").toLowerCase()) {
+                            header.show_error(_("You cannot rename your own account."));
+                            return;
+                        }
+                        const newname = (prompt(_("Enter the new username for {0}:").replace("{0}", row.USERNAME), row.USERNAME) || "").trim();
+                        if (!newname || newname === row.USERNAME) { return; }
+                        header.show_loading(_("Renaming..."));
+                        try {
+                            const result = await common.ajax_post("systemusers", "mode=renameusername&userid=" + encodeURIComponent(userid) + "&newusername=" + encodeURIComponent(newname));
+                            row.USERNAME = String(result || newname).trim();
+                            tableform.table_update(table);
+                            header.show_info(_("Renamed to '{0}'.").replace("{0}", row.USERNAME));
+                        }
+                        finally {
+                            header.hide_loading();
+                        }
+                    }
+                },
+                { id: "resendinstructions", text: _("Resend Instructions"), icon: "email", enabled: "multi",
+                    tooltip: _("Reset the password to the default and re-send the welcome email to each selected user."),
+                    click: async function() {
+                        if (!confirm(_("Reset the password for the selected user(s) and re-send the welcome email?"))) { return; }
+                        header.show_loading(_("Sending..."));
+                        try {
+                            const ids = tableform.table_ids(table);
+                            const result = await common.ajax_post("systemusers", "mode=resendinstructions&ids=" + ids);
+                            const ok = [], errs = [];
+                            $.each(String(result || "").split("^$"), function(i, v) {
+                                if (!v) { return; }
+                                const [uid, uname, status] = v.split("|");
+                                if (String(status || "").indexOf("ERROR") === 0) {
+                                    errs.push((uname || ("#" + uid)) + " - " + status);
+                                } else {
+                                    ok.push(uname);
+                                }
+                            });
+                            let msg = "";
+                            if (ok.length) { msg += _("Sent instructions to {0} user(s): {1}").replace("{0}", ok.length).replace("{1}", ok.join(", ")); }
+                            if (errs.length) {
+                                if (msg) { msg += "\n\n"; }
+                                msg += _("Errors ({0}):").replace("{0}", errs.length) + "\n" + errs.join("\n");
+                                header.show_error(msg);
+                            } else if (ok.length) {
+                                header.show_info(msg);
+                            }
+                        }
+                        finally {
+                            header.hide_loading();
+                        }
+                    }
                 }
             ];
             this.dialog = dialog;

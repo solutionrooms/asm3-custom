@@ -161,6 +161,8 @@ $(function() {
                         + '" href="#">' + html.icon("transport") + ' ' + _("Transport") + '</a></li>',
                     '<li id="button-waitinglist" class="asm-menu-item"><a '
                         + '" href="#">' + html.icon("waitinglist") + ' ' + _("Waiting List") + '</a></li>',
+                    '<li id="button-systemaccount" class="asm-menu-item"><a '
+                        + '" href="#">' + html.icon("users") + ' ' + _("System account (Low Access Volunteer)") + '</a></li>',
                 '</ul>',
                 '</div>'
 
@@ -225,6 +227,62 @@ $(function() {
                 onlineform_incoming.create_record("waitinglist", "waitinglist");
                 return false;
             });
+            $("#button-systemaccount").click(function() {
+                onlineform_incoming.create_systemaccount();
+                return false;
+            });
+        },
+
+        /**
+         * Bulk-creates Low Access Volunteer system accounts from the selected
+         * incoming form rows. Confirms first (the action sends a credentials
+         * email per row), then POSTs to mode=createsystemaccount and shows a
+         * summary of OK / ERROR rows. OK rows have their LINK column updated
+         * to point at the linked person record (where the user is attached as
+         * a staff record).
+         */
+        create_systemaccount: async function() {
+            const table = onlineform_incoming.table;
+            const buttons = onlineform_incoming.buttons;
+            const ids = tableform.table_ids(table);
+            if (!ids) { return; }
+            if (!confirm(_("Create system accounts for the selected forms? No email will be sent now - use 'Resend Instructions' on the System Users screen once you've reviewed each account."))) { return; }
+            header.show_loading(_("Creating system accounts..."));
+            try {
+                const result = await common.ajax_post("onlineform_incoming", "mode=createsystemaccount&ids=" + ids);
+                const selrows = tableform.table_selected_rows(table);
+                const errors = [];
+                const created = [];
+                $.each(result.split("^$"), function(ir, vr) {
+                    const [collationid, personid, display, status] = vr.split("|");
+                    const isError = String(status || "").indexOf("ERROR") === 0;
+                    if (isError) {
+                        errors.push("#" + collationid + " " + (display || "") + " - " + status);
+                    } else {
+                        created.push(status.replace(/^OK:\s*/, ""));
+                        // Update LINK to point at the staff person record
+                        $.each(selrows, function(i, v) {
+                            if (String(v.COLLATIONID) === String(collationid) && personid && personid !== "0") {
+                                v.LINK = '<a target="_blank" href="person?id=' + personid + '">' + display + '</a>' +
+                                         " " + html.icon("users", _("System account created"));
+                            }
+                        });
+                    }
+                });
+                tableform.table_update(table);
+                tableform.table_update_buttons(table, buttons);
+                let msg = "";
+                if (created.length) { msg += _("Created {0} system account(s): {1}").replace("{0}", created.length).replace("{1}", created.join(", ")); }
+                if (errors.length) {
+                    if (msg) { msg += "\n\n"; }
+                    msg += _("Errors ({0}):").replace("{0}", errors.length) + "\n" + errors.join("\n");
+                }
+                if (errors.length) { header.show_error(msg); }
+                else if (created.length) { header.show_info(msg); }
+            }
+            finally {
+                header.hide_loading();
+            }
         },
 
         render_viewer: function() {
