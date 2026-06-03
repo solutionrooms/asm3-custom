@@ -146,6 +146,20 @@ js-rebundle:
 	docker-compose restart asm3
 	@echo "Done. If using rollup_js, the new bundle is now active."
 
+# Same as js-rebundle but WITHOUT restarting the asm3 container.
+# The bundle is served as a static file from the mounted src directory, so a
+# JS-only change is picked up on the next request - no restart needed and no
+# in-flight requests are dropped. Users only need to hard-refresh to bust
+# their browser cache of the previous bundle. Use this when shipping a
+# JavaScript-only change to prod.
+js-only:
+	@echo "Rebundling JavaScript (compat + rollup) - no container restart..."
+	@echo "Installing/updating Node dependencies..."
+	npm install
+	$(MAKE) o_rollup
+	@echo "Done. New bundle is served on the next request."
+	@echo "Tell users to hard-refresh (Cmd+Shift+R / Ctrl+F5) to pick it up."
+
 # Remove generated JS bundles (rollup* and compat). Regenerate with make js-rebundle.
 js-clean:
 	@echo "Removing generated JS bundles..."
