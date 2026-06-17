@@ -28,8 +28,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+    # Security: do NOT publish the raw backend to the host. nginx reaches this
+    # service as "asm3:5000" over the internal Docker network. Publishing 5000
+    # exposed the TLS-less web.py server directly to the public internet.
     environment:
       - ASM3_CONF=/app/asm3.conf
       - ASM3_DBTYPE=${ASM3_DBTYPE}
@@ -123,8 +124,12 @@ services:
       - ./init-db:/docker-entrypoint-initdb.d:ro
       - ./postgres-optimization.conf:/etc/postgresql/postgresql.conf:ro
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    # Security: bind to loopback only. The app reaches the DB as "postgres:5432"
+    # over the internal Docker network, so no public mapping is needed. 127.0.0.1
+    # preserves SSH-tunnel admin access (ssh -L 5432:localhost:5432 do22) while
+    # removing public exposure. Previously "5432:5432" = open to the internet.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U asm3 -d asm3"]
       interval: 10s
