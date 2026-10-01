@@ -56,3 +56,6 @@ raw_data/
 src/static/js/bundle/rollup*.js
 src/static/js/bundle/*.map
 src/static/js/compat/
+
+# Online form JSON pulled by scripts/onlineform_sync.py (contains notification email addresses; repo is public)
+forms/
