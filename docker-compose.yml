@@ -1,6 +1,9 @@
 services:
   nginx:
-    image: nginx:alpine
+    # Pinned so the running version is visible and auditable. 1.30.7 (stable)
+    # fixes HTTP/2 RCEs CVE-2026-123633 / CVE-2026-123007 (all <=1.31.8 vulnerable).
+    # Bump deliberately: check https://nginx.org/en/security_advisories.html
+    image: nginx:1.30.7-alpine
     ports:
       # Port 80 must stay published permanently: Let's Encrypt HTTP-01 renewals
       # (renew-ssl.sh, run daily by `make install-ssl-cron`) and the http->https
