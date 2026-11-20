@@ -4,7 +4,7 @@
 
 LOCAL_LOG_DIR ?= ./logs/asm3
 LOCAL_LOG_DIR_ABS := $(abspath $(LOCAL_LOG_DIR))
-.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker db-init db-copy db-reset-password check_weights fix_weights js-clean social-summary
+.PHONY: help build start stop restart logs logs-weight logs-cron logs-db clean cleanup update backup restore backup-table restore-table clear-cache shell version upgrade list-versions init-ssl renew-ssl ssl-status ssl-auto-renew ssl-stop-renew install-ssl-cron generate-ssl-config install-cron uninstall-cron status-cron testdata run animaltracker db-init db-copy db-reset-password check_weights fix_weights js-clean social-summary
 
 ifeq ($(firstword $(MAKECMDGOALS)),db-init)
   DB_INIT_ARG := $(word 2,$(MAKECMDGOALS))
@@ -92,6 +92,7 @@ help:
 	@echo "SSL Management:"
 	@echo "  init-ssl      - Initialize SSL certificates with Let's Encrypt"
 	@echo "  renew-ssl     - Manually renew SSL certificates"
+	@echo "  install-ssl-cron - Install daily cron job for SSL renewal"
 	@echo "  ssl-status    - Check SSL certificate status"
 	@echo "  generate-ssl-config - Generate nginx SSL config from template"
 	@echo "  ssl-auto-renew - Start SSL auto-renewal background service"
@@ -636,6 +637,17 @@ init-ssl:
 renew-ssl:
 	@echo "Renewing SSL certificates..."
 	@./renew-ssl.sh
+
+# Install a daily cron job that runs renew-ssl.sh (certbot is a no-op until the
+# cert is due). Kept separate from install-cron so it doesn't rewrite the other
+# ASM3 cron lines.
+install-ssl-cron:
+	@mkdir -p $(LOCAL_LOG_DIR_ABS)
+	@(crontab -l 2>/dev/null | grep -v -E "(^# ASM3 SSL renewal|renew-ssl\.sh)"; \
+	  echo "# ASM3 SSL renewal - Runs daily at 4:17 AM"; \
+	  echo "17 4 * * * $(CURDIR)/renew-ssl.sh >> $(LOCAL_LOG_DIR_ABS)/ssl-renew.log 2>&1") | crontab -
+	@echo "SSL renewal cron installed:"
+	@crontab -l | grep renew-ssl.sh
 
 ssl-status:
 	@echo "Checking SSL certificate status..."

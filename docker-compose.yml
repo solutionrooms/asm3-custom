@@ -2,10 +2,12 @@ services:
   nginx:
     image: nginx:alpine
     ports:
+      # Port 80 must stay published permanently: Let's Encrypt HTTP-01 renewals
+      # (renew-ssl.sh, run daily by `make install-ssl-cron`) and the http->https
+      # redirect both depend on it.
+      - "80:80"
       - "8095:80"
       - "443:443"
-      # Port 80 is also needed for Let's Encrypt challenges during SSL initialization
-      # The init-ssl.sh script will temporarily add "80:80" mapping when needed
     volumes:
       - ./nginx-processed.conf:/etc/nginx/nginx.conf:ro
       - certbot_certs:/etc/letsencrypt
