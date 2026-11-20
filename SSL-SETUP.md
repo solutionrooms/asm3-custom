@@ -103,7 +103,7 @@ docker-compose up -d
 
 ## Security Notes
 
-- Certificates auto-renew every 90 days
+- Certificates do NOT renew on their own: run `make install-ssl-cron` once on the host (daily `renew-ssl.sh`; certbot renews when <30 days remain)
 - HTTP automatically redirects to HTTPS
 - Strong SSL ciphers and protocols configured
 - Security headers included (HSTS, X-Frame-Options, etc.)

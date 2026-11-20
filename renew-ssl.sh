@@ -1,28 +1,38 @@
 #!/bin/bash
 set -euo pipefail
 
-# SSL Certificate Renewal Script
-# Ensures nginx is listening on port 80 so Let's Encrypt can fetch the HTTP-01 challenge.
+# SSL Certificate Renewal Script — safe to run from cron.
+#
+# certbot only renews when the cert is close to expiry, so running this daily is
+# a no-op most days. nginx already serves /.well-known/acme-challenge/ from the
+# shared certbot_www volume on port 80, so nothing needs recreating: certbot
+# writes the challenge file, Let's Encrypt fetches it via the running nginx, and
+# a graceful reload picks up the new cert.
+#
+# Uses `docker compose` (v2). v1 `docker-compose` is broken on do22
+# (KeyError: 'ContainerConfig' on recreate).
+#
+# Usage: ./renew-ssl.sh            # renew if due
+#        ./renew-ssl.sh --force    # renew now regardless of expiry
 
-echo "🔄 Forcing SSL certificate renewal..."
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-RENEW_OVERRIDE="docker-compose.ssl-renew.yml"
-if [ ! -f "$RENEW_OVERRIDE" ]; then
-    echo "❌ Missing $RENEW_OVERRIDE (ensure you pulled the latest repo files)."
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
+
+RENEW_ARGS=()
+if [ "${1:-}" = "--force" ]; then
+    RENEW_ARGS+=(--force-renewal)
+fi
+
+log "Running certbot renew ${RENEW_ARGS[*]:-}"
+if ! docker compose --profile ssl-management run --rm -T certbot renew --non-interactive "${RENEW_ARGS[@]}"; then
+    log "ERROR: certbot renew failed"
     exit 1
 fi
 
-echo "🔓 Ensuring port 80 is exposed for the ACME challenge..."
-# Remove any stale nginx container metadata to avoid recreate errors on some docker-compose versions
-docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" rm -f -s nginx >/dev/null 2>&1 || true
-docker-compose -f docker-compose.yml -f "$RENEW_OVERRIDE" up -d --no-deps nginx
+log "Reloading nginx"
+docker compose exec -T nginx nginx -s reload
 
-if docker-compose --profile ssl-management run --rm certbot renew --force-renewal; then
-    echo "✅ Certificate renewed successfully!"
-    echo "🔄 Reloading nginx..."
-    docker-compose exec nginx nginx -s reload
-    echo "🎉 SSL renewal complete!"
-else
-    echo "❌ Certificate renewal failed!"
-    exit 1
-fi
+DOMAIN=$(grep "^NGINX_SERVER_NAME=" .env | cut -d= -f2)
+EXPIRY=$(docker compose exec -T nginx openssl x509 -enddate -noout -in "/etc/letsencrypt/live/${DOMAIN}/cert.pem" | cut -d= -f2)
+log "OK — ${DOMAIN} cert valid until ${EXPIRY}"
