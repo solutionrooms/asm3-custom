@@ -652,7 +652,7 @@ install-ssl-cron:
 ssl-status:
 	@echo "Checking SSL certificate status..."
 	@DOMAIN=$$(grep "^NGINX_SERVER_NAME=" .env | cut -d= -f2); \
-	docker-compose exec nginx openssl x509 -in /etc/letsencrypt/live/$$DOMAIN/cert.pem -text -noout | grep -E "(Subject:|Not After)" || echo "SSL certificate not found or nginx not running"
+	echo | openssl s_client -connect 127.0.0.1:443 -servername $$DOMAIN 2>/dev/null | openssl x509 -noout -subject -enddate || echo "Could not read cert served on :443 (nginx not running?)"
 
 # Start SSL auto-renewal service
 ssl-auto-renew:
