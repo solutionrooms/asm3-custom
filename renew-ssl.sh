@@ -34,5 +34,12 @@ log "Reloading nginx"
 docker compose exec -T nginx nginx -s reload
 
 DOMAIN=$(grep "^NGINX_SERVER_NAME=" .env | cut -d= -f2)
-EXPIRY=$(docker compose exec -T nginx openssl x509 -enddate -noout -in "/etc/letsencrypt/live/${DOMAIN}/cert.pem" | cut -d= -f2)
-log "OK — ${DOMAIN} cert valid until ${EXPIRY}"
+# Check the cert nginx is actually serving (host openssl — the nginx image has no
+# openssl CLI). Confirms the reload picked up the renewed cert, not just the file.
+EXPIRY=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "${DOMAIN}" 2>/dev/null \
+    | openssl x509 -noout -enddate | cut -d= -f2)
+if [ -z "${EXPIRY}" ]; then
+    log "ERROR: could not read the cert nginx is serving on :443"
+    exit 1
+fi
+log "OK — ${DOMAIN} serving cert valid until ${EXPIRY}"
