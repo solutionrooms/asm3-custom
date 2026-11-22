@@ -89,6 +89,10 @@ http {
         location / {
             proxy_pass http://asm3_backend;
             proxy_buffering off;
+            # nginx >=1.29.7 defaults upstream to HTTP/1.1, which streams unknown-length request
+            # bodies chunked; cheroot 11.0.0 ChunkedRFile.readline loops forever on them and
+            # permanently wedges a worker thread. Keep 1.0 (nginx buffers + sends Content-Length).
+            proxy_http_version 1.0;
             proxy_request_buffering off;
         }
     }
